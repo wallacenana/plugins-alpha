@@ -10,8 +10,8 @@ class PluginsAlpha_Prompt {
      */
     public static function build(string $template, string $keyword, string $url, array $opts = []) : string {
         switch ($template) {
-            case 'review_roundup': return self::review_roundup($keyword, $opts);
-            case 'review_single': return self::review_single($keyword, $opts, $url);
+            case 'review_roundup': return self::review_roundup($keyword, $opts, $template);
+            case 'review_single': return self::review_single($keyword, $opts, $url, $template);
             case 'news':   return self::news($keyword, $opts);
             case 'howto':  return self::howto($keyword, $opts);
             case 'faq':  return self::faq($keyword, $opts);
@@ -19,7 +19,7 @@ class PluginsAlpha_Prompt {
         }
     }
 
-    private static function review_roundup(string $kw, array $o) : string {
+    private static function review_roundup(string $kw, array $o, string $template) : string {
         $locale = $o['locale'] ?? 'pt_BR';
         $forced = trim((string)($o['forced_title'] ?? ''));
         $forcedLine = $forced ? "Use este TÍTULO final (não gere outro): \"{$forced}\".\n" : "";
@@ -67,7 +67,7 @@ NÃO use markdown. NÃO inclua <h1> no content. NÃO use percentuais no corpo do
 PROMPT;
     }
     
-private static function review_single(string $kw, array $o, string $url) : string {
+private static function review_single(string $kw, array $o, string $url, string $template) : string {
         $locale = $o['locale'] ?? 'pt_BR';
         $forced = trim((string)($o['forced_title'] ?? ''));
         $forcedLine = $forced ? "Use este TÍTULO final (não gere outro): \"{$forced}\".\n" : "";

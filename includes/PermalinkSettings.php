@@ -1,17 +1,20 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_PermalinkSettings {
-  public static function init() {
+class PluginsAlpha_PermalinkSettings
+{
+  public static function init()
+  {
     add_action('admin_init', [self::class, 'register_fields']);              // só renderiza os campos
     add_action('load-options-permalink.php', [self::class, 'handle_save']);  // salva de verdade
   }
 
-  public static function register_fields() {
+  public static function register_fields()
+  {
     add_settings_section(
       'plugins_alpha_permalinks_section',
-      __('Plugins Alpha','plugins-alpha'),
-      function(){
+      __('Plugins Alpha', 'plugins-alpha'),
+      function () {
         echo '<p>Defina as bases (slugs) personalizadas para os tipos de conteúdo do Plugins Alpha.</p>';
       },
       'permalink'
@@ -19,7 +22,7 @@ class PluginsAlpha_PermalinkSettings {
 
     add_settings_field(
       'pga_story_base',
-      __('Base do Alpha Stories','plugins-alpha'),
+      __('Base do Alpha Stories', 'plugins-alpha'),
       [self::class, 'render_story_field'],
       'permalink',
       'plugins_alpha_permalinks_section'
@@ -27,7 +30,7 @@ class PluginsAlpha_PermalinkSettings {
 
     add_settings_field(
       'pga_posts_base',
-      __('Base do GPT Posts','plugins-alpha'),
+      __('Base do GPT Posts', 'plugins-alpha'),
       [self::class, 'render_posts_field'],
       'permalink',
       'plugins_alpha_permalinks_section'
@@ -36,20 +39,24 @@ class PluginsAlpha_PermalinkSettings {
     // OBS: register_setting não tem efeito nessa tela, pode remover sem problemas.
   }
 
-  public static function render_story_field() {
-    $value = get_option('pga_story_base', 'alpha_storys'); // padrão seguro
-    echo '<input name="pga_story_base" type="text" value="'.esc_attr($value).'" class="regular-text" />';
-    echo '<p class="description">Slug base das Web Stories (ex: "story", "webstory").</p>';
+  public static function render_story_field()
+  {
+    $value = get_option('pga_story_base', '');
+    echo '<input name="pga_story_base" type="text" value="' . esc_attr($value) . '" class="regular-text" />';
+    echo '<p class="description">Slug base das Web Stories (ex: "story", "webstory"). Deixe em branco para usar o padrão.</p>';
   }
 
-  public static function render_posts_field() {
-    $value = get_option('pga_posts_base', 'gpt'); // padrão seguro
-    echo '<input name="pga_posts_base" type="text" value="'.esc_attr($value).'" class="regular-text" />';
-    echo '<p class="description">Slug base dos posts gerados (ex: "gpt", "ia-posts").</p>';
+  public static function render_posts_field()
+  {
+    $value = get_option('pga_posts_base', '');
+    echo '<input name="pga_posts_base" type="text" value="' . esc_attr($value) . '" class="regular-text"/>';
+    echo '<p class="description">Slug base dos posts gerados (ex: "gpt", "ia-posts"). Deixe em branco para usar o padrão.</p>';
   }
+
 
   // 🔥 SALVA os campos quando o formulário de Links Permanentes é enviado
-  public static function handle_save() {
+  public static function handle_save()
+  {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
 
     // mesmo nonce usado pela tela de links permanentes
@@ -57,8 +64,8 @@ class PluginsAlpha_PermalinkSettings {
 
     if (!current_user_can('manage_options')) return;
 
-    $story = isset($_POST['pga_story_base']) ? sanitize_title_with_dashes( wp_unslash($_POST['pga_story_base']) ) : '';
-    $posts = isset($_POST['pga_posts_base']) ? sanitize_title_with_dashes( wp_unslash($_POST['pga_posts_base']) ) : '';
+    $story = isset($_POST['pga_story_base']) ? sanitize_title_with_dashes(wp_unslash($_POST['pga_story_base'])) : '';
+    $posts = isset($_POST['pga_posts_base']) ? sanitize_title_with_dashes(wp_unslash($_POST['pga_posts_base'])) : '';
 
     // defaults se vazio
     if ($story === '') $story = '';

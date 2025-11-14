@@ -22,15 +22,6 @@ class PluginsAlpha_Settings {
   public static function sanitize_all($in) {
     $in = is_array($in) ? $in : [];
 
-    // core
-    $core = $in['core'] ?? [];
-    $out['core'] = [
-      'license' => [
-        'email'    => sanitize_text_field($core['license']['email']    ?? ''),
-        'purchase' => sanitize_text_field($core['license']['purchase'] ?? ''),
-      ],
-    ];
-
     // apis.openai (global)
     $api = $in['apis']['openai'] ?? [];
     $out['apis']['openai'] = [
@@ -124,21 +115,8 @@ class PluginsAlpha_Settings {
   }
 
   private static function render_tab_core(array $o): void {
-    $core  = $o['core'] ?? [];
     $apis  = $o['apis']['openai'] ?? [];
     ?>
-    <h2 class="title">Licença</h2>
-    <table class="form-table" role="presentation">
-      <tr>
-        <th scope="row"><label for="pga_license_email">E-mail</label></th>
-        <td><input name="pga_settings[core][license][email]" id="pga_license_email" type="email" class="regular-text" value="<?php echo esc_attr($core['license']['email'] ?? ''); ?>"></td>
-      </tr>
-      <tr>
-        <th scope="row"><label for="pga_license_purchase">ID da compra</label></th>
-        <td><input name="pga_settings[core][license][purchase]" id="pga_license_purchase" type="text" class="regular-text" value="<?php echo esc_attr($core['license']['purchase'] ?? ''); ?>"></td>
-      </tr>
-    </table>
-
     <h2 class="title">OpenAI (global)</h2>
     <table class="form-table" role="presentation">
       <tr>

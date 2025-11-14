@@ -94,10 +94,6 @@ spl_autoload_register(function ($class) {
       return;
     }
   }
-
-  if (defined('WP_DEBUG') && WP_DEBUG) {
-    error_log('[PluginsAlpha][autoload] não encontrado: ' . $class . ' | dirs=' . implode(',', $dirs));
-  }
 });
 
 add_action('init', function () {
@@ -105,7 +101,7 @@ add_action('init', function () {
 });
 
 // Bootstrap
-add_action('init', function(){
+add_action('plugins_loaded', function(){
   if (class_exists('PluginsAlpha_Plugin')) {
     PluginsAlpha_Plugin::init();
 

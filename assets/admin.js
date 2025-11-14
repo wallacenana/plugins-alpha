@@ -322,13 +322,19 @@
 
         await safeCloseSwal(); // fecha o loading
         await Swal.fire({
+          toast: true,
+          position: 'top-end',
           icon: 'success',
           title: 'Salvo',
           text: 'Keywords salvas e preferências guardadas nesta máquina.',
-          timer: 1400,
+          timer: 3000,
           timerProgressBar: true,
-          showConfirmButton: false
+          showConfirmButton: false,
+          customClass: {
+            popup: 'pga-toast-offset'
+          }
         });
+
 
       } catch (e) {
         await safeCloseSwal();
@@ -365,12 +371,58 @@
       const prefs = collectPrefs();
       const kwList = textareaToArray($('#pga_keywords').val());
 
-      const transition = { strict: false, min_ratio: 0.30, words: ['por exemplo', 'em seguida', 'depois', 'antes', 'no entanto', 'portanto', 'assim', 'então'] };
+      const transition = {
+        strict: false,
+        min_ratio: 0.30,
+        words: ['por exemplo', 'em seguida', 'depois', 'antes', 'no entanto', 'portanto', 'assim', 'então']
+      };
 
-      if (prefs.mode === 'multi' && kwList.length === 0) {
-        await Swal.fire({ icon: 'warning', title: 'Sem palavras-chave', text: 'Insira ao menos 1 palavra-chave.' });
+      // === 0) VALIDA LICENÇA + CHAVE API ANTES DE QUALQUER COISA ===
+      try {
+        const st = await fetchJSON(`${REST}/selftest`, {
+          method: 'GET',
+          headers: { 'X-WP-Nonce': NONCE }
+        });
+
+        // Se seu endpoint retornar algo tipo { ok: true }, você pode checar aqui:
+        if (st && st.ok === false) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Configuração necessária',
+            text: st.message || 'Sua licença ou chave de API não está configurada. Verifique a tela de configurações do Plugins Alpha.'
+          });
+          return;
+        }
+      } catch (e) {
+        // Se o selftest já devolve WP_Error com code/message, tratamos aqui:
+        let msg = 'Não foi possível validar a licença / chave de API.';
+
+        if (e && typeof e === 'object') {
+          // se seu fetchJSON devolver { code, message }
+          if (e.code === 'pga_no_key') {
+            title = 'Chave da API ausente';
+            msg = e.message || 'Configure sua chave da API na tela de configurações do Plugins Alpha.';
+          } else if (e.code === 'pga_lic_inactive') {
+            title = 'Licença inativa';
+            msg = e.message || 'Sua licença está inativa ou expirada. Verifique na tela de Licença do Plugins Alpha.';
+          } else if (e.message) {
+            msg = e.message;
+          }
+        }
+        // Não continua se não passou na validação
         return;
       }
+
+      // === 1) REGRAS BÁSICAS DE KEYWORDS ===
+      if (prefs.mode === 'multi' && kwList.length === 0) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Sem palavras-chave',
+          text: 'Insira ao menos 1 palavra-chave.'
+        });
+        return;
+      }
+
       if (prefs.mode === 'multi' && kwList.length < prefs.total) {
         const ok = (await Swal.fire({
           icon: 'question',
@@ -381,12 +433,15 @@
         if (!ok) return;
       }
 
-      // 1) PLANO
+      // === 2) PLANO ===
       let plan;
       try {
         plan = await fetchJSON(`${REST}/plan`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-WP-Nonce': NONCE
+          },
           body: JSON.stringify({
             mode: prefs.mode,
             keywords: kwList.join('\n'),
@@ -400,41 +455,70 @@
             category_id: prefs.category_id
           })
         });
-      } catch (e) { return; }
+      } catch (e) {
+        // AQUI É ONDE HOJE VOCÊ SÓ DAVA "return" – AGORA VAMOS MOSTRAR UMA MENSAGEM BONITA
+        let msg = 'Ocorreu um erro ao montar o plano de geração.';
+        let title = 'Erro ao gerar plano';
 
-      const jobs = plan.jobs || [];
-      if (!jobs.length) {
-        await Swal.fire({ icon: 'info', title: 'Nada a gerar', text: 'Plano vazio.' });
+        if (e && typeof e === 'object') {
+          if (e.code === 'pga_no_key') {
+            title = 'Chave da API ausente';
+            msg = e.message || 'Configure sua chave da API na tela de configurações do Plugins Alpha.';
+          } else if (e.code === 'pga_lic_inactive') {
+            title = 'Licença inativa';
+            msg = e.message || 'Sua licença está inativa ou expirada. Verifique na tela de Licença do Plugins Alpha.';
+          } else if (e.message) {
+            msg = e.message;
+          }
+        }
+
+        await Swal.fire({
+          icon: 'error',
+          title,
+          text: msg
+        });
+
         return;
       }
 
-      // 2) GERAÇÃO
+      const jobs = plan.jobs || [];
+      if (!jobs.length) {
+        await Swal.fire({
+          icon: 'info',
+          title: 'Nada a gerar',
+          text: 'Plano vazio.'
+        });
+        return;
+      }
+
+      // === 3) GERAÇÃO ===
       let okCount = 0, failCount = 0;
       let editLinks = [];
+
       await Swal.fire({
         title: 'Gerando posts…',
         html: `
-            <div id="pga_loader" style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:6px">
-              <!-- spinner svg -->
-              <svg width="22" height="22" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <g fill="none" fill-rule="evenodd" stroke-width="4">
-                  <circle cx="22" cy="22" r="18" stroke="#e5e7eb" />
-                  <path d="M40 22c0-9.941-8.059-18-18-18" stroke="#3b82f6">
-                    <animateTransform attributeName="transform" type="rotate" from="0 22 22" to="360 22 22" dur="0.9s" repeatCount="indefinite"/>
-                  </path>
-                </g>
-              </svg>
-              <div id="pga_step_label" style="font-weight:600">Aguarde…</div>
-            </div>
-        
-            <div id="pga_prog" style="margin-top:8px">0 / ${jobs.length}</div>
-        
-            <div class="swal2-progress-steps" style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px">
-              <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
-            </div>
-        
-            <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px"></div>
-          `,
+              <div id="pga_loader" style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:6px">
+                <!-- spinner svg -->
+                <svg width="22" height="22" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <g fill="none" fill-rule="evenodd" stroke-width="4">
+                    <circle cx="22" cy="22" r="18" stroke="#e5e7eb" />
+                    <path d="M40 22c0-9.941-8.059-18-18-18" stroke="#3b82f6">
+                      <animateTransform attributeName="transform" type="rotate" from="0 22 22" to="360 22 22" dur="0.9s" repeatCount="indefinite"/>
+                    </path>
+                  </g>
+                </svg>
+                <div id="pga_step_label" style="font-weight:600">Aguarde…</div>
+              </div>
+          
+              <div id="pga_prog" style="margin-top:8px">0 / ${jobs.length}</div>
+          
+              <div class="swal2-progress-steps" style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px">
+                <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
+              </div>
+          
+              <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px"></div>
+            `,
         showConfirmButton: false,
         showCancelButton: false,
         focusConfirm: false,
@@ -470,13 +554,13 @@
         }
       });
 
-
       await Swal.fire({
         icon: (failCount ? 'warning' : 'success'),
         title: 'Finalizado',
         html: `Sucesso: <b>${okCount}</b><br>Falhas: <b>${failCount}</b><br><ul style="text-align:left;margin-top:8px">${editLinks.join('')}</ul>`
       });
     });
+
 
     // carrega listas
     try { await refreshKeywords(); } catch (e) { }
@@ -600,6 +684,6 @@
     }
   });
 
-  
+
 })(jQuery);
 

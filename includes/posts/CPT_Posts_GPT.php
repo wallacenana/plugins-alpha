@@ -3,28 +3,121 @@ if (!defined('ABSPATH')) exit;
 
 class PluginsAlpha_CPT_Posts_GPT
 {
+  /**
+   * Slug interno do módulo no sistema de licença.
+   */
+  const MODULE_SLUG = 'post-gpt';
 
-  /** Bootstrap */
+  /**
+   * Option usada na tela de Links Permanentes para base dos posts GPT.
+   * Ex.: 'gpt', 'ia-posts' etc.
+   */
+  const OPTION_BASE = 'pga_posts_base';
+
+  /**
+   * Query var interna usada nas regras de rewrite para resolver o slug.
+   */
+  const QUERY_VAR = 'pga_posts_gpt_slug';
+
+  /**
+   * Bootstrap
+   */
   public static function init(): void
   {
-    add_action('init', [__CLASS__, 'register']);
-    add_filter('post_type_link', function ($link, $post) {
-      if ($post->post_type === 'posts_gpt') {
-        return home_url(user_trailingslashit($post->post_name));
-      }
-      return $link;
-    }, 10, 2);
-    add_filter('request', function ($vars) {
-      // se é uma requisição por nome (slug) e não especificou tipo
-      if (!empty($vars['name']) && empty($vars['post_type']) && empty($vars['pagename'])) {
-        // inclua post, page e seu CPT
-        $vars['post_type'] = ['post', 'page', 'posts_gpt'];
-      }
-      return $vars;
-    });
+    // registra o CPT
+    add_action('init', [self::class, 'register']);
+
+    // adiciona regras de rewrite baseadas na option
+    add_action('init', [self::class, 'add_rewrite_rules'], 20);
+
+    // registra query var custom
+    add_filter('query_vars', [self::class, 'register_query_var']);
+
+    // converte query var em query de CPT
+    add_action('parse_request', [self::class, 'parse_request']);
+
+    // monta o permalink bonito (root ou com base)
+    add_filter('post_type_link', [self::class, 'filter_permalink'], 10, 4);
+
+    // restrições de edição/visualização no admin
+    if (is_admin()) {
+      add_filter('post_row_actions', [self::class, 'filter_row_actions'], 10, 2);
+      add_filter('get_edit_post_link', [self::class, 'filter_edit_link'], 10, 3);
+      add_action('admin_notices', [self::class, 'admin_license_notices']);
+    }
+
+    // bloqueia publicação (inclui cron) se a licença/módulo não estiver ok
+    add_action('transition_post_status', [self::class, 'block_publish_if_no_license'], 10, 3);
   }
 
-  /** Registra o CPT */
+  public static function admin_license_notices(): void
+  {
+    if (!function_exists('get_current_screen')) {
+      return;
+    }
+
+    $screen = get_current_screen();
+    if (!$screen) {
+      return;
+    }
+
+    // Só nos interessa telas do nosso CPT
+    if ($screen->post_type !== 'posts_gpt') {
+      return;
+    }
+
+    if (!class_exists('PluginsAlpha_License')) {
+      return;
+    }
+
+    $chk = PluginsAlpha_License::check(self::MODULE_SLUG);
+
+    // 1) Aviso geral: licença/módulo não ativo
+    if (empty($chk['ok'])) {
+      // link para o painel Plugins Alpha (ajusta o slug se for diferente)
+      $url = admin_url('admin.php?page=plugins-alpha-dashboard');
+
+      $msg = $chk['message'] ?: __('Licença do módulo Posts GPT inativa. Ative o módulo para continuar gerando e publicando posts.', 'plugins-alpha');
+
+      echo '<div class="notice notice-error is-dismissible"><p>'
+        . esc_html($msg)
+        . ' <a href="' . esc_url($url) . '">'
+        . esc_html__('Clique aqui para ativar a licença.', 'plugins-alpha')
+        . '</a></p></div>';
+    }
+
+    // 2) Aviso específico na tela de edição se a publicação foi bloqueada
+    if ($screen->base === 'post') {
+      $post_id = isset($_GET['post']) ? (int) $_GET['post'] : 0;
+      if ($post_id > 0) {
+        $reason = get_post_meta($post_id, '_pga_blocked_publish_reason', true);
+        if ($reason) {
+          // Mensagem mais amigável independente do código
+          $msg2 = __('Este post não pôde ser publicado porque a licença do módulo Posts GPT não está ativa ou não inclui este módulo.', 'plugins-alpha');
+
+          echo '<div class="notice notice-warning is-dismissible"><p>'
+            . esc_html($msg2)
+            . '</p></div>';
+
+          // remove a meta pra não ficar mostrando pra sempre
+          delete_post_meta($post_id, '_pga_blocked_publish_reason');
+        }
+      }
+    }
+  }
+
+
+  /**
+   * Lê a base de URL do banco de dados.
+   * - Se vazio: usamos slug direto na raiz (/slug-do-post).
+   * - Se preenchido: /base/slug-do-post.
+   */
+  protected static function get_base_slug(): string
+  {
+    $base = trim((string) get_option(self::OPTION_BASE, ''), '/');
+    return $base; // '' é válido e significa "sem base"
+  }
+
   public static function register(): void
   {
     $labels = [
@@ -42,22 +135,243 @@ class PluginsAlpha_CPT_Posts_GPT
       'all_items'          => __('Posts GPT', 'plugins-alpha'),
     ];
 
-    // mesmos supports do post padrão
-    $supports = ['title', 'editor', 'author', 'thumbnail', 'excerpt', 'trackbacks', 'custom-fields', 'comments', 'revisions', 'page-attributes', 'post-formats'];
+    $supports = [
+      'title',
+      'editor',
+      'author',
+      'thumbnail',
+      'excerpt',
+      'trackbacks',
+      'custom-fields',
+      'comments',
+      'revisions',
+      'page-attributes',
+      'post-formats',
+    ];
 
     register_post_type('posts_gpt', [
       'public'             => true,
       'show_ui'            => true,
-      'show_in_menu'       => false,              // item próprio no menu
+      'show_in_menu'       => false,
       'menu_icon'          => 'dashicons-edit',
       'labels'             => $labels,
-      'show_in_rest'       => true,                 // Gutenberg/SEO
+      'show_in_rest'       => true,
       'supports'           => $supports,
       'taxonomies'         => ['category', 'post_tag'],
       'capability_type'    => 'post',
       'publicly_queryable' => true,
-      'rewrite'     => false,
-      'has_archive' => true, // ou true
+      'rewrite'            => false,
+      'has_archive'        => false,
+      'query_var'          => false,
     ]);
+  }
+
+  /**
+   * Regras de rewrite:
+   * - Se base vazia:   /slug-do-post -> posts_gpt
+   * - Se base "gpt":   /gpt/slug-do-post -> posts_gpt
+   */
+  public static function add_rewrite_rules(): void
+  {
+    $base = self::get_base_slug();
+
+    if ($base === '') {
+      // Sem base -> /slug
+      // ⚠ Isso concorre com páginas/posts normais.
+      add_rewrite_rule(
+        '^([^/]+)/?$',
+        'index.php?' . self::QUERY_VAR . '=$matches[1]',
+        'top'
+      );
+    } else {
+      // Com base -> /base/slug
+      $base_regex = preg_quote($base, '#');
+
+      add_rewrite_rule(
+        '^' . $base_regex . '/([^/]+)/?$',
+        'index.php?' . self::QUERY_VAR . '=$matches[1]',
+        'top'
+      );
+    }
+  }
+
+  /**
+   * Registra nossa query var custom pra WP não descartar.
+   */
+  public static function register_query_var(array $vars): array
+  {
+    $vars[] = self::QUERY_VAR;
+    return $vars;
+  }
+
+  /**
+   * Converte a query var interna em uma query padrão de single de posts_gpt.
+   */
+  public static function parse_request(\WP $wp): void
+  {
+    if (empty($wp->query_vars[self::QUERY_VAR])) {
+      return;
+    }
+
+    $slug = sanitize_title($wp->query_vars[self::QUERY_VAR]);
+
+    // Dizemos ao WP: é um single de posts_gpt com esse slug
+    $wp->query_vars['post_type'] = 'posts_gpt';
+    $wp->query_vars['name']      = $slug;
+
+    // Evita conflito com pagename
+    unset($wp->query_vars['pagename']);
+  }
+
+  /**
+   * Ajusta o permalink dos posts_gpt para bater com as nossas regras:
+   * - base vazia   -> /slug
+   * - base "gpt"   -> /gpt/slug
+   */
+  public static function filter_permalink($permalink, $post, $leavename, $sample)
+  {
+    if ($post->post_type !== 'posts_gpt') {
+      return $permalink;
+    }
+
+    $base = self::get_base_slug();
+    $slug = $post->post_name;
+
+    if ($base === '') {
+      $path = $slug;                 // raiz
+    } else {
+      $path = $base . '/' . $slug;   // /base/slug
+    }
+
+    return home_url(user_trailingslashit($path));
+  }
+
+  /**
+   * Remove ações (Editar, Edição rápida, Ver) para posts_gpt
+   * quando a licença do módulo não está ok E o post não está publicado.
+   */
+  public static function filter_row_actions($actions, $post)
+  {
+    if (!($post instanceof \WP_Post)) {
+      return $actions;
+    }
+
+    if ($post->post_type !== 'posts_gpt') {
+      return $actions;
+    }
+
+    if (!class_exists('PluginsAlpha_License')) {
+      return $actions;
+    }
+
+    $chk = PluginsAlpha_License::check(self::MODULE_SLUG);
+
+    // Se licença ok OU post já publicado → deixa tudo normal
+    if (!empty($chk['ok']) || $post->post_status === 'publish') {
+      return $actions;
+    }
+
+    // Licença não ok + post NÃO publicado → remove edições/visualização
+    unset($actions['edit']);
+    unset($actions['inline hide-if-no-js']); // Edição rápida
+    unset($actions['view']);
+
+    return $actions;
+  }
+
+  /**
+   * Remove o link de edição do título quando licença não está ok
+   * e o post ainda não foi publicado.
+   */
+  public static function filter_edit_link($link, $post_id, $context)
+  {
+    $post = get_post($post_id);
+    if (!$post || $post->post_type !== 'posts_gpt') {
+      return $link;
+    }
+
+    if (!class_exists('PluginsAlpha_License')) {
+      return $link;
+    }
+
+    $chk = PluginsAlpha_License::check(self::MODULE_SLUG);
+
+    // Licença ok ou post publicado → mantém link
+    if (!empty($chk['ok']) || $post->post_status === 'publish') {
+      return $link;
+    }
+
+    // Licença não ok + não publicado → sem link de edição
+    return '';
+  }
+
+  /**
+   * Bloqueia a publicação (inclui cron do WP) quando a licença/módulo não está ok.
+   * - Só age em posts_gpt
+   * - Só quando status está indo PARA publish
+   * - Não interfere em updates de posts já publicados.
+   */
+  public static function block_publish_if_no_license($new_status, $old_status, $post)
+  {
+    if (!($post instanceof \WP_Post)) {
+      return;
+    }
+
+    // Só nos importa o nosso CPT
+    if ($post->post_type !== 'posts_gpt') {
+      return;
+    }
+
+    // Só queremos quando está indo pra "publish"
+    if ($new_status !== 'publish') {
+      return;
+    }
+
+    // Se já era publish, ignora (edição de post já publicado)
+    if ($old_status === 'publish') {
+      return;
+    }
+
+    if (!class_exists('PluginsAlpha_License')) {
+      return;
+    }
+
+    $chk = PluginsAlpha_License::check(self::MODULE_SLUG);
+
+    // Se licença OK, deixa publicar normal
+    if (!empty($chk['ok'])) {
+      return;
+    }
+
+    // Aqui: licença/módulo não OK → não deixa publicar
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+      error_log(
+        sprintf(
+          '[PluginsAlpha][Posts_GPT] Publicação bloqueada para post %d por licença (%s).',
+          $post->ID,
+          $chk['code'] ?? 'licenca_invalida'
+        )
+      );
+    }
+
+    // Evita loop recursivo ao chamar wp_update_post
+    remove_action('transition_post_status', [self::class, 'block_publish_if_no_license'], 10);
+
+    // Volta o post para "draft"
+    wp_update_post([
+      'ID'          => $post->ID,
+      'post_status' => 'draft',
+    ]);
+
+    // Marca meta explicando o motivo (pra usar em avisos se quiser)
+    add_post_meta(
+      $post->ID,
+      '_pga_blocked_publish_reason',
+      $chk['code'] ?? 'licenca_invalida',
+      true
+    );
+
+    // Re-anexa o hook
+    add_action('transition_post_status', [self::class, 'block_publish_if_no_license'], 10, 3);
   }
 }
