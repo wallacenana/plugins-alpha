@@ -1,0 +1,47 @@
+.pga-wrap { max-width: 1200px; }
+.pga-layout { display:grid; grid-template-columns: 1fr 320px; gap:24px; align-items:start; }
+.pga-main { min-width:0; }
+.pga-card { background:#fff; border:1px solid #ccd0d4; border-radius:8px; padding:20px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+.pga-row { display:flex; gap:15px; flex-wrap:wrap; align-items:center; margin-bottom:15px; }
+.pga-row.between { justify-content:space-between; align-items:center; }
+.pga-actions .button { margin-left:6px; }
+.pga-field { flex:1 1 28%; min-width:180px; }
+.pga-field label { display:block; font-weight:600; margin-bottom:6px; }
+.pga-field select, .pga-field input, .pga-field textarea {width: 100%;}
+#pga_keywords { width:100%; min-height:320px; font-family:monospace; }
+.pga-sidebar .pga-card { position:sticky; top:24px; }
+.pga-list { border:1px dashed #ccc; border-radius:8px; min-height:420px; padding:10px; background:#fff; list-style:none; margin:0; overflow:auto; max-height: 450px;}
+.pga-list.done { background:#f8fff8; }
+.pga-list li { padding:1px 8px; border-bottom:1px solid #f1f5f9; font-size:13px; }
+.pga-autosave-ok { margin-left:8px; font-size:12px; color:#16a34a; }
+.button-link-delete { color:#b91c1c; border:none; background:transparent; cursor:pointer; }
+
+
+.pa-wrap .pa-panel{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin:12px 0 20px}
+.pa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.pa-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px}
+.pa-card-header{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.pa-logo{width:36px;height:36px;border-radius:8px;object-fit:cover}
+.pa-desc{color:#444;min-height:48px}
+.pa-pricebox{margin:10px 0;display:flex;gap:10px;align-items:baseline}
+.pa-price-old{text-decoration:line-through;color:#888}
+.pa-title{margin-top:14px}
+.pa-subtitle{color:#555;margin-bottom:18px}
+
+.pga-wrap { max-width: 1200px; }
+.pga-layout { display:grid; grid-template-columns: 1fr 320px; gap:24px; align-items:start; }
+.pga-main { min-width:0; }
+.pga-card { background:#fff; border:1px solid #ccd0d4; border-radius:8px; padding:20px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+.pga-row { display:flex; gap:15px; flex-wrap:wrap; align-items:center; margin-bottom:15px; }
+.pga-row.between { justify-content:space-between; align-items:center; }
+.pga-actions .button { margin-left:6px; }
+.pga-field { flex:1 1 28%; min-width:180px; }
+.pga-field label { display:block; font-weight:600; margin-bottom:6px; }
+.pga-field select, .pga-field input, .pga-field textarea {width: 100%;}
+#pga_keywords { width:100%; min-height:320px; font-family:monospace; }
+.pga-sidebar .pga-card { position:sticky; top:24px; }
+.pga-list { border:1px dashed #ccc; border-radius:8px; min-height:420px; padding:10px; background:#fff; list-style:none; margin:0; overflow:auto; max-height: 450px;}
+.pga-list.done { background:#f8fff8; }
+.pga-list li { padding:1px 8px; border-bottom:1px solid #f1f5f9; font-size:13px; }
+.pga-autosave-ok { margin-left:8px; font-size:12px; color:#16a34a; }
+.button-link-delete { color:#b91c1c; border:none; background:transparent; cursor:pointer; }

@@ -1,0 +1,197 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Plugins Alpha\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-12 17:37+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: \n"
+"Language: \n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Loco https://localise.biz/\n"
+"X-Loco-Version: 2.8.0; wp-6.8.3; php-8.3.10\n"
+"X-Domain: plugins-alpha"
+
+#: includes/Dashboard.php:68
+msgid "Abrir"
+msgstr ""
+
+#: includes/Dashboard.php:18
+msgid "Abrir Configurações"
+msgstr ""
+
+#: includes/Dashboard.php:61
+msgid "Abrir Gerar Posts"
+msgstr ""
+
+#: includes/Dashboard.php:64
+msgid "Abrir Web Stories"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:42
+msgid "Adicionar nova Categoria"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:63
+msgid "Adicionar nova Tag"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:78
+msgid "Adicionar novo"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:79
+msgid "Adicionar novo Post GPT"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:41
+msgid "Atualizar Categoria"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:62
+msgid "Atualizar Tag"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:38
+msgid "Buscar Categorias"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:83
+msgid "Buscar Posts GPT"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:58
+msgid "Buscar Tags"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:37
+msgid "Categoria GPT"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:36 includes/posts/CPT_Posts_GPT.php:44
+msgid "Categorias GPT"
+msgstr ""
+
+#: includes/Dashboard.php:73
+msgid "Comprar / Assinar"
+msgstr ""
+
+#: includes/AdminMenus.php:24
+msgid "Configurações"
+msgstr ""
+
+#: includes/Settings.php:112
+msgid "Configurações — Plugins Alpha"
+msgstr ""
+
+#: plugins-alpha.php:130 includes/AdminMenus.php:18 includes/AdminMenus.php:18
+msgid "Dashboard"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:40
+msgid "Editar Categoria"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:80
+msgid "Editar Post GPT"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:61
+msgid "Editar Tag"
+msgstr ""
+
+#: includes/AdminMenus.php:21
+msgid "Gerar Posts"
+msgstr ""
+
+#: includes/Dashboard.php:11
+msgid "Gerencie seus geradores e descubra novos módulos."
+msgstr ""
+
+#: includes/Dashboard.php:15
+msgid ""
+"Nenhum item encontrado no catálogo. Verifique suas configurações ou tente "
+"novamente mais tarde."
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:84
+msgid "Nenhum Post GPT encontrado"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:85
+msgid "Nenhum Post GPT na lixeira"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:43
+msgid "Nova Categoria"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:64
+msgid "Nova Tag"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:81
+msgid "Novo Post GPT"
+msgstr ""
+
+#. Name of the plugin
+#: includes/AdminMenus.php:9
+msgid "Plugins Alpha"
+msgstr ""
+
+#: includes/Dashboard.php:10
+msgid "Plugins Alpha — Dashboard"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:76
+msgid "Post GPT"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:75 includes/posts/CPT_Posts_GPT.php:77
+msgid "Posts GPT"
+msgstr ""
+
+#: includes/Settings.php:185
+msgid "Salvar alterações"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:57
+msgid "Tag GPT"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:56 includes/posts/CPT_Posts_GPT.php:65
+msgid "Tags GPT"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:59
+msgid "Tags populares"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:39
+msgid "Todas as Categorias"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:60
+msgid "Todas as Tags"
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:86
+msgid "Todos os Posts GPT"
+msgstr ""
+
+#. Description of the plugin
+msgid ""
+"Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique."
+msgstr ""
+
+#: includes/posts/CPT_Posts_GPT.php:82
+msgid "Ver Post GPT"
+msgstr ""
+
+#. Author of the plugin
+msgid "Wallace Tavares"
+msgstr ""

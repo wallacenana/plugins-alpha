@@ -1,0 +1,68 @@
+<?php
+if (!defined('ABSPATH')) exit;
+
+class PluginsAlpha_SEO {
+
+    /**
+     * Aplica metadados de SEO nos plugins populares.
+     *
+     * $meta = [
+     *   'title'         => 'Meta title opcional',
+     *   'description'   => 'Meta description opcional',
+     *   'focus_keyword' => 'frase chave de foco',
+     * ]
+     */
+    public static function apply_meta(int $post_id, array $meta) : void {
+        $m = wp_parse_args($meta, [
+            'title'         => '',
+            'description'   => '',
+            'focus_keyword' => '',
+        ]);
+
+        // --- Saneamento básico + limites clássicos ---
+        $title       = self::sanitize_text($m['title'], 70);       // deixa uma gordurinha
+        $description = self::sanitize_text($m['description'], 170);
+        $focus_kw    = self::sanitize_text($m['focus_keyword'], 120);
+
+        // ===== Rank Math =====
+        if (function_exists('rank_math')) {
+            if ($title !== '')       update_post_meta($post_id, 'rank_math_title', $title);
+            if ($description !== '') update_post_meta($post_id, 'rank_math_description', $description);
+            if ($focus_kw !== '')    update_post_meta($post_id, 'rank_math_focus_keyword', $focus_kw);
+        }
+
+        // ===== Yoast SEO =====
+        if (defined('WPSEO_VERSION')) {
+            if ($title !== '')       update_post_meta($post_id, '_yoast_wpseo_title', $title);
+            if ($description !== '') update_post_meta($post_id, '_yoast_wpseo_metadesc', $description);
+            if ($focus_kw !== '')    update_post_meta($post_id, '_yoast_wpseo_focuskw', $focus_kw);
+        }
+
+        // SEOPress
+        if (defined('SEOPRESS_VERSION')) {
+            if ($title !== '')       update_post_meta($post_id, '_seopress_titles_title', $title);
+            if ($description !== '') update_post_meta($post_id, '_seopress_titles_desc', $description);
+            if ($focus_kw !== '')    update_post_meta($post_id, '_seopress_analysis_target_kw', $focus_kw);
+        }
+
+        // AIOSEO (v4 guarda muita coisa estruturada; estas chaves funcionam como fallback simples)
+        if (defined('AIOSEO_VERSION')) {
+            if ($title !== '')       update_post_meta($post_id, '_aioseo_title', $title);
+            if ($description !== '') update_post_meta($post_id, '_aioseo_description', $description);
+            if ($focus_kw !== '')    update_post_meta($post_id, '_aioseo_focus_keyphrase', $focus_kw);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    private static function sanitize_text(string $s, int $maxLen = 255) : string {
+        $s = wp_strip_all_tags($s, true);
+        $s = trim(preg_replace('/\s+/u', ' ', $s));
+        if ($maxLen > 0 && mb_strlen($s) > $maxLen) {
+            $s = mb_substr($s, 0, $maxLen);
+            // evita cortar no meio de entidade/palavra (leve)
+            $s = rtrim($s, " \t\n\r\0\x0B,.;:-–—");
+        }
+        return $s;
+    }
+}
