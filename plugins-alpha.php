@@ -2,12 +2,22 @@
 
 /**
  * Plugin Name: Plugins Alpha
- * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique.
+ * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Posts GPT, Alpha Stories e muito mais.
  * Version: 1.0.1
  * Author: Wallace Tavares
+ * Author URI: https://pluginsalpha.com/
  * Text Domain: plugins-alpha
+ * Domain Path: /languages
+ * Requires at least: 5.8
+ * Requires PHP: 7.4
+ * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
 if (!defined('ABSPATH')) exit;
+
+if (!defined('PLUGINS_ALPHA_VERSION')) {
+    define('PLUGINS_ALPHA_VERSION', '1.0.1');
+}
 
 // Constantes
 define('PGA_FILE', __FILE__);
@@ -85,7 +95,7 @@ spl_autoload_register(function ($class) {
     }
   }
 
-  $keyFull = strtolower($short); 
+  $keyFull = strtolower($short);
   $leaf    = strtolower(basename(str_replace('_', '/', $short)));
 
   foreach ([$keyFull, $leaf] as $k) {
@@ -101,20 +111,20 @@ add_action('init', function () {
 });
 
 // Bootstrap
-add_action('plugins_loaded', function(){
+add_action('plugins_loaded', function () {
   if (class_exists('PluginsAlpha_Plugin')) {
     PluginsAlpha_Plugin::init();
 
     if (class_exists('PluginsAlpha_REST')) {
-      add_action('rest_api_init', ['PluginsAlpha_REST','register_routes']);
+      add_action('rest_api_init', ['PluginsAlpha_REST', 'register_routes']);
     }
 
     if (class_exists('PluginsAlpha_License')) {
-      PluginsAlpha_License::init(); 
+      PluginsAlpha_License::init();
     }
 
     if (class_exists('PluginsAlpha_Updater')) {
-      PluginsAlpha_Updater::init();
+      PluginsAlpha_Updater::init(__FILE__);
     }
   }
 });
@@ -122,7 +132,7 @@ add_action('plugins_loaded', function(){
 
 
 // Ativação/Desativação
-register_activation_hook(PGA_FILE, function(){
+register_activation_hook(PGA_FILE, function () {
   do_action('plugins_alpha/activate');
 
   if (class_exists('PluginsAlpha_License')) {
@@ -132,7 +142,7 @@ register_activation_hook(PGA_FILE, function(){
   flush_rewrite_rules();
 });
 
-register_deactivation_hook(PGA_FILE, function(){
+register_deactivation_hook(PGA_FILE, function () {
   do_action('plugins_alpha/deactivate');
 
   if (class_exists('PluginsAlpha_License')) {

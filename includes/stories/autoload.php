@@ -24,7 +24,7 @@ function alpha_register_cpt_storys()
   if ($base === '') $base = '';
 
   $args = [
-    'label'               => __('Alpha Stories', 'alpha-storys'),
+    'label'               => esc_html('Alpha Stories', 'alpha-storys'),
     'public'              => true,
     'publicly_queryable'  => true,
     'show_ui'             => true,

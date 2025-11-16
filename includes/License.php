@@ -274,7 +274,7 @@ class PluginsAlpha_License
 
             <p style="margin-top:8px; color:#555;">
                 <?php printf(
-                    esc_html__('Este site: %s (domínio usado para ativação)', 'plugins-alpha'),
+                    esc_html('Este site: %s (domínio usado para ativação)', 'plugins-alpha'),
                     '<code>' . esc_html($domain) . '</code>'
                 ); ?>
             </p>
@@ -690,7 +690,7 @@ class PluginsAlpha_License
             return new WP_Error(
                 'pga_license_http',
                 sprintf(
-                    __('Erro ao conectar ao servidor de licença: %s', 'plugins-alpha'),
+                    esc_html('Erro ao conectar ao servidor de licença: %s', 'plugins-alpha'),
                     $response->get_error_message()
                 )
             );

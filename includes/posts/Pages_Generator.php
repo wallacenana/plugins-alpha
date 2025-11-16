@@ -86,7 +86,6 @@ class PluginsAlpha_Pages_Generator
 
           <?php
           $chk = PluginsAlpha_License::check('post-gpt');
-          $chk = PluginsAlpha_License::check('post-gpt');
 
           if (!$chk['ok']) {
             $url = admin_url('admin.php?page=plugins-alpha-dashboard');

@@ -1,82 +1,117 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Updater {
+class PluginsAlpha_Updater
+{
+    protected static string $plugin_file = '';
+    protected static string $slug        = 'plugins-alpha';
 
-    public static function init(){
-        add_filter('pre_set_site_transient_update_plugins', [__CLASS__,'check']);
-        add_filter('plugins_api', [__CLASS__,'info'], 10, 3);
-    }
+    public static function init(string $plugin_file): void
+    {
+        // Caminho tipo: "plugins-alpha/plugins-alpha.php"
+        self::$plugin_file = plugin_basename($plugin_file);
 
-    public static function check($transient){
-        if (empty($transient->checked)) return $transient;
-
-        $slug   = 'alpha-gpt-posts/alpha-gpt-posts.php';
-        $curVer = $transient->checked[$slug] ?? null;
-        if (!$curVer) return $transient;
-
-        $lic = PluginsAlpha_License::get();
-        $url = PluginsAlpha_Server::updates_endpoint() . '?' . http_build_query([
-            'action'      => 'check',
-            'slug'        => 'alpha-gpt-posts',
-            'ver'         => $curVer,
-            'email'       => $lic['email'],
-            'purchase_id' => $lic['purchase_id'],
-            'key'         => $lic['key'],
-            'site'        => home_url('/'),
-        ], '', '&');
-
-        $resp = wp_remote_get($url, ['timeout'=>8]);
-        if (is_wp_error($resp)) return $transient;
-        if (wp_remote_retrieve_response_code($resp) !== 200) return $transient;
-
-        $b = json_decode(wp_remote_retrieve_body($resp), true);
-        if (!is_array($b) || empty($b['new_version'])) return $transient;
-
-        $obj = (object)[
-            'slug'        => 'alpha-gpt-posts',
-            'plugin'      => $slug,
-            'new_version' => $b['new_version'],
-            'url'         => PluginsAlpha_Server::base(),
-            'package'     => $b['download_url'] ?? '',
-            'tested'      => $b['tested'] ?? '',
-            'requires'    => $b['requires'] ?? '',
-        ];
-        if (version_compare($obj->new_version, $curVer, '>')) {
-            $transient->response[$slug] = $obj;
+        // Slug = pasta do plugin
+        $parts = explode('/', self::$plugin_file);
+        if (!empty($parts[0])) {
+            self::$slug = $parts[0];
         }
-        return $transient;
+
+        // Hook que o WP chama quando atualiza a lista de updates
+        add_filter('pre_set_site_transient_update_plugins', [self::class, 'check_for_update']);
     }
 
-    public static function info($result, $action, $args){
-        if ($action !== 'plugin_information' || ($args->slug ?? '') !== 'alpha-gpt-posts') return $result;
+    protected static function get_current_version(): string
+    {
+        if (defined('PLUGINS_ALPHA_VERSION')) {
+            return PLUGINS_ALPHA_VERSION;
+        }
+        return '1.0.0';
+    }
 
-        $lic = PluginsAlpha_License::get();
-        $url = PluginsAlpha_Server::updates_endpoint() . '?' . http_build_query([
-            'action'      => 'info',
-            'slug'        => 'alpha-gpt-posts',
-            'email'       => $lic['email'],
-            'purchase_id' => $lic['purchase_id'],
-            'key'         => $lic['key'],
-            'site'        => home_url('/'),
-        ], '', '&');
+    protected static function get_remote_info(): ?array
+    {
+        // URL do ADMIN (ajusta para o domínio REAL do painel)
+        $url = 'https://pluginsalpha.com/wp-json/pga-admin/v1/client/plugin-update';
 
-        $resp = wp_remote_get($url, ['timeout'=>8]);
-        if (is_wp_error($resp)) return $result;
-        if (wp_remote_retrieve_response_code($resp) !== 200) return $result;
-
-        $b = json_decode(wp_remote_retrieve_body($resp), true);
-        if (!is_array($b)) return $result;
-
-        return (object)[
-            'name'         => 'Alpha GPT Posts',
-            'slug'         => 'alpha-gpt-posts',
-            'version'      => $b['new_version'] ?? '',
-            'tested'       => $b['tested'] ?? '',
-            'requires'     => $b['requires'] ?? '',
-            'last_updated' => $b['last_updated'] ?? '',
-            'sections'     => $b['sections'] ?? ['description'=>'', 'changelog'=>''],
-            'download_link'=> $b['download_url'] ?? '',
+        $body = [
+            'plugin_slug' => self::$slug,
+            'version'     => self::get_current_version(),
         ];
+
+        $r = wp_remote_post($url, [
+            'timeout' => 15,
+            'body'    => $body,
+        ]);
+
+        if (is_wp_error($r)) {
+            return null;
+        }
+
+        $code = wp_remote_retrieve_response_code($r);
+        $raw  = wp_remote_retrieve_body($r);
+
+        if ($code !== 200) {
+            return null;
+        }
+
+        $json = json_decode($raw, true);
+        if (!is_array($json) || empty($json['ok'])) {
+            return null;
+        }
+
+        return $json;
+    }
+
+    public static function check_for_update($transient)
+    {
+        // garante objeto
+        if (!is_object($transient)) {
+            $transient = new stdClass();
+        }
+        if (empty($transient->checked) || !is_array($transient->checked)) {
+            return $transient;
+        }
+
+        // se o WP não conhece esse plugin, sai
+        if (!isset($transient->checked[self::$plugin_file])) {
+            return $transient;
+        }
+
+        $current = self::get_current_version();
+        $remote  = self::get_remote_info();
+
+        if (!$remote || empty($remote['version']) || empty($remote['download_url'])) {
+            return $transient;
+        }
+
+        $remote_version = (string) $remote['version'];
+
+        if (version_compare($remote_version, $current, '<=')) {
+            return $transient;
+        }
+
+        // monta o objeto que o WP espera
+        $obj              = new stdClass();
+        $obj->slug        = self::$slug;
+        $obj->plugin      = self::$plugin_file;
+        $obj->new_version = $remote_version;
+        $obj->package     = (string) $remote['download_url'];
+        $obj->url         = (string) ($remote['homepage'] ?? '');
+        $icons = [];
+        if (!empty($remote['icon_1x'])) {
+            $icons['1x'] = (string) $remote['icon_1x'];
+        }
+        if (!empty($remote['icon_2x'])) {
+            $icons['2x'] = (string) $remote['icon_2x'];
+        }
+        if ($icons) {
+            $obj->icons = $icons;
+        }
+
+        // registra update
+        $transient->response[self::$plugin_file] = $obj;
+
+        return $transient;
     }
 }
