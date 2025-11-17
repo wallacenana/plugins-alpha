@@ -23,9 +23,10 @@ function alpha_ai_autogen_cb($post)
     ? PluginsAlpha_License::check('stories')
     : ['ok' => true, 'message' => ''];
 
-  $disabled = empty($chk['ok']) ? 'disabled="disabled"' : '';
-  $title    = empty($chk['ok'])
-    ? esc_attr($chk['message'] ?: __('Ative o módulo Alpha Stories para gerar automaticamente.', 'plugins-alpha'))
+  $disabled = empty($chk['ok']);
+
+  $title = empty($chk['ok'])
+    ? ($chk['message'] ?: __('Ative o módulo Alpha Stories para gerar automaticamente.', 'plugins-alpha'))
     : '';
 ?>
 
@@ -34,8 +35,12 @@ function alpha_ai_autogen_cb($post)
       type="button"
       class="button button-primary"
       id="alpha_ai_generate_now"
-      <?php echo $disabled; ?>
-      <?php if ($title) echo 'title="' . $title . '"'; ?>>
+      <?php echo $disabled ? 'disabled="disabled"' : ''; ?>
+      <?php
+      if ($title) {
+        printf('title="%s"', esc_attr($title));
+      }
+      ?>>
       Gerar story agora
     </button>
     <span id="alpha_ai_generate_now_status" style="margin-left:8px;">

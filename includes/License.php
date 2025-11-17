@@ -182,16 +182,10 @@ class PluginsAlpha_License
         $res = self::remote_call('/client/activate', $body);
 
         if (is_wp_error($res)) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[PluginsAlpha][License][cron] erro ao revalidar: ' . $res->get_error_message());
-            }
             return;
         }
 
         if (empty($res['ok']) || empty($res['license']) || !is_array($res['license'])) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[PluginsAlpha][License][cron] resposta inesperada: ' . wp_json_encode($res));
-            }
             return;
         }
 
@@ -234,10 +228,79 @@ class PluginsAlpha_License
 
     public static function render_page(): void
     {
-        if (!current_user_can('manage_options')) {
-            wp_die('Sem permissão.');
+        if (! current_user_can('manage_options')) {
+            wp_die(esc_html__('Sem permissão.', 'plugins-alpha'));
         }
 
+        // 1) Processa envio do formulário de licença (POST)
+        if (isset($_POST['pga_license_submit'])) {
+
+            // verifica nonce
+            $nonce = isset($_POST['pga_license_nonce'])
+                ? sanitize_text_field(wp_unslash($_POST['pga_license_nonce']))
+                : '';
+
+            if (! $nonce || ! wp_verify_nonce($nonce, 'pga_license_save')) {
+                wp_die(
+                    esc_html__(
+                        'Falha na verificação de segurança. Recarregue a página e tente novamente.',
+                        'plugins-alpha'
+                    )
+                );
+            }
+
+            // sanitiza campos
+            $email       = isset($_POST['email'])
+                ? sanitize_email(wp_unslash($_POST['email']))
+                : '';
+
+            $purchase_id = isset($_POST['purchase_id'])
+                ? sanitize_text_field(wp_unslash($_POST['purchase_id']))
+                : '';
+
+            $license_key = isset($_POST['license_key'])
+                ? sanitize_text_field(wp_unslash($_POST['license_key']))
+                : '';
+
+            // aqui você coloca a SUA lógica atual de salvar/validar licença
+            // por exemplo:
+            // self::save_state( $email, $purchase_id, $license_key );
+
+            $error_msg = '';
+
+            // se quiser uma validação mínima, pode fazer algo assim:
+            if ('' === $email || '' === $license_key) {
+                $error_msg = __('Informe e-mail e chave da licença.', 'plugins-alpha');
+            }
+
+            // se houve erro, redireciona com ?error=
+            if ($error_msg) {
+                $url = add_query_arg(
+                    array(
+                        'page'  => 'plugins-alpha-license',
+                        'error' => rawurlencode($error_msg),
+                    ),
+                    admin_url('admin.php')
+                );
+
+                wp_safe_redirect(esc_url_raw($url));
+                exit;
+            }
+
+            // se deu tudo certo, redireciona com ?updated=1
+            $url = add_query_arg(
+                array(
+                    'page'    => 'plugins-alpha-license',
+                    'updated' => 1,
+                ),
+                admin_url('admin.php')
+            );
+
+            wp_safe_redirect(esc_url_raw($url));
+            exit;
+        }
+
+        // 2) Carrega estado atual
         $lic    = self::get_state();
         $domain = self::current_domain();
         $api    = self::api_base();
@@ -250,24 +313,39 @@ class PluginsAlpha_License
             ? 'pga-badge-active'
             : 'pga-badge-inactive';
 
-        if (!empty($_GET['error'])) {
-            echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($_GET['error']) . '</p></div>';
+        // 3) Avisos via GET (já sanitizados)
+        $error = isset($_GET['error'])
+            ? sanitize_text_field(wp_unslash($_GET['error']))
+            : '';
+
+        $updated = isset($_GET['updated'])
+            ? sanitize_text_field(wp_unslash($_GET['updated']))
+            : '';
+
+        if ($error) {
+            echo '<div class="notice notice-error is-dismissible"><p>' .
+                esc_html($error) .
+                '</p></div>';
         }
-        if (!empty($_GET['updated'])) {
-            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Licença atualizada com sucesso.', 'plugins-alpha') . '</p></div>';
+
+        if ($updated) {
+            echo '<div class="notice notice-success is-dismissible"><p>' .
+                esc_html__('Licença atualizada com sucesso.', 'plugins-alpha') .
+                '</p></div>';
         }
 
         $expires_text = '—';
-        if (!empty($lic['expires_at'])) {
+        if (! empty($lic['expires_at'])) {
             $expires_text = mysql2date('d/m/Y H:i', $lic['expires_at']);
         }
-        if ($lic['plan'] === 'lifetime') {
+        if (isset($lic['plan']) && 'lifetime' === $lic['plan']) {
             $expires_text = __('Vitalício', 'plugins-alpha');
         }
 
         $used = is_array($lic['domains_used']) ? count($lic['domains_used']) : 0;
-        $max  = $lic['max_domains'] ?: 1;
+        $max  = ! empty($lic['max_domains']) ? (int) $lic['max_domains'] : 1;
 
+        // === daqui pra baixo fica o teu HTML da tela de licença ===
 ?>
         <div class="wrap">
             <h1 class="wp-heading-inline"><?php esc_html_e('Licença — Plugins Alpha', 'plugins-alpha'); ?></h1>
@@ -521,7 +599,7 @@ class PluginsAlpha_License
     {
         return [
             'stories'   => __('Alpha Stories', 'plugins-alpha'),
-            'post-gpt' => __('Alpha GPT Posts', 'plugins-alpha'),
+            'orion' => __('Alpha Órion', 'plugins-alpha'),
         ];
     }
 
@@ -532,9 +610,18 @@ class PluginsAlpha_License
         if (!current_user_can('manage_options')) wp_die('Sem permissão.');
         check_admin_referer('pga_activate_license');
 
-        $email       = sanitize_email($_POST['email'] ?? '');
-        $purchase_id = sanitize_text_field($_POST['purchase_id'] ?? '');
-        $license_key = sanitize_text_field($_POST['license_key'] ?? '');
+        $email = isset($_POST['email'])
+            ? sanitize_email(wp_unslash($_POST['email']))
+            : '';
+
+        $purchase_id = isset($_POST['purchase_id'])
+            ? sanitize_text_field(wp_unslash($_POST['purchase_id']))
+            : '';
+
+        $license_key = isset($_POST['license_key'])
+            ? sanitize_text_field(wp_unslash($_POST['license_key']))
+            : '';
+
 
         if (!$email || !$purchase_id) {
             $msg = __('E-mail e ID da compra são obrigatórios.', 'plugins-alpha');
@@ -565,11 +652,6 @@ class PluginsAlpha_License
         if (is_wp_error($res)) {
             $msg  = $res->get_error_message();
             $data = $res->get_error_data();
-
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[PluginsAlpha][License][client] ACTIVATE ERROR: ' . $msg . ' | DATA=' . wp_json_encode($data));
-            }
-
             if (wp_doing_ajax()) {
                 wp_send_json_error([
                     'message' => $msg,
@@ -583,11 +665,6 @@ class PluginsAlpha_License
         // Esperamos algo tipo: { ok: true, license: {...}, message: '...' }
         if (empty($res['ok']) || empty($res['license']) || !is_array($res['license'])) {
             $msg = isset($res['message']) ? (string)$res['message'] : __('Erro ao ativar licença (resposta inesperada).', 'plugins-alpha');
-
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[PluginsAlpha][License][client] ACTIVATE BAD JSON: ' . wp_json_encode($res));
-            }
-
             if (wp_doing_ajax()) {
                 wp_send_json_error(['message' => $msg, 'data' => $res], 400);
             }
@@ -619,10 +696,15 @@ class PluginsAlpha_License
             ]);
         }
 
-        wp_redirect(add_query_arg([
-            'page'    => 'plugins-alpha-license',
-            'updated' => 1,
-        ], admin_url('admin.php')));
+        $location = add_query_arg(
+            [
+                'page'    => 'plugins-alpha-license',
+                'updated' => 1,
+            ],
+            admin_url('admin.php')
+        );
+
+        wp_safe_redirect($location);
         exit;
     }
 
@@ -644,20 +726,17 @@ class PluginsAlpha_License
 
         $res = self::remote_call('/client/deactivate', $body);
 
-        // Mesmo que dê erro no servidor, vamos limpar localmente.
-        if (is_wp_error($res)) {
-            // pode logar para debug, mas não bloquear o usuário
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[PluginsAlpha][License] deactivate error: ' . $res->get_error_message());
-            }
-        }
-
         delete_option(self::OPTION_KEY);
 
-        wp_redirect(add_query_arg([
-            'page'    => 'plugins-alpha-license',
-            'updated' => 1,
-        ], admin_url('admin.php')));
+        $location = add_query_arg(
+            [
+                'page'    => 'plugins-alpha-license',
+                'updated' => 1,
+            ],
+            admin_url('admin.php')
+        );
+
+        wp_safe_redirect($location);
         exit;
     }
 
@@ -665,13 +744,6 @@ class PluginsAlpha_License
     {
         $base = self::api_base();
         $url  = $base . $endpoint;
-
-        // LOG de requisição
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[PluginsAlpha][License][client] REQUEST URL: ' . $url);
-            error_log('[PluginsAlpha][License][client] REQUEST BODY: ' . wp_json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        }
-
         $args = [
             'timeout' => 15,
             'headers' => [
@@ -683,10 +755,6 @@ class PluginsAlpha_License
         $response = wp_remote_post($url, $args);
 
         if (is_wp_error($response)) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[PluginsAlpha][License][client] HTTP ERROR: ' . $response->get_error_message());
-            }
-
             return new WP_Error(
                 'pga_license_http',
                 sprintf(
@@ -698,22 +766,11 @@ class PluginsAlpha_License
 
         $code = wp_remote_retrieve_response_code($response);
         $raw  = wp_remote_retrieve_body($response);
-
-        // LOG de resposta bruta
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[PluginsAlpha][License][client] RESPONSE CODE: ' . $code);
-            error_log('[PluginsAlpha][License][client] RESPONSE BODY RAW: ' . $raw);
-        }
-
         $json = json_decode($raw, true);
 
         // Se não veio JSON ou código não é 2xx, gera um erro mais informativo
         if ($code < 200 || $code >= 300 || !is_array($json)) {
             $snippet = mb_substr($raw, 0, 300);
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[PluginsAlpha][License][client] BAD RESPONSE. CODE=' . $code . ' SNIPPET=' . $snippet);
-            }
-
             $msg = __('Resposta inválida do servidor de licença.', 'plugins-alpha') . ' (HTTP ' . $code . ')';
 
             return new WP_Error(
@@ -726,22 +783,21 @@ class PluginsAlpha_License
                 ]
             );
         }
-
-        // LOG de JSON válido
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[PluginsAlpha][License][client] RESPONSE JSON: ' . wp_json_encode($json, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        }
-
         return $json;
     }
 
 
     private static function redirect_with_error(string $msg): void
     {
-        wp_redirect(add_query_arg([
-            'page'  => 'plugins-alpha-license',
-            'error' => rawurlencode($msg),
-        ], admin_url('admin.php')));
+        $location = add_query_arg(
+            [
+                'page'    => 'plugins-alpha-license',
+                'updated' => 1,
+            ],
+            admin_url('admin.php')
+        );
+
+        wp_safe_redirect($location);
         exit;
     }
 }

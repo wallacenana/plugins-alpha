@@ -53,23 +53,39 @@ class PluginsAlpha_PermalinkSettings
     echo '<p class="description">Slug base dos posts gerados (ex: "gpt", "ia-posts"). Deixe em branco para usar o padrão.</p>';
   }
 
-
-  // 🔥 SALVA os campos quando o formulário de Links Permanentes é enviado
   public static function handle_save()
   {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
+    // normaliza o método da requisição
+    $method = isset($_SERVER['REQUEST_METHOD'])
+      ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_METHOD']))
+      : '';
+
+    if ('POST' !== $method) {
+      return;
+    }
 
     // mesmo nonce usado pela tela de links permanentes
     check_admin_referer('update-permalink');
 
-    if (!current_user_can('manage_options')) return;
+    if (! current_user_can('manage_options')) {
+      return;
+    }
 
-    $story = isset($_POST['pga_story_base']) ? sanitize_title_with_dashes(wp_unslash($_POST['pga_story_base'])) : '';
-    $posts = isset($_POST['pga_posts_base']) ? sanitize_title_with_dashes(wp_unslash($_POST['pga_posts_base'])) : '';
+    $story = isset($_POST['pga_story_base'])
+      ? sanitize_title_with_dashes(wp_unslash($_POST['pga_story_base']))
+      : '';
+
+    $posts = isset($_POST['pga_posts_base'])
+      ? sanitize_title_with_dashes(wp_unslash($_POST['pga_posts_base']))
+      : '';
 
     // defaults se vazio
-    if ($story === '') $story = '';
-    if ($posts === '') $posts = '';
+    if ('' === $story) {
+      $story = '';
+    }
+    if ('' === $posts) {
+      $posts = '';
+    }
 
     update_option('pga_story_base', $story, false);
     update_option('pga_posts_base', $posts, false);

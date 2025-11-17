@@ -160,16 +160,6 @@ add_action('transition_post_status', function ($new_status, $old_status, $post) 
     return;
   }
 
-  if (defined('WP_DEBUG') && WP_DEBUG) {
-    error_log(
-      sprintf(
-        '[PluginsAlpha][Stories] Publicação bloqueada para story %d por licença (%s).',
-        $post->ID,
-        $chk['code'] ?? 'licenca_invalida'
-      )
-    );
-  }
-
   // Evita loop recursivo ao chamar wp_update_post
   remove_action('transition_post_status', __FUNCTION__, 10);
 

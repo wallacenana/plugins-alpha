@@ -111,7 +111,11 @@ function alpha_admin_settings_screen()
             &nbsp;&nbsp;
             <label for="duration">Tempo por página (s)</label>
             <select name="alpha_storys_options[duration]" id="duration">
-              <?php foreach (['5', '7', '10', '12'] as $d) printf('<option value="%s"%s>%ss</option>', $d, selected(($o['duration'] ?? '7'), $d, false), $d); ?>
+              <?php foreach (['5', '7', '10', '12'] as $d) : ?>
+                <option value="<?php echo esc_attr($d); ?>" <?php selected(($o['duration'] ?? '7'), $d); ?>>
+                  <?php echo esc_html($d); ?>s
+                </option>
+              <?php endforeach; ?>
             </select>
           </td>
         </tr>
@@ -196,7 +200,7 @@ add_action('admin_init', function () {
       $val = isset($o['ai_prompt_template']) ? (string)$o['ai_prompt_template'] : '';
       $placeholder = function_exists('alpha_storys_default_prompt_template')
         ? alpha_storys_default_prompt_template()
-        : 
+        :
         "Digite o seu prompt";
   ?>
     <textarea name="alpha_storys_options[ai_prompt_template]"
@@ -211,34 +215,34 @@ add_action('admin_init', function () {
   );
 });
 
-function alpha_storys_default_prompt_template() {
+function alpha_storys_default_prompt_template()
+{
   // fallback redundante caso admin-settings.php não esteja carregado
-  $tpl = <<<EOT
-  Nunca coloque nada sobre perguntas frequentes ou FAQ, como títulos sobre "perguntas frequentes".
-Transforme posts em Web storys AMP. Gere slides concisos (no máximo com 240 caracteres no corpo). O conteúdo completo deve ter pelo menos 30% de palavras de transição no padrão do Yoast, como mas, porém, entretanto, por isso, em resumo — coisas nesse sentido. No máximo 10 páginas; a primeira página deve ter um título mais chamativo, no padrão de título Discovery, que realmente desperte muita curiosidade (nada de informativo como \"introdução a x\"). A página 5 deve ser um CTA para um grupo do WhatsApp com conteúdos do site, com link para o grupo no final; o primeiro item fica sem CTA, daí o segundo tem CTA e vai intercalando assim: post com CTA, post sem CTA. O CTA é um texto linkado no final do body; exemplo: saiba mais (onde \"saiba mais\" é um link como <a href=\"#\">Saiba mais</a>); gere CTAs variados; a conclusão deve ter um CTA desses também. Todos os links (com exceção do CTA para o grupo) devem mandar para o post em questão. Gere um prompt para que seja gerada a imagem daquele conteúdo; o prompt da imagem deve ser realista, não contendo elementos voltados para ilustração; o prompt deve ser completo (mínimo de 200 caracteres).
-repetindo: (no máximo com 240 caracteres no corpo)
-A conclusão é sempre um CTA para ver mais conteúdos desses no site em questão.
-Sobre o título: quero dar algumas informações para elaborar um bom titulo, leia todas essas informações e depois de comporte-se como um jornalista sênior capaz de se eloquente escritor especialista com um impressionante vocabulário. Seu estilo de escrita é intrigante e consegue surpreender os leitores com opiniões bem elaboradas EM TITULO CURTOS.
-Especificidade: títulos que fornecem detalhes, números ou nomes específicos tendem a capturar
-atenção. Por exemplo, "15 melhores empresas" ou "Este homem de 32 anos estava ganhando US$ 17/hora".
-Emoção e curiosidade: títulos que evocam uma resposta emocional ou despertam curiosidade podem envolver os leitores. 
-Por exemplo, "As cidades mais tristes de todo o país" ou "Disney Ride Gets Revisão surpreendente".
-Rentabilidade e relevância: tópicos que repercutem em um amplo público ou são oportuno/relevante pode ser um sucesso. Por exemplo, o foco em "trabalho híbrido" ou "ChatGPT".
-Autoridade: quando o título parece confiável ou cita especialistas, ele pode atrair trustandclicks.Ex.,"O que os especialistas dizem" ou "Pessoas emocionalmente inteligentes usam...".
-Clareza: A clareza não deve ser sacrificada. deve dar uma ideia clara sobre o conteúdo do artigo.
-Problema e Solução:Títulos que destacam um problema e fornecem uma solução podem ser Envolvente. Por exemplo, "Fitbit responde a fãs furiosos com cinco correções de aplicativos muito necessárias".
-E NÃO ESQUEÇA O ASPECTO NOTÍCIA
-Oportunidade e relevância: plataformas como o Google Discover são feitas sob medida para fornecer conteúdo que é tendência atual ou é de relevância imediata para os usuários. Títulos que tocam em eventos atuais ou desenvolvimentos recentes têm maior probabilidade de serem revelados.
-Engajamento do usuário: as pessoas são naturalmente atraídas pelas últimas notícias ou desenvolvimentos em tópicos nos quais estão interessados. Eles são mais propensos a clicar, ler e se envolver com artigos que fornecem novas percepções ou atualizações sobre eventos atuais.
-Personalização: o Google Discover e plataformas semelhantes usam algoritmos que personalizam conteúdo baseado no comportamento do usuário. Se um usuário demonstrou interesse em um evento de notícias recente tópico, é mais provável que eles recebam conteúdo relacionado.
-Urgência: as notícias vêm inerentemente com um senso de urgência.
-mudanças, surpresas ou eventos impactantes podem fazer com que os usuários cliquem para saber mais. Por exemplo,
-"Disney Ride recebe uma revisão surpreendente" ou "O criador do ChatGPT OpenAI isintalks...".
-repetindo: (no máximo com 240 caracteres no corpo)
+  $tpl  = "Nunca coloque nada sobre perguntas frequentes ou FAQ, como títulos sobre \"perguntas frequentes\".\n";
+  $tpl .= "Transforme posts em Web storys AMP. Gere slides concisos (no máximo com 240 caracteres no corpo). O conteúdo completo deve ter pelo menos 30% de palavras de transição no padrão do Yoast, como mas, porém, entretanto, por isso, em resumo — coisas nesse sentido. No máximo 10 páginas; a primeira página deve ter um título mais chamativo, no padrão de título Discovery, que realmente desperte muita curiosidade (nada de informativo como \\\"introdução a x\\\"). A página 5 deve ser um CTA para um grupo do WhatsApp com conteúdos do site, com link para o grupo no final; o primeiro item fica sem CTA, daí o segundo tem CTA e vai intercalando assim: post com CTA, post sem CTA. O CTA é um texto linkado no final do body; exemplo: saiba mais (onde \\\"saiba mais\\\" é um link como <a href=\\\"#\\\">Saiba mais</a>); gere CTAs variados; a conclusão deve ter um CTA desses também. Todos os links (com exceção do CTA para o grupo) devem mandar para o post em questão. Gere um prompt para que seja gerada a imagem daquele conteúdo; o prompt da imagem deve ser realista, não contendo elementos voltados para ilustração; o prompt deve ser completo (mínimo de 200 caracteres).\n";
+  $tpl .= "repetindo: (no máximo com 240 caracteres no corpo)\n";
+  $tpl .= "A conclusão é sempre um CTA para ver mais conteúdos desses no site em questão.\n";
+  $tpl .= "Sobre o título: quero dar algumas informações para elaborar um bom titulo, leia todas essas informações e depois de comporte-se como um jornalista sênior capaz de se eloquente escritor especialista com um impressionante vocabulário. Seu estilo de escrita é intrigante e consegue surpreender os leitores com opiniões bem elaboradas EM TITULO CURTOS.\n";
+  $tpl .= "Especificidade: títulos que fornecem detalhes, números ou nomes específicos tendem a capturar\n";
+  $tpl .= "atenção. Por exemplo, \"15 melhores empresas\" ou \"Este homem de 32 anos estava ganhando US$ 17/hora\".\n";
+  $tpl .= "Emoção e curiosidade: títulos que evocam uma resposta emocional ou despertam curiosidade podem envolver os leitores.\n";
+  $tpl .= "Por exemplo, \"As cidades mais tristes de todo o país\" ou \"Disney Ride Gets Revisão surpreendente\".\n";
+  $tpl .= "Rentabilidade e relevância: tópicos que repercutem em um amplo público ou são oportuno/relevante pode ser um sucesso. Por exemplo, o foco em \"trabalho híbrido\" ou \"ChatGPT\".\n";
+  $tpl .= "Autoridade: quando o título parece confiável ou cita especialistas, ele pode atrair trustandclicks.Ex.,\"O que os especialistas dizem\" ou \"Pessoas emocionalmente inteligentes usam...\".\n";
+  $tpl .= "Clareza: A clareza não deve ser sacrificada. deve dar uma ideia clara sobre o conteúdo do artigo.\n";
+  $tpl .= "Problema e Solução:Títulos que destacam um problema e fornecem uma solução podem ser Envolvente. Por exemplo, \"Fitbit responde a fãs furiosos com cinco correções de aplicativos muito necessárias\".\n";
+  $tpl .= "E NÃO ESQUEÇA O ASPECTO NOTÍCIA\n";
+  $tpl .= "Oportunidade e relevância: plataformas como o Google Discover são feitas sob medida para fornecer conteúdo que é tendência atual ou é de relevância imediata para os usuários. Títulos que tocam em eventos atuais ou desenvolvimentos recentes têm maior probabilidade de serem revelados.\n";
+  $tpl .= "Engajamento do usuário: as pessoas são naturalmente atraídas pelas últimas notícias ou desenvolvimentos em tópicos nos quais estão interessados. Eles são mais propensos a clicar, ler e se envolver com artigos que fornecem novas percepções ou atualizações sobre eventos atuais.\n";
+  $tpl .= "Personalização: o Google Discover e plataformas semelhantes usam algoritmos que personalizam conteúdo baseado no comportamento do usuário. Se um usuário demonstrou interesse em um evento de notícias recente tópico, é mais provável que eles recebam conteúdo relacionado.\n";
+  $tpl .= "Urgência: as notícias vêm inerentemente com um senso de urgência.\n";
+  $tpl .= "mudanças, surpresas ou eventos impactantes podem fazer com que os usuários cliquem para saber mais. Por exemplo,\n";
+  $tpl .= "\"Disney Ride recebe uma revisão surpreendente\" ou \"O criador do ChatGPT OpenAI isintalks...\".\n";
+  $tpl .= "repetindo: (no máximo com 240 caracteres no corpo)\n\n";
 
-Retorne APENAS um JSON válido no formato:
-{\"pages\":[{\"heading\":\"\",\"body\":\"\",\"cta_text\":\"\",\"cta_url\":\"\",\"prompt\":\"\"}]}
-EOT;
+  $tpl .= "Retorne APENAS um JSON válido no formato:\n";
+  $tpl .= "{\"pages\":[{\"heading\":\"\",\"body\":\"\",\"cta_text\":\"\",\"cta_url\":\"\",\"prompt\":\"\"}]}\n";
+
   return $tpl;
 }
 

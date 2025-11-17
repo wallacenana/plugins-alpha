@@ -1,16 +1,19 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Settings {
+class PluginsAlpha_Settings
+{
   const OPTION = 'pga_settings';
   const NONCE  = 'pga_settings_nonce';
 
-  public static function init(): void {
+  public static function init(): void
+  {
     // registra option + sanitização única
     add_action('admin_init', [self::class, 'register']);
   }
 
-  public static function register(): void {
+  public static function register(): void
+  {
     register_setting(self::OPTION, self::OPTION, [
       'type' => 'array',
       'sanitize_callback' => [self::class, 'sanitize_all'],
@@ -19,7 +22,8 @@ class PluginsAlpha_Settings {
   }
 
   /** Sanitização única (merge de sub-árvores) */
-  public static function sanitize_all($in) {
+  public static function sanitize_all($in)
+  {
     $in = is_array($in) ? $in : [];
 
     // apis.openai (global)
@@ -42,21 +46,21 @@ class PluginsAlpha_Settings {
 
     // Stories (migração do alpha_storys_options)
     $st = $in['stories'] ?? [];
-    $allowed_styles = ['clean','dark-left','card','split','top'];
-    $allowed_fonts  = ['system','inter','poppins','merriweather','plusjakarta'];
+    $allowed_styles = ['clean', 'dark-left', 'card', 'split', 'top'];
+    $allowed_fonts  = ['system', 'inter', 'poppins', 'merriweather', 'plusjakarta'];
 
     $out['stories'] = [
       'publisher_name'   => sanitize_text_field($st['publisher_name'] ?? get_bloginfo('name')),
-      'publisher_logo_id'=> (int)($st['publisher_logo_id'] ?? 0),
+      'publisher_logo_id' => (int)($st['publisher_logo_id'] ?? 0),
 
       'default_style'    => in_array(($st['default_style'] ?? 'clean'), $allowed_styles, true) ? $st['default_style'] : 'clean',
       'default_font'     => in_array(($st['default_font'] ?? 'plusjakarta'), $allowed_fonts, true) ? $st['default_font'] : 'plusjakarta',
       'accent_color'     => preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', ($st['accent_color'] ?? '')) ? $st['accent_color'] : '#ffffff',
       'autoplay'         => !empty($st['autoplay']) ? 1 : 0,
-      'duration'         => in_array(($st['duration'] ?? '7'), ['5','7','10','12'], true) ? $st['duration'] : '7',
+      'duration'         => in_array(($st['duration'] ?? '7'), ['5', '7', '10', '12'], true) ? $st['duration'] : '7',
 
-      'ga_mode'          => in_array(($st['ga_mode'] ?? 'auto'), ['auto','manual','off'], true) ? $st['ga_mode'] : 'auto',
-      'ga_manual_id'     => (function($id){
+      'ga_mode'          => in_array(($st['ga_mode'] ?? 'auto'), ['auto', 'manual', 'off'], true) ? $st['ga_mode'] : 'auto',
+      'ga_manual_id'     => (function ($id) {
         $id = trim((string)$id);
         return preg_match('/^G-[A-Z0-9\-]{4,}$/i', $id) ? $id : '';
       })($st['ga_manual_id'] ?? ''),
@@ -69,29 +73,37 @@ class PluginsAlpha_Settings {
   }
 
   /** Helper para obter settings */
-  public static function get(): array {
+  public static function get(): array
+  {
     return get_option(self::OPTION, []);
   }
 
   /** Render da página + abas */
-  public static function render(): void {
-    if (!current_user_can('manage_options')) return;
+  public static function render(): void
+  {
+    if (! current_user_can('manage_options')) {
+      return;
+    }
 
-    $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'core';
+    // phpcs:disable WordPress.Security.NonceVerification.Recommended
+    $tab = isset($_GET['tab'])
+      ? sanitize_key(wp_unslash($_GET['tab']))
+      : 'core';
+    // phpcs:enable WordPress.Security.NonceVerification.Recommended
     $tabs = [
-      'core'      => __('Geral','plugins-alpha'),
-      'gpt-posts' => __('GPT Posts','plugins-alpha'),
-      'stories'   => __('Stories','plugins-alpha'),
+      'core'      => __('Geral', 'plugins-alpha'),
+      'gpt-posts' => __('GPT Posts', 'plugins-alpha'),
+      'stories'   => __('Stories', 'plugins-alpha'),
     ];
     $opts = self::get();
-    ?>
+?>
     <div class="wrap">
       <h1>Plugins Alpha — Configurações</h1>
 
       <h2 class="nav-tab-wrapper" style="margin-top:12px;">
-        <?php foreach ($tabs as $slug=>$label): 
+        <?php foreach ($tabs as $slug => $label):
           $cls = $slug === $tab ? ' nav-tab nav-tab-active' : ' nav-tab';
-          $url = admin_url('admin.php?page=plugins-alpha-settings&tab='.$slug);
+          $url = admin_url('admin.php?page=plugins-alpha-settings&tab=' . $slug);
         ?>
           <a class="<?php echo esc_attr($cls); ?>" href="<?php echo esc_url($url); ?>"><?php echo esc_html($label); ?></a>
         <?php endforeach; ?>
@@ -101,22 +113,29 @@ class PluginsAlpha_Settings {
         <?php settings_fields(self::OPTION); ?>
 
         <?php
-          switch ($tab) {
-            case 'gpt-posts': self::render_tab_gpt_posts($opts); break;
-            case 'stories':   self::render_tab_stories($opts);   break;
-            default:          self::render_tab_core($opts);      break;
-          }
+        switch ($tab) {
+          case 'gpt-posts':
+            self::render_tab_gpt_posts($opts);
+            break;
+          case 'stories':
+            self::render_tab_stories($opts);
+            break;
+          default:
+            self::render_tab_core($opts);
+            break;
+        }
         ?>
 
         <?php submit_button(); ?>
       </form>
     </div>
-    <?php
+  <?php
   }
 
-  private static function render_tab_core(array $o): void {
+  private static function render_tab_core(array $o): void
+  {
     $apis  = $o['apis']['openai'] ?? [];
-    ?>
+  ?>
     <h2 class="title">OpenAI (global)</h2>
     <table class="form-table" role="presentation">
       <tr>
@@ -136,19 +155,20 @@ class PluginsAlpha_Settings {
         <td><input name="pga_settings[apis][openai][max_tokens]" id="pga_openai_maxtok" type="number" class="small-text" value="<?php echo esc_attr($apis['max_tokens'] ?? 6000); ?>"></td>
       </tr>
     </table>
-    <?php
+  <?php
   }
 
-  private static function render_tab_gpt_posts(array $o): void {
+  private static function render_tab_gpt_posts(array $o): void
+  {
     $gp = $o['gpt_posts']['defaults'] ?? [];
-    ?>
+  ?>
     <h2 class="title">Padrões de geração</h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row"><label for="pga_gp_locale">Locale padrão</label></th>
         <td>
           <select name="pga_settings[gpt_posts][defaults][locale]" id="pga_gp_locale">
-            <?php foreach (['pt_BR'=>'Português (Brasil)','en_US'=>'English (US)','es_ES'=>'Español','fr_FR'=>'Français'] as $v=>$lab): ?>
+            <?php foreach (['pt_BR' => 'Português (Brasil)', 'en_US' => 'English (US)', 'es_ES' => 'Español', 'fr_FR' => 'Français'] as $v => $lab): ?>
               <option value="<?php echo esc_attr($v); ?>" <?php selected(($gp['locale'] ?? 'pt_BR'), $v); ?>>
                 <?php echo esc_html($lab); ?>
               </option>
@@ -157,14 +177,15 @@ class PluginsAlpha_Settings {
         </td>
       </tr>
     </table>
-    <?php
+  <?php
   }
 
-  private static function render_tab_stories(array $o): void {
+  private static function render_tab_stories(array $o): void
+  {
     $st = $o['stories'] ?? [];
     $logo_id = (int)($st['publisher_logo_id'] ?? 0);
     $logo_url = $logo_id ? wp_get_attachment_image_url($logo_id, 'full') : '';
-    ?>
+  ?>
     <h2 class="title">Publisher</h2>
     <table class="form-table" role="presentation">
       <tr>
@@ -175,7 +196,7 @@ class PluginsAlpha_Settings {
         <th scope="row">Logo (96x96)</th>
         <td>
           <div style="margin-bottom:8px;">
-            <img id="pga_st_logo_prev" src="<?php echo esc_url($logo_url ?: ''); ?>" style="max-width:96px;height:auto;<?php echo $logo_url?'':'display:none'; ?>">
+            <img id="pga_st_logo_prev" src="<?php echo esc_url($logo_url ?: ''); ?>" style="max-width:96px;height:auto;<?php echo $logo_url ? '' : 'display:none'; ?>">
           </div>
           <input type="hidden" id="pga_st_logo_id" name="pga_settings[stories][publisher_logo_id]" value="<?php echo (int)$logo_id; ?>">
           <button type="button" class="button" data-pga-media-target="pga_st_logo_id" data-pga-preview="pga_st_logo_prev">Selecionar imagem</button>
@@ -190,7 +211,7 @@ class PluginsAlpha_Settings {
         <th scope="row"><label for="pga_st_style">Preset de estilo</label></th>
         <td>
           <select name="pga_settings[stories][default_style]" id="pga_st_style">
-            <?php foreach (['clean'=>'Clean','dark-left'=>'Dark Left','card'=>'Card','split'=>'Split','top'=>'Image top'] as $v=>$lab): ?>
+            <?php foreach (['clean' => 'Clean', 'dark-left' => 'Dark Left', 'card' => 'Card', 'split' => 'Split', 'top' => 'Image top'] as $v => $lab): ?>
               <option value="<?php echo esc_attr($v); ?>" <?php selected(($st['default_style'] ?? 'clean'), $v); ?>><?php echo esc_html($lab); ?></option>
             <?php endforeach; ?>
           </select>
@@ -200,7 +221,7 @@ class PluginsAlpha_Settings {
         <th scope="row"><label for="pga_st_font">Fonte</label></th>
         <td>
           <select name="pga_settings[stories][default_font]" id="pga_st_font">
-            <?php foreach (['system'=>'System UI','inter'=>'Inter','poppins'=>'Poppins','merriweather'=>'Merriweather','plusjakarta'=>'Plus Jakarta Sans'] as $v=>$lab): ?>
+            <?php foreach (['system' => 'System UI', 'inter' => 'Inter', 'poppins' => 'Poppins', 'merriweather' => 'Merriweather', 'plusjakarta' => 'Plus Jakarta Sans'] as $v => $lab): ?>
               <option value="<?php echo esc_attr($v); ?>" <?php selected(($st['default_font'] ?? 'plusjakarta'), $v); ?>><?php echo esc_html($lab); ?></option>
             <?php endforeach; ?>
           </select>
@@ -217,7 +238,7 @@ class PluginsAlpha_Settings {
           &nbsp;&nbsp;
           <label for="pga_st_duration">Tempo por página (s)</label>
           <select name="pga_settings[stories][duration]" id="pga_st_duration">
-            <?php foreach (['5','7','10','12'] as $d): ?>
+            <?php foreach (['5', '7', '10', '12'] as $d): ?>
               <option value="<?php echo esc_attr($d); ?>" <?php selected(($st['duration'] ?? '7'), $d); ?>><?php echo esc_html($d) ?>s</option>
             <?php endforeach; ?>
           </select>
@@ -231,9 +252,9 @@ class PluginsAlpha_Settings {
         <th scope="row">Modo</th>
         <td>
           <?php $mode = $st['ga_mode'] ?? 'auto'; ?>
-          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="auto"   <?php checked($mode,'auto');   ?>> Auto</label><br>
-          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="manual" <?php checked($mode,'manual'); ?>> Manual</label><br>
-          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="off"    <?php checked($mode,'off');    ?>> Desativado</label>
+          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="auto" <?php checked($mode, 'auto');   ?>> Auto</label><br>
+          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="manual" <?php checked($mode, 'manual'); ?>> Manual</label><br>
+          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="off" <?php checked($mode, 'off');    ?>> Desativado</label>
         </td>
       </tr>
       <tr>
@@ -254,6 +275,6 @@ class PluginsAlpha_Settings {
         </td>
       </tr>
     </table>
-    <?php
+<?php
   }
 }

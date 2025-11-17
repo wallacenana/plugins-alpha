@@ -17,8 +17,13 @@ class PluginsAlpha_Plugin
 
   public static function assets($hook): void
   {
-    // 1) Detecta telas do plugin (menus próprios)
-    $is_plugin_page = isset($_GET['page']) && strpos(sanitize_key($_GET['page']), 'plugins-alpha') !== false;
+    // 1) Detecta telas do plugin (menus próprios) usando o hook recebido
+    // Ex.: $hook = 'toplevel_page_plugins-alpha', 'plugins-alpha_page_plugins-alpha-license', etc.
+    $is_plugin_page = (false !== strpos((string) $hook, 'plugins-alpha'));
+
+    if (! $is_plugin_page) {
+      return;
+    }
 
     // 2) Detecta telas dos CPTs (lista, novo, editar)
     $screen = function_exists('get_current_screen') ? get_current_screen() : null;

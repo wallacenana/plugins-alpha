@@ -8,7 +8,7 @@ ob_start(function ($html) {
     '/<style amp-custom[^>]*>.*?<\/style>/si',                     // CSS AMP
   ];
   foreach ($protect as $re) {
-    $html = preg_replace_callback($re, function($m) use (&$tokens){
+    $html = preg_replace_callback($re, function ($m) use (&$tokens) {
       $key = '%%ALPHA_PROTECT_' . count($tokens) . '%%';
       $tokens[$key] = $m[0];
       return $key;
@@ -76,11 +76,11 @@ if (!$logo_src) {
 // Ao menos 1 página
 if (count($pages) === 0) {
   $pages[] = [
-    'heading'=> get_the_title($post),
+    'heading' => get_the_title($post),
     'body'   => '',
     'image'  => '',
-    'cta_text'=>'',
-    'cta_url' =>''
+    'cta_text' => '',
+    'cta_url' => ''
   ];
 }
 
@@ -101,7 +101,8 @@ $accent = get_post_meta($post->ID, '_alpha_storys_accent_color', true);
 if (!$accent) $accent = alpha_opt('accent_color', '#ffffff');
 
 // Mapeia Google Fonts
-function alpha_font_href($font) {
+function alpha_font_href($font)
+{
   switch ($font) {
     case 'inter':
       return 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap';
@@ -123,91 +124,92 @@ $style_class = 'style-' . preg_replace('/[^a-z0-9\-]/i', '', $style);
 $font_family = $font === 'system'
   ? "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,'Helvetica Neue',Arial,'Noto Sans',sans-serif"
   : ($font === 'merriweather'
-      ? "'Merriweather',serif"
-      : ($font === 'poppins' ? "'Poppins',sans-serif" : "'Inter',sans-serif"));
+    ? "'Merriweather',serif"
+    : ($font === 'poppins' ? "'Poppins',sans-serif" : "'Inter',sans-serif"));
 ?>
 <!doctype html>
 <html amp lang="<?php echo esc_attr(get_bloginfo('language')); ?>">
+
 <head>
   <meta charset="utf-8">
   <title><?php echo esc_html(get_the_title($post)); ?></title>
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <?php
-    // ===== JSON-LD para Web Stories (Article + AmpStory) =====
-    $permalink     = get_permalink($post);
-    $headline      = get_the_title($post);
-    $description   = has_excerpt($post)
-      ? wp_strip_all_tags(get_the_excerpt($post))
-      : wp_trim_words(wp_strip_all_tags(get_post_field('post_content', $post)), 35, '…');
-    $datePublished = get_post_time('c', true, $post);
-    $dateModified  = get_post_modified_time('c', true, $post);
+  // ===== JSON-LD para Web Stories (Article + AmpStory) =====
+  $permalink     = get_permalink($post);
+  $headline      = get_the_title($post);
+  $description   = has_excerpt($post)
+    ? wp_strip_all_tags(get_the_excerpt($post))
+    : wp_trim_words(wp_strip_all_tags(get_post_field('post_content', $post)), 35, '…');
+  $datePublished = get_post_time('c', true, $post);
+  $dateModified  = get_post_modified_time('c', true, $post);
 
-    // Imagens (poster + primeiras imagens das páginas)
-    $images = [];
-    if (!empty($poster_id)) {
-      if ($src = wp_get_attachment_image_src($poster_id, 'full')) {
-        $images[] = [
-          '@type'  => 'ImageObject',
-          'url'    => $src[0],
-          'width'  => (int) $src[1],
-          'height' => (int) $src[2],
-        ];
-      }
-    } elseif (!empty($poster)) {
-      $images[] = $poster; // fallback simples
-    }
-
-    if (!empty($pages) && is_array($pages)) {
-      foreach ($pages as $p) {
-        if (!empty($p['image'])) {
-          $images[] = ['@type' => 'ImageObject', 'url' => esc_url($p['image'])];
-        }
-      }
-    }
-    // Remove duplicadas mantendo estrutura
-    $images = array_values(array_unique($images, SORT_REGULAR));
-
-    // Autor
-    $author = [
-      '@type' => 'Person',
-      'name'  => get_the_author_meta('display_name', $post->post_author),
-      'url'   => get_author_posts_url($post->post_author),
-    ];
-
-    // Publisher + logo
-    $publisher_logo = null;
-    if (!empty($logo_id) && ($lsrc = wp_get_attachment_image_src($logo_id, 'full'))) {
-      $publisher_logo = [
+  // Imagens (poster + primeiras imagens das páginas)
+  $images = [];
+  if (!empty($poster_id)) {
+    if ($src = wp_get_attachment_image_src($poster_id, 'full')) {
+      $images[] = [
         '@type'  => 'ImageObject',
-        'url'    => $lsrc[0],
-        'width'  => (int) $lsrc[1],
-        'height' => (int) $lsrc[2],
+        'url'    => $src[0],
+        'width'  => (int) $src[1],
+        'height' => (int) $src[2],
       ];
-    } elseif (!empty($logo_src)) {
-      $publisher_logo = ['@type' => 'ImageObject', 'url' => $logo_src];
     }
-    $publisher_data = [
-      '@type' => 'Organization',
-      'name'  => $publisher,
-    ];
-    if ($publisher_logo) $publisher_data['logo'] = $publisher_logo;
+  } elseif (!empty($poster)) {
+    $images[] = $poster; // fallback simples
+  }
 
-    // Monta o Article (+ AmpStory opcional)
-    $schema = [
-      '@context'          => 'https://schema.org',
-      '@type'             => ['Article','AmpStory'],
-      'mainEntityOfPage'  => ['@type' => 'WebPage', '@id' => $permalink],
-      'headline'          => wp_strip_all_tags($headline),
-      'description'       => $description,
-      'image'             => $images,
-      'datePublished'     => $datePublished,
-      'dateModified'      => $dateModified,
-      'author'            => $author,
-      'publisher'         => $publisher_data,
+  if (!empty($pages) && is_array($pages)) {
+    foreach ($pages as $p) {
+      if (!empty($p['image'])) {
+        $images[] = ['@type' => 'ImageObject', 'url' => esc_url($p['image'])];
+      }
+    }
+  }
+  // Remove duplicadas mantendo estrutura
+  $images = array_values(array_unique($images, SORT_REGULAR));
+
+  // Autor
+  $author = [
+    '@type' => 'Person',
+    'name'  => get_the_author_meta('display_name', $post->post_author),
+    'url'   => get_author_posts_url($post->post_author),
+  ];
+
+  // Publisher + logo
+  $publisher_logo = null;
+  if (!empty($logo_id) && ($lsrc = wp_get_attachment_image_src($logo_id, 'full'))) {
+    $publisher_logo = [
+      '@type'  => 'ImageObject',
+      'url'    => $lsrc[0],
+      'width'  => (int) $lsrc[1],
+      'height' => (int) $lsrc[2],
     ];
+  } elseif (!empty($logo_src)) {
+    $publisher_logo = ['@type' => 'ImageObject', 'url' => $logo_src];
+  }
+  $publisher_data = [
+    '@type' => 'Organization',
+    'name'  => $publisher,
+  ];
+  if ($publisher_logo) $publisher_data['logo'] = $publisher_logo;
+
+  // Monta o Article (+ AmpStory opcional)
+  $schema = [
+    '@context'          => 'https://schema.org',
+    '@type'             => ['Article', 'AmpStory'],
+    'mainEntityOfPage'  => ['@type' => 'WebPage', '@id' => $permalink],
+    'headline'          => wp_strip_all_tags($headline),
+    'description'       => $description,
+    'image'             => $images,
+    'datePublished'     => $datePublished,
+    'dateModified'      => $dateModified,
+    'author'            => $author,
+    'publisher'         => $publisher_data,
+  ];
   ?>
   <script type="application/ld+json">
-    <?php echo wp_json_encode($schema, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE); ?>
+    <?php echo wp_json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>
   </script>
 
   <link rel="canonical" href="<?php echo esc_url(get_permalink($post)); ?>">
@@ -217,19 +219,73 @@ $font_family = $font === 'system'
   <?php endif; ?>
 
   <style amp-boilerplate>
-    body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;
-    -moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;
-    -ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;
-    animation:-amp-start 8s steps(1,end) 0s 1 normal both}
-    @-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}
-    @-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}
-    @-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}
-    @-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}
-    @keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}
+    body {
+      -webkit-animation: -amp-start 8s steps(1, end) 0s 1 normal both;
+      -moz-animation: -amp-start 8s steps(1, end) 0s 1 normal both;
+      -ms-animation: -amp-start 8s steps(1, end) 0s 1 normal both;
+      animation: -amp-start 8s steps(1, end) 0s 1 normal both
+    }
+
+    @-webkit-keyframes -amp-start {
+      from {
+        visibility: hidden
+      }
+
+      to {
+        visibility: visible
+      }
+    }
+
+    @-moz-keyframes -amp-start {
+      from {
+        visibility: hidden
+      }
+
+      to {
+        visibility: visible
+      }
+    }
+
+    @-ms-keyframes -amp-start {
+      from {
+        visibility: hidden
+      }
+
+      to {
+        visibility: visible
+      }
+    }
+
+    @-o-keyframes -amp-start {
+      from {
+        visibility: hidden
+      }
+
+      to {
+        visibility: visible
+      }
+    }
+
+    @keyframes -amp-start {
+      from {
+        visibility: hidden
+      }
+
+      to {
+        visibility: visible
+      }
+    }
   </style>
-  <noscript><style amp-boilerplate>
-    body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}
-  </style></noscript>
+  <noscript>
+    <style amp-boilerplate>
+      body {
+        -webkit-animation: none;
+        -moz-animation: none;
+        -ms-animation: none;
+        animation: none
+      }
+    </style>
+  </noscript>
 
   <!-- AMP scripts: apenas UMA vez cada -->
   <script async src="https://cdn.ampproject.org/v0.js"></script>
@@ -241,97 +297,148 @@ $font_family = $font === 'system'
 
   <style amp-custom>
     /* Fonte e estilos base */
-    amp-story{ font-family: <?php echo $font_family; ?>; }
-    .pad{ padding:24px }
-    .h2{ font-size:26px; line-height:1.1; color:#fff; margin:0 0 10px; padding-left: 15px; border-left: 3px solid <?php echo esc_html($accent); ?>;}
-    .p{ font-size:18px; color:#fff; margin:0; }
-    .btn{ display:inline-block; padding:12px 20px;color:#000; border-radius:10px; text-decoration:none; font-weight:700; box-shadow:0 4px 24px rgba(0,0,0,.35) }
-    .bg{
-      width:100%;
-      height:100%;
+    amp-story {
+      font-family: <?php echo esc_html($font_family); ?>;
+    }
+
+    .pad {
+      padding: 24px
+    }
+
+    .h2 {
+      font-size: 26px;
+      line-height: 1.1;
+      color: #fff;
+      margin: 0 0 10px;
+      padding-left: 15px;
+      border-left: 3px solid <?php echo esc_html($accent); ?>;
+    }
+
+    .p {
+      font-size: 18px;
+      color: #fff;
+      margin: 0;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 20px;
+      color: #000;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, .35)
+    }
+
+    .bg {
+      width: 100%;
+      height: 100%;
       background: <?php echo esc_html($bg_color); ?> center / cover no-repeat;
     }
-    .overlay{ position:absolute; top:0; right:0; bottom:0; left:0; background:linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.55)) }
+
+    .overlay {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      background: linear-gradient(180deg, rgba(0, 0, 0, .35), rgba(0, 0, 0, .55))
+    }
 
     /* CLEAN - texto central com imagem de fundo */
-    .style-clean .layer-content{align-content: end;justify-content: center;text-align: left;padding-bottom: 120px;}
+    .style-clean .layer-content {
+      align-content: end;
+      justify-content: center;
+      text-align: left;
+      padding-bottom: 120px;
+    }
+
     /* garante que a layer possa receber o pseudo-elemento */
-    .style-clean .layer-content{
+    .style-clean .layer-content {
       position: relative;
     }
 
     /* overlay de gradiente: transparente no topo e preto no rodapé */
-    .style-clean .layer-content::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      pointer-events:none;
+    .style-clean .layer-content::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
       background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 46%, rgba(0, 0, 0, 0.5) 64%, rgba(0, 0, 0, .8) 90%);
       z-index: -1;
     }
 
     /* DARK-LEFT - overlay e texto à esquerda */
-    .style-dark-left .layer-content{
-      align-content:center;
-      justify-content:center;
-      text-align:left;
-      padding:40px;
+    .style-dark-left .layer-content {
+      align-content: center;
+      justify-content: center;
+      text-align: left;
+      padding: 40px;
     }
-    .style-dark-left .overlay{
-      background:linear-gradient(120deg, rgba(0,0,0,.65), rgba(0,0,0,.2) 60%);
+
+    .style-dark-left .overlay {
+      background: linear-gradient(120deg, rgba(0, 0, 0, .65), rgba(0, 0, 0, .2) 60%);
     }
-    .style-dark-left .h2, .style-dark-left .p{
-      text-shadow:0 4px 30px rgba(0,0,0,.8);
+
+    .style-dark-left .h2,
+    .style-dark-left .p {
+      text-shadow: 0 4px 30px rgba(0, 0, 0, .8);
     }
 
     /* CARD - imagem em cartão, texto abaixo */
-    .style-card .card{
-      width:78%;
-      max-width:820px;
-      height:260px;
-      border-radius:24px;
-      overflow:hidden;
-      background:#111 center / cover no-repeat;
-      box-shadow:0 4px 24px rgba(0,0,0,.35);
-      margin:0 auto 18px auto;
+    .style-card .card {
+      width: 78%;
+      max-width: 820px;
+      height: 260px;
+      border-radius: 24px;
+      overflow: hidden;
+      background: #111 center / cover no-repeat;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, .35);
+      margin: 0 auto 18px auto;
     }
 
-    amp-story-grid-layer{
+    amp-story-grid-layer {
       border-bottom: 5px solid <?php echo esc_html($accent); ?>;
     }
 
-    .style-card .layer-content{
-      align-content:end;
-      justify-content:end;
-      text-align:center;
-      padding:24px;
+    .style-card .layer-content {
+      align-content: end;
+      justify-content: end;
+      text-align: center;
+      padding: 24px;
     }
 
     /* SPLIT - imagem esquerda, texto direita */
-    .style-split .split{
-      display:flex;
-      align-items:center;
-      height:100%;
-      padding:24px;
+    .style-split .split {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      padding: 24px;
     }
-    .style-split .split .left{
-      width:45%;
-      height:80%;
-      border-radius:20px;
-      background:#111 center / cover no-repeat;
-      box-shadow:0 4px 24px rgba(0,0,0,.35);
-      margin-right:24px;
+
+    .style-split .split .left {
+      width: 45%;
+      height: 80%;
+      border-radius: 20px;
+      background: #111 center / cover no-repeat;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, .35);
+      margin-right: 24px;
     }
-    .style-split .split .right{
-      flex:1;
-      color:#fff;
+
+    .style-split .split .right {
+      flex: 1;
+      color: #fff;
     }
-    .style-split .right .h2{
-      margin-bottom:12px;
+
+    .style-split .right .h2 {
+      margin-bottom: 12px;
     }
-    .h2, .p {
+
+    .h2,
+    .p {
       color: <?php echo esc_html($txt_color); ?>;
     }
+
     /* Fundo desfocado tipo Web Stories plugin */
     .bg-blur {
       filter: blur(22px) saturate(1.1);
@@ -339,219 +446,230 @@ $font_family = $font === 'system'
     }
 
     /* TOP — imagem no topo (full width), borda arredondada embaixo; textos abaixo centralizados (container), alinhados à esquerda */
-    .style-top .bg-solid{
-      position:absolute;
-      inset:0;
+    .style-top .bg-solid {
+      position: absolute;
+      inset: 0;
       background: <?php echo esc_html($bg_color); ?>;
     }
-    .style-top .layer-content-top{
-      align-content:start;
-      justify-content:start;
-      padding-top:0;
+
+    .style-top .layer-content-top {
+      align-content: start;
+      justify-content: start;
+      padding-top: 0;
     }
-    .style-top .hero img{
+
+    .style-top .hero img {
       object-fit: cover;
     }
 
-    .style-top .hero{
-      position:relative;
-      width:100%;
-      height:56vh;               /* altura “razoável” */
-      max-height:65%;
-      overflow:hidden;
+    .style-top .hero {
+      position: relative;
+      width: 100%;
+      height: 56vh;
+      /* altura “razoável” */
+      max-height: 65%;
+      overflow: hidden;
       object-fit: cover;
       border-radius: 0 0 12px 12px;
     }
-    .style-top .content{
-      width:100%;
-      padding:18px 0 0;
+
+    .style-top .content {
+      width: 100%;
+      padding: 18px 0 0;
     }
-    .style-top .content-inner{
-      width:86%;
-      max-width:820px;
-      margin:0 auto;             /* centraliza o container */
-      text-align:left;           /* mas textos alinhados à esquerda */
+
+    .style-top .content-inner {
+      width: 86%;
+      max-width: 820px;
+      margin: 0 auto;
+      /* centraliza o container */
+      text-align: left;
+      /* mas textos alinhados à esquerda */
     }
 
     /* opcional: você já tem .overlay; ela escurece por cima do blur */
   </style>
 </head>
+
 <body>
-<amp-story
-  standalone
-  class="<?php echo esc_attr($style_class); ?>"
-  title="<?php echo esc_attr(get_the_title($post)); ?>"
-  publisher="<?php echo esc_attr($publisher); ?>"
-  publisher-logo-src="<?php echo esc_url($logo_src); ?>"
-  poster-portrait-src="<?php echo esc_url($poster); ?>"
->
-  <?php if ($ga_enable): ?>
-    <amp-story-auto-analytics gtag-id="<?php echo esc_attr($ga_id); ?>"></amp-story-auto-analytics>
-  <?php endif;
+  <amp-story
+    standalone
+    class="<?php echo esc_attr($style_class); ?>"
+    title="<?php echo esc_attr(get_the_title($post)); ?>"
+    publisher="<?php echo esc_attr($publisher); ?>"
+    publisher-logo-src="<?php echo esc_url($logo_src); ?>"
+    poster-portrait-src="<?php echo esc_url($poster); ?>">
+    <?php if ($ga_enable): ?>
+      <amp-story-auto-analytics gtag-id="<?php echo esc_attr($ga_id); ?>"></amp-story-auto-analytics>
+    <?php endif;
 
-  $i = 1;
-  foreach ($pages as $p):
-    $p = array_merge([
-      'image'    => '',
-      'heading'  => '',
-      'body'     => '',
-      'cta_url'  => '',
-      'cta_text' => '',
-      'cta_type' => '',
-      'cta_icon' => '',
-      'duration' => null,
-    ], (array) $p);
+    $i = 1;
+    foreach ($pages as $p):
+      $p = array_merge([
+        'image'    => '',
+        'heading'  => '',
+        'body'     => '',
+        'cta_url'  => '',
+        'cta_text' => '',
+        'cta_type' => '',
+        'cta_icon' => '',
+        'duration' => null,
+      ], (array) $p);
 
-    $img = $p['image'] ? esc_url($p['image']) : '';
-    $dur = $p['duration'] ? (int)$p['duration'] : (int)$seconds;
+      $img = $p['image'] ? esc_url($p['image']) : '';
+      $dur = $p['duration'] ? (int)$p['duration'] : (int)$seconds;
 
-    // CTA (fallback = swipe)
-    $cta_url  = !empty($p['cta_url'])  ? esc_url($p['cta_url']) : '';
-    $cta_text = !empty($p['cta_text']) ? esc_html($p['cta_text']) : 'Saiba mais';
-    $cta_type = !empty($p['cta_type']) ? $p['cta_type'] : ($cta_url ? 'swipe' : '');
-    $cta_icon = !empty($p['cta_icon']) ? esc_url($p['cta_icon']) : '';
-    $is_first = ($i === 1);
-    if ($is_first && $cta_type === 'button') $cta_type = 'swipe';
+      // CTA (fallback = swipe)
+      $cta_url  = !empty($p['cta_url'])  ? esc_url($p['cta_url']) : '';
+      $cta_text = !empty($p['cta_text']) ? esc_html($p['cta_text']) : 'Saiba mais';
+      $cta_type = !empty($p['cta_type']) ? $p['cta_type'] : ($cta_url ? 'swipe' : '');
+      $cta_icon = !empty($p['cta_icon']) ? esc_url($p['cta_icon']) : '';
+      $is_first = ($i === 1);
+      if ($is_first && $cta_type === 'button') $cta_type = 'swipe';
 
-    // Animações só a partir do 2º slide
-    $anim = ($i > 1);
-    // presets por estilo:
-    $anim_card_div = $anim ? ' animate-in="fly-in-right" animate-in-delay="0s" animate-in-duration="350ms" animate-in-timing-function="ease-out"' : '';
-    $anim_h2_clean = $anim ? ' animate-in="fly-in-bottom" animate-in-delay="0.08s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
-    $anim_p_clean  = $anim ? ' animate-in="fade-in"      animate-in-delay="0.20s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+      // Animações só a partir do 2º slide
+      $anim = ($i > 1);
+      // presets por estilo:
+      $anim_card_div = $anim ? ' animate-in="fly-in-right" animate-in-delay="0s" animate-in-duration="350ms" animate-in-timing-function="ease-out"' : '';
+      $anim_h2_clean = $anim ? ' animate-in="fly-in-bottom" animate-in-delay="0.08s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+      $anim_p_clean  = $anim ? ' animate-in="fade-in"      animate-in-delay="0.20s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
 
-    $anim_left_split = $anim ? ' animate-in="fly-in-left"  animate-in-delay="0s"    animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
-    $anim_h2_split   = $anim ? ' animate-in="fade-in"       animate-in-delay="0.12s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
-    $anim_p_split    = $anim ? ' animate-in="fly-in-bottom" animate-in-delay="0.22s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
-  ?>
-  <amp-story-page
-    id="p<?php echo (int)$i; ?>"
-    <?php if ($autoplay): ?>auto-advance-after="<?php echo (int)$dur; ?>s"<?php endif; ?>
-  >
-    <?php if ($style === 'card'): ?>
-      <!-- Fundo desfocado da própria imagem + overlay -->
-      <amp-story-grid-layer template="fill">
-        <?php if ($img): ?>
-          <amp-img layout="fill" src="<?php echo $img; ?>" alt=""></amp-img>
+      $anim_left_split = $anim ? ' animate-in="fly-in-left"  animate-in-delay="0s"    animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+      $anim_h2_split   = $anim ? ' animate-in="fade-in"       animate-in-delay="0.12s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+      $anim_p_split    = $anim ? ' animate-in="fly-in-bottom" animate-in-delay="0.22s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+    ?>
+      <amp-story-page
+        id="p<?php echo (int)$i; ?>"
+        <?php if ($autoplay): ?>auto-advance-after="<?php echo (int)$dur; ?>s" <?php endif; ?>>
+        <?php if ($style === 'card'): ?>
+          <!-- Fundo desfocado da própria imagem + overlay -->
+          <amp-story-grid-layer template="fill">
+            <?php if ($img): ?>
+              <amp-img layout="fill" src="<?php echo esc_attr($img); ?>" alt=""></amp-img>
+            <?php else: ?>
+              <div class="bg"></div>
+            <?php endif; ?>
+            <div class="overlay"></div>
+          </amp-story-grid-layer>
+
+          <!-- Conteúdo -->
+          <amp-story-grid-layer template="vertical" class="layer-content">
+            <div class="card"
+              <?php if ($img): ?>style="background-image:url('<?php echo esc_url($img); ?>');" <?php endif; ?>
+              <?php echo esc_attr($anim_card_div); ?>></div>
+
+            <?php if (!empty($p['heading'])): ?>
+              <h2 class="h2" <?php echo esc_attr($anim_h2_clean); ?>><?php echo esc_html($p['heading']); ?></h2>
+            <?php endif; ?>
+
+            <?php if (!empty($p['body'])): ?>
+              <p class="p" <?php echo esc_attr($anim_p_clean); ?>><?php echo esc_html($p['body']); ?></p>
+            <?php endif; ?>
+          </amp-story-grid-layer>
+
+        <?php elseif ($style === 'top'): ?>
+          <!-- Fundo sólido com a cor escolhida -->
+          <amp-story-grid-layer template="fill">
+            <div class="bg-solid"></div>
+          </amp-story-grid-layer>
+
+          <!-- Hero (imagem no topo) + textos embaixo -->
+          <amp-story-grid-layer template="vertical" class="layer-content-top" style="padding: 0; display: block!important">
+            <div class="hero" <?php echo esc_attr($anim_card_div); ?>>
+              <?php if ($img): ?>
+                <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
+              <?php endif; ?>
+            </div>
+
+            <div class="content">
+              <div class="content-inner">
+                <?php if (!empty($p['heading'])): ?>
+                  <h2 class="h2" <?php echo esc_attr($anim_h2_clean); ?>><?php echo esc_html($p['heading']); ?></h2>
+                <?php endif; ?>
+                <?php if (!empty($p['body'])): ?>
+                  <p class="p" <?php echo esc_attr($anim_p_clean); ?>><?php echo esc_html($p['body']); ?></p>
+                <?php endif; ?>
+              </div>
+            </div>
+          </amp-story-grid-layer>
+
+        <?php elseif ($style === 'split'): ?>
+          <!-- Fundo desfocado + overlay -->
+          <amp-story-grid-layer template="fill">
+            <?php if ($img): ?>
+              <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
+            <?php else: ?>
+              <div class="bg"></div>
+            <?php endif; ?>
+            <div class="overlay"></div>
+          </amp-story-grid-layer>
+
+          <!-- Conteúdo em colunas -->
+          <amp-story-grid-layer template="vertical">
+            <div class="split">
+              <div class="left"
+                <?php if ($img): ?>style="background-image:url('<?php echo esc_url($img); ?>');" <?php endif; ?>
+                <?php echo esc_attr($anim_left_split); ?>></div>
+              <div class="right">
+                <?php if (!empty($p['heading'])): ?>
+                  <h2 class="h2" <?php echo esc_attr($anim_h2_split); ?>><?php echo esc_html($p['heading']); ?></h2>
+                <?php endif; ?>
+                <?php if (!empty($p['body'])): ?>
+                  <p class="p" <?php echo esc_attr($anim_p_split); ?>><?php echo esc_html($p['body']); ?></p>
+                <?php endif; ?>
+              </div>
+            </div>
+          </amp-story-grid-layer>
+
         <?php else: ?>
-          <div class="bg"></div>
+          <!-- CLEAN / DARK-LEFT: fundo desfocado -->
+          <amp-story-grid-layer template="fill">
+            <?php if ($img): ?>
+              <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
+            <?php else: ?>
+              <div class="bg"></div>
+            <?php endif; ?>
+            <?php if ($style === 'dark-left'): ?><div class="overlay"></div><?php endif; ?>
+          </amp-story-grid-layer>
+
+          <amp-story-grid-layer template="vertical" class="layer-content pad">
+            <?php if (!empty($p['heading'])): ?>
+              <h2 class="h2" <?php echo esc_attr($anim_h2_clean); ?>><?php echo esc_html($p['heading']); ?></h2>
+            <?php endif; ?>
+            <?php if (!empty($p['body'])): ?>
+              <p class="p" <?php echo esc_attr($anim_p_clean); ?>><?php echo esc_html($p['body']); ?></p>
+            <?php endif; ?>
+          </amp-story-grid-layer>
         <?php endif; ?>
-        <div class="overlay"></div>
-      </amp-story-grid-layer>
 
-      <!-- Conteúdo -->
-      <amp-story-grid-layer template="vertical" class="layer-content">
-        <div class="card"
-          <?php if ($img): ?>style="background-image:url('<?php echo $img; ?>');"<?php endif; ?>
-          <?php echo $anim_card_div; ?>></div>
-
-        <?php if (!empty($p['heading'])): ?>
-          <h2 class="h2"<?php echo $anim_h2_clean; ?>><?php echo esc_html($p['heading']); ?></h2>
-        <?php endif; ?>
-
-        <?php if (!empty($p['body'])): ?>
-          <p class="p"<?php echo $anim_p_clean; ?>><?php echo esc_html($p['body']); ?></p>
-        <?php endif; ?>
-      </amp-story-grid-layer>
-
-    <?php elseif ($style === 'top'): ?>
-      <!-- Fundo sólido com a cor escolhida -->
-      <amp-story-grid-layer template="fill">
-        <div class="bg-solid"></div>
-      </amp-story-grid-layer>
-
-      <!-- Hero (imagem no topo) + textos embaixo -->
-      <amp-story-grid-layer template="vertical" class="layer-content-top" style="padding: 0; display: block!important">
-        <div class="hero"<?php echo $anim_card_div; ?>>
-          <?php if ($img): ?>
-            <amp-img layout="fill" src="<?php echo $img; ?>" alt=""></amp-img>
+        <?php if ($cta_url): ?>
+          <?php if ($cta_type === 'button' && !$is_first): ?>
+            <!-- Botão 1-tap: última layer -->
+            <amp-story-cta-layer>
+              <a class="btn"
+                href="<?php echo esc_url($cta_url); ?>"
+                target="_blank"
+                rel="noreferrer">
+                <?php echo esc_html($cta_text); ?>
+              </a>
+            </amp-story-cta-layer>
+          <?php elseif ($cta_type === 'swipe'): ?>
+            <!-- Swipe up: último filho da página -->
+            <amp-story-page-outlink
+              layout="nodisplay"
+              theme="dark"
+              <?php if ($cta_icon): ?>cta-image="<?php echo esc_attr($cta_icon); ?>" <?php endif; ?>>
+              <a href="<?php echo esc_url($cta_url); ?>" target="_blank" rel="noreferrer"><?php echo esc_html($cta_text); ?></a>
+            </amp-story-page-outlink>
           <?php endif; ?>
-        </div>
-
-        <div class="content">
-          <div class="content-inner">
-            <?php if (!empty($p['heading'])): ?>
-              <h2 class="h2"<?php echo $anim_h2_clean; ?>><?php echo esc_html($p['heading']); ?></h2>
-            <?php endif; ?>
-            <?php if (!empty($p['body'])): ?>
-              <p class="p"<?php echo $anim_p_clean; ?>><?php echo esc_html($p['body']); ?></p>
-            <?php endif; ?>
-          </div>
-        </div>
-      </amp-story-grid-layer>
-
-    <?php elseif ($style === 'split'): ?>
-      <!-- Fundo desfocado + overlay -->
-      <amp-story-grid-layer template="fill">
-        <?php if ($img): ?>
-          <amp-img layout="fill" src="<?php echo $img; ?>" alt=""></amp-img>
-        <?php else: ?>
-          <div class="bg"></div>
         <?php endif; ?>
-        <div class="overlay"></div>
-      </amp-story-grid-layer>
 
-      <!-- Conteúdo em colunas -->
-      <amp-story-grid-layer template="vertical">
-        <div class="split">
-          <div class="left"
-            <?php if ($img): ?>style="background-image:url('<?php echo $img; ?>');"<?php endif; ?>
-            <?php echo $anim_left_split; ?>></div>
-          <div class="right">
-            <?php if (!empty($p['heading'])): ?>
-              <h2 class="h2"<?php echo $anim_h2_split; ?>><?php echo esc_html($p['heading']); ?></h2>
-            <?php endif; ?>
-            <?php if (!empty($p['body'])): ?>
-              <p class="p"<?php echo $anim_p_split; ?>><?php echo esc_html($p['body']); ?></p>
-            <?php endif; ?>
-          </div>
-        </div>
-      </amp-story-grid-layer>
-
-    <?php else: ?>
-      <!-- CLEAN / DARK-LEFT: fundo desfocado -->
-      <amp-story-grid-layer template="fill">
-        <?php if ($img): ?>
-          <amp-img layout="fill" src="<?php echo $img; ?>" alt=""></amp-img>
-        <?php else: ?>
-          <div class="bg"></div>
-        <?php endif; ?>
-        <?php if ($style === 'dark-left'): ?><div class="overlay"></div><?php endif; ?>
-      </amp-story-grid-layer>
-
-      <amp-story-grid-layer template="vertical" class="layer-content pad">
-        <?php if (!empty($p['heading'])): ?>
-          <h2 class="h2"<?php echo $anim_h2_clean; ?>><?php echo esc_html($p['heading']); ?></h2>
-        <?php endif; ?>
-        <?php if (!empty($p['body'])): ?>
-          <p class="p"<?php echo $anim_p_clean; ?>><?php echo esc_html($p['body']); ?></p>
-        <?php endif; ?>
-      </amp-story-grid-layer>
-    <?php endif; ?>
-
-    <?php if ($cta_url): ?>
-      <?php if ($cta_type === 'button' && !$is_first): ?>
-        <!-- Botão 1-tap: última layer -->
-        <amp-story-cta-layer>
-          <a class="btn" href="<?php echo $cta_url; ?>" target="_blank" rel="noreferrer"><?php echo $cta_text; ?></a>
-        </amp-story-cta-layer>
-      <?php elseif ($cta_type === 'swipe'): ?>
-        <!-- Swipe up: último filho da página -->
-        <amp-story-page-outlink
-          layout="nodisplay"
-          theme="dark"
-          <?php if ($cta_icon): ?>cta-image="<?php echo $cta_icon; ?>"<?php endif; ?>
-        >
-          <a href="<?php echo $cta_url; ?>" target="_blank" rel="noreferrer"><?php echo $cta_text; ?></a>
-        </amp-story-page-outlink>
-      <?php endif; ?>
-    <?php endif; ?>
-
-  </amp-story-page>
-  <?php
-    $i++;
-  endforeach;
-  ?>
-</amp-story>
+      </amp-story-page>
+    <?php
+      $i++;
+    endforeach;
+    ?>
+  </amp-story>
 </body>
+
 </html>

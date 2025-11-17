@@ -16,7 +16,7 @@
 if (!defined('ABSPATH')) exit;
 
 if (!defined('PLUGINS_ALPHA_VERSION')) {
-    define('PLUGINS_ALPHA_VERSION', '1.0.1');
+  define('PLUGINS_ALPHA_VERSION', '1.0.1');
 }
 
 // Constantes
@@ -104,10 +104,6 @@ spl_autoload_register(function ($class) {
       return;
     }
   }
-});
-
-add_action('init', function () {
-  load_plugin_textdomain('plugins-alpha', false, dirname(plugin_basename(__FILE__)) . '/languages');
 });
 
 // Bootstrap

@@ -87,8 +87,13 @@ class PluginsAlpha_CPT_Posts_GPT
     }
 
     // 2) Aviso específico na tela de edição se a publicação foi bloqueada
-    if ($screen->base === 'post') {
-      $post_id = isset($_GET['post']) ? (int) $_GET['post'] : 0;
+    if ('post' === $screen->base) {
+      global $post;
+      $post_id = ($post instanceof \WP_Post) ? (int) $post->ID : 0;
+
+      if (! $post_id) {
+        return;
+      }
       if ($post_id > 0) {
         $reason = get_post_meta($post_id, '_pga_blocked_publish_reason', true);
         if ($reason) {
@@ -341,17 +346,6 @@ class PluginsAlpha_CPT_Posts_GPT
     // Se licença OK, deixa publicar normal
     if (!empty($chk['ok'])) {
       return;
-    }
-
-    // Aqui: licença/módulo não OK → não deixa publicar
-    if (defined('WP_DEBUG') && WP_DEBUG) {
-      error_log(
-        sprintf(
-          '[PluginsAlpha][Posts_GPT] Publicação bloqueada para post %d por licença (%s).',
-          $post->ID,
-          $chk['code'] ?? 'licenca_invalida'
-        )
-      );
     }
 
     // Evita loop recursivo ao chamar wp_update_post
