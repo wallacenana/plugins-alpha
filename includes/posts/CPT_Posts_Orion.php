@@ -62,7 +62,7 @@ class PluginsAlpha_CPT_Posts_Orion
     }
 
     // Só nos interessa telas do nosso CPT
-    if ($screen->post_type !== 'orion') {
+    if ($screen->post_type !== 'posts_orion') {
       return;
     }
 
@@ -70,7 +70,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return;
     }
 
-    $chk = PluginsAlpha_License::check(self::MODULE_SLUG);
+    $chk = PluginsAlpha_License::check('orion');
 
     // 1) Aviso geral: licença/módulo não ativo
     if (empty($chk['ok'])) {
@@ -91,26 +91,24 @@ class PluginsAlpha_CPT_Posts_Orion
       global $post;
       $post_id = ($post instanceof \WP_Post) ? (int) $post->ID : 0;
 
-      if (! $post_id) {
+      if (!$post_id) {
         return;
       }
-      if ($post_id > 0) {
-        $reason = get_post_meta($post_id, '_pga_blocked_publish_reason', true);
-        if ($reason) {
-          // Mensagem mais amigável independente do código
-          $msg2 = __('Este post não pôde ser publicado porque a licença do módulo Alpha Órion não está ativa ou não inclui este módulo.', 'plugins-alpha');
 
-          echo '<div class="notice notice-warning is-dismissible"><p>'
-            . esc_html($msg2)
-            . '</p></div>';
+      $reason = get_post_meta($post_id, '_pga_blocked_publish_reason', true);
+      if ($reason) {
+        // Mensagem mais amigável independente do código
+        $msg2 = __('Este post não pôde ser publicado porque a licença do módulo Alpha Órion não está ativa ou não inclui este módulo.', 'plugins-alpha');
 
-          // remove a meta pra não ficar mostrando pra sempre
-          delete_post_meta($post_id, '_pga_blocked_publish_reason');
-        }
+        echo '<div class="notice notice-warning is-dismissible"><p>'
+          . esc_html($msg2)
+          . '</p></div>';
+
+        // remove a meta pra não ficar mostrando pra sempre
+        delete_post_meta($post_id, '_pga_blocked_publish_reason');
       }
     }
   }
-
 
   /**
    * Lê a base de URL do banco de dados.
@@ -165,16 +163,16 @@ class PluginsAlpha_CPT_Posts_Orion
       'taxonomies'         => ['category', 'post_tag'],
       'capability_type'    => 'post',
       'publicly_queryable' => true,
-      'rewrite'            => false,
+      'rewrite'            => false,  // usamos rewrite custom
       'has_archive'        => false,
-      'query_var'          => false,
+      'query_var'          => false,  // usamos QUERY_VAR custom
     ]);
   }
 
   /**
    * Regras de rewrite:
    * - Se base vazia:   /slug-do-post -> posts_orion
-   * - Se base "orion":   /orion/slug-do-post -> posts_orion
+   * - Se base "orion": /orion/slug-do-post -> posts_orion
    */
   public static function add_rewrite_rules(): void
   {
@@ -221,7 +219,7 @@ class PluginsAlpha_CPT_Posts_Orion
     $slug = sanitize_title($wp->query_vars[self::QUERY_VAR]);
 
     // Dizemos ao WP: é um single de posts_orion com esse slug
-    $wp->query_vars['post_type'] = 'orion';
+    $wp->query_vars['post_type'] = 'posts_orion';
     $wp->query_vars['name']      = $slug;
 
     // Evita conflito com pagename
@@ -230,12 +228,16 @@ class PluginsAlpha_CPT_Posts_Orion
 
   /**
    * Ajusta o permalink dos posts_orion para bater com as nossas regras:
-   * - base vazia   -> /slug
-   * - base "orion"   -> /orion/slug
+   * - base vazia:   /slug
+   * - base "orion": /orion/slug
    */
   public static function filter_permalink($permalink, $post, $leavename, $sample)
   {
-    if ($post->post_type !== 'orion') {
+    if (!($post instanceof \WP_Post)) {
+      return $permalink;
+    }
+
+    if ($post->post_type !== 'posts_orion') {
       return $permalink;
     }
 
@@ -243,9 +245,9 @@ class PluginsAlpha_CPT_Posts_Orion
     $slug = $post->post_name;
 
     if ($base === '') {
-      $path = $slug;                 // raiz
+      $path = $slug;               // raiz
     } else {
-      $path = $base . '/' . $slug;   // /base/slug
+      $path = $base . '/' . $slug; // /base/slug
     }
 
     return home_url(user_trailingslashit($path));
@@ -261,7 +263,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return $actions;
     }
 
-    if ($post->post_type !== 'orion') {
+    if ($post->post_type !== 'posts_orion') {
       return $actions;
     }
 
@@ -269,7 +271,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return $actions;
     }
 
-    $chk = PluginsAlpha_License::check(self::MODULE_SLUG);
+    $chk = PluginsAlpha_License::check('orion');
 
     // Se licença ok OU post já publicado → deixa tudo normal
     if (!empty($chk['ok']) || $post->post_status === 'publish') {
@@ -291,7 +293,7 @@ class PluginsAlpha_CPT_Posts_Orion
   public static function filter_edit_link($link, $post_id)
   {
     $post = get_post($post_id);
-    if (!$post || $post->post_type !== 'orion') {
+    if (!$post || $post->post_type !== 'posts_orion') {
       return $link;
     }
 
@@ -299,7 +301,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return $link;
     }
 
-    $chk = PluginsAlpha_License::check(self::MODULE_SLUG);
+    $chk = PluginsAlpha_License::check('orion');
 
     // Licença ok ou post publicado → mantém link
     if (!empty($chk['ok']) || $post->post_status === 'publish') {
@@ -323,7 +325,7 @@ class PluginsAlpha_CPT_Posts_Orion
     }
 
     // Só nos importa o nosso CPT
-    if ($post->post_type !== 'orion') {
+    if ($post->post_type !== 'posts_orion') {
       return;
     }
 
@@ -341,7 +343,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return;
     }
 
-    $chk = PluginsAlpha_License::check(self::MODULE_SLUG);
+    $chk = PluginsAlpha_License::check('orion');
 
     // Se licença OK, deixa publicar normal
     if (!empty($chk['ok'])) {

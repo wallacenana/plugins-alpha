@@ -4,84 +4,18 @@ if (!defined('ABSPATH')) exit;
 class PluginsAlpha_REST
 {
 
-    private static function set_opt($key, $val)
-    {
-        update_option($key, is_array($val) ? array_values($val) : $val, false);
-    }
-
-    private static function kw_set_pending(array $a)
-    {
-        self::set_opt('pga_keywords_pending', self::unique_clean($a));
-    }
-    private static function kw_clear_pending()
-    {
-        self::set_opt('pga_keywords_pending', []);
-    }
-    private static function kw_clear_done()
-    {
-        self::set_opt('pga_keywords_done', []);
-    }
-
-    protected static function kw_get_pending()
-    {
-        $raw = get_option('pga_kw_pending', '');
-        $lines = preg_split('/\r\n|\r|\n/', (string)$raw);
-        $lines = array_values(array_filter(array_map('trim', $lines)));
-        return $lines;
-    }
-
-    protected static function kw_get_done()
-    {
-        $raw = get_option('pga_kw_done', '');
-        $lines = preg_split('/\r\n|\r|\n/', (string)$raw);
-        $lines = array_values(array_filter(array_map('trim', $lines)));
-        return $lines;
-    }
-
+    
     /**
-     * Move UMA keyword da lista de pendentes para a lista de concluídas
+     * Normaliza array de strings: trim, remove vazios e duplicados (case-insensitive)
      */
-    protected static function kw_move_to_done_one(string $kw)
-    {
-        $kw = trim($kw);
-        if ($kw === '') return;
-
-        $pending = self::kw_get_pending();
-        $done    = self::kw_get_done();
-
-        // remove da pending
-        $pending = array_values(array_filter($pending, function ($item) use ($kw) {
-            return mb_strtolower($item) !== mb_strtolower($kw);
-        }));
-
-        // adiciona na done, se ainda não existir
-        $exists = false;
-        foreach ($done as $d) {
-            if (mb_strtolower($d) === mb_strtolower($kw)) {
-                $exists = true;
-                break;
-            }
-        }
-        if (!$exists) {
-            $done[] = $kw;
-        }
-
-        update_option('pga_kw_pending', implode("\n", $pending));
-        update_option('pga_kw_done',    implode("\n", $done));
-    }
-
-
     private static function unique_clean(array $arr): array
     {
-        // 1) tira espaços
         $arr = array_map('trim', $arr);
 
-        // 2) remove vazios (sem arrow function)
         $arr = array_filter($arr, function ($s) {
             return $s !== '';
         });
 
-        // 3) de-duplicação case-insensitive
         $lower = function ($s) {
             return function_exists('mb_strtolower')
                 ? mb_strtolower($s, 'UTF-8')
@@ -95,14 +29,113 @@ class PluginsAlpha_REST
             $k = $lower($s);
             if (!isset($seen[$k])) {
                 $seen[$k] = 1;
-                $out[] = $s;
+                $out[]    = $s;
             }
         }
 
-        // 4) normaliza índices
         return array_values($out);
     }
 
+    /**
+     * Salva PENDENTES como string "a\nb\nc"
+     */
+    private static function kw_set_pending(array $a): void
+    {
+        $clean = self::unique_clean($a);
+        update_option('pga_kw_pending', implode("\n", $clean), false);
+    }
+
+    /**
+     * Salva CONCLUÍDAS como string "a\nb\nc"
+     */
+    private static function kw_set_done(array $a): void
+    {
+        $clean = self::unique_clean($a);
+        update_option('pga_kw_done', implode("\n", $clean), false);
+    }
+
+    /**
+     * Limpa pendentes
+     */
+    private static function kw_clear_pending(): void
+    {
+        update_option('pga_kw_pending', '', false);
+    }
+
+    /**
+     * Limpa concluídas
+     */
+    private static function kw_clear_done(): void
+    {
+        update_option('pga_kw_done', '', false);
+    }
+
+    /**
+     * Lê pendentes como ARRAY
+     */
+    protected static function kw_get_pending(): array
+    {
+        $raw = (string) get_option('pga_kw_pending', '');
+        if ($raw === '') return array();
+
+        $lines = preg_split('/\r\n|\r|\n/', $raw);
+        $lines = array_map('trim', $lines);
+        $lines = array_filter($lines, function ($s) {
+            return $s !== '';
+        });
+
+        return array_values($lines);
+    }
+
+    /**
+     * Lê concluídas como ARRAY
+     */
+    protected static function kw_get_done(): array
+    {
+        $raw = (string) get_option('pga_kw_done', '');
+        if ($raw === '') return array();
+
+        $lines = preg_split('/\r\n|\r|\n/', $raw);
+        $lines = array_map('trim', $lines);
+        $lines = array_filter($lines, function ($s) {
+            return $s !== '';
+        });
+
+        return array_values($lines);
+    }
+
+    /**
+     * Move UMA keyword de pending -> done
+     */
+    protected static function kw_move_to_done_one(string $kw): void
+    {
+        $kw = trim($kw);
+        if ($kw === '') return;
+
+        $pending = self::kw_get_pending();
+        $done    = self::kw_get_done();
+
+        // remove da pending (case-insensitive)
+        $pending = array_values(array_filter($pending, function ($item) use ($kw) {
+            return mb_strtolower($item) !== mb_strtolower($kw);
+        }));
+
+        // adiciona em done se ainda não tiver
+        $exists = false;
+        foreach ($done as $d) {
+            if (mb_strtolower($d) === mb_strtolower($kw)) {
+                $exists = true;
+                break;
+            }
+        }
+        if (!$exists) {
+            $done[] = $kw;
+        }
+
+        // grava de volta usando os helpers
+        self::kw_set_pending($pending);
+        self::kw_set_done($done);
+    }
 
     // ---------------------- utils ----------------------
     private static function verify_nonce($req)
@@ -555,11 +588,17 @@ class PluginsAlpha_REST
     {
         $v = self::verify_nonce($req);
         if (is_wp_error($v)) return $v;
+
         return self::guard(function () use ($req) {
             $p   = $req->get_json_params();
             $who = self::clean($p['who'] ?? 'pending');
-            if ($who === 'done') self::kw_clear_done();
-            else self::kw_clear_pending();
+
+            if ($who === 'done') {
+                self::kw_clear_done();
+            } else {
+                self::kw_clear_pending();
+            }
+
             return [
                 'ok' => true,
                 'pending' => self::kw_get_pending(),
@@ -567,6 +606,7 @@ class PluginsAlpha_REST
             ];
         });
     }
+
 
     // ---------------------- diagnóstico da OpenAI ----------------------
     public static function selftest($req)
