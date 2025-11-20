@@ -26,7 +26,7 @@ define('PGA_URL',  plugin_dir_url(__FILE__));
 
 // === Constantes de diretórios (ajuste aqui se mudar) ===
 if (!defined('PGA_INC_DIR'))        define('PGA_INC_DIR',        rtrim(PGA_PATH, '/\\') . '/includes');
-if (!defined('PGA_INC_POSTS_DIR'))  define('PGA_INC_POSTS_DIR',  PGA_INC_DIR . '/posts');
+if (!defined('PGA_INC_POSTS_DIR'))  define('PGA_INC_POSTS_DIR',  PGA_INC_DIR . '/orion');
 if (!defined('PGA_INC_STORYS_DIR')) define('PGA_INC_STORYS_DIR', PGA_INC_DIR . '/stories'); // "stories" mesmo
 
 
