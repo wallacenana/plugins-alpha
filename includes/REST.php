@@ -160,6 +160,32 @@ class PluginsAlpha_REST
     // ---------------------- rotas ----------------------
     public static function register_routes()
     {
+        register_rest_route('pga/v1', '/orion/outline', [
+            'methods'             => 'POST',
+            'callback'            => [__CLASS__, 'handle_outline'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            },
+        ]);
+
+        // 2) Gera UMA seção do esboço
+        register_rest_route('pga/v1', '/orion/section', [
+            'methods'             => 'POST',
+            'callback'            => [__CLASS__, 'handle_section'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            },
+        ]);
+
+        // 3) Junta tudo e finaliza o post
+        register_rest_route('pga/v1', '/orion/finalize', [
+            'methods'             => 'POST',
+            'callback'            => [__CLASS__, 'handle_finalize'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            },
+        ]);
+
         register_rest_route('pga/v1', '/license/activate', [
             'methods'  => 'POST',
             'permission_callback' => function () {
@@ -182,14 +208,6 @@ class PluginsAlpha_REST
                 return current_user_can('edit_posts');
             },
             'callback' => [__CLASS__, 'plan'],
-        ]);
-
-        register_rest_route('pga/v1', '/generate', [
-            'methods'  => 'POST',
-            'permission_callback' => function () {
-                return current_user_can('edit_posts');
-            },
-            'callback' => [__CLASS__, 'generate_single'],
         ]);
 
         register_rest_route('pga/v1', '/status', [
@@ -233,6 +251,99 @@ class PluginsAlpha_REST
             'callback' => [__CLASS__, 'selftest'],
         ]);
     }
+    public static function permission()
+    {
+        return current_user_can('edit_posts');
+    }
+    /**
+     * POST /wp-json/pga/v1/orion/outline
+     * Body: { keywords: [...], length, template, locale, source_url, publish_time, category_id, post_type }
+     */
+    public static function handle_outline(WP_REST_Request $req)
+    {
+        $v = self::verify_nonce($req);
+        if (is_wp_error($v)) return $v;
+
+        $params = $req->get_json_params();
+        if (empty($params)) {
+            $params = $req->get_params(); // fallback pra form-urlencoded
+        }
+
+        // Gera rascunho + outline
+        $res = PluginsAlpha_Pages_Generator::create_draft_and_outline($params);
+
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        return rest_ensure_response($res);
+    }
+
+    /**
+     * POST /wp-json/pga/v1/orion/section
+     * Body: { post_id: 123, section_id: "1" }
+     */
+    public static function handle_section(WP_REST_Request $req)
+    {
+        $v = self::verify_nonce($req);
+        if (is_wp_error($v)) return $v;
+
+        $params     = $req->get_json_params();
+        if (empty($params)) {
+            $params = $req->get_params();
+        }
+
+        $post_id    = intval($params['post_id'] ?? 0);
+        $section_id = (string)($params['section_id'] ?? '');
+
+        if (!$post_id || $section_id === '') {
+            return new WP_Error(
+                'pga_bad_request',
+                __('post_id ou section_id ausentes.', 'plugins-alpha'),
+                ['status' => 400]
+            );
+        }
+
+        $res = PluginsAlpha_Pages_Generator::generate_section_content($post_id, $section_id);
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        return rest_ensure_response($res);
+    }
+
+
+    /**
+     * POST /wp-json/pga/v1/orion/finalize
+     * Body: { post_id: 123 }
+     */
+    public static function handle_finalize(WP_REST_Request $req)
+    {
+        $v = self::verify_nonce($req);
+        if (is_wp_error($v)) return $v;
+
+        $params  = $req->get_json_params();
+        if (empty($params)) {
+            $params = $req->get_params();
+        }
+
+        $post_id = intval($params['post_id'] ?? 0);
+        if (!$post_id) {
+            return new WP_Error(
+                'pga_bad_request',
+                __('post_id ausente.', 'plugins-alpha'),
+                ['status' => 400]
+            );
+        }
+
+        $res = PluginsAlpha_Pages_Generator::finalize_from_sections($post_id);
+
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        return rest_ensure_response($res);
+    }
 
     public static function activate(WP_REST_Request $req)
     {
@@ -257,8 +368,6 @@ class PluginsAlpha_REST
             'license' => $lic,
         ];
     }
-
-
 
     // ---------------------- PLAN: só planeja (rápido) ----------------------
     public static function plan($req)
@@ -340,101 +449,6 @@ class PluginsAlpha_REST
             ];
         });
     }
-
-    // ---------------------- GENERATE: gera 1 por requisição -------------
-    public static function generate_single($req)
-    {
-        $v = self::verify_nonce($req);
-        if (is_wp_error($v)) return $v;
-
-        return self::guard(function () use ($req) {
-
-            // 0) VERIFICA LICENÇA / MÓDULO ANTES DE GERAR
-            if (class_exists('PluginsAlpha_License')) {
-                $chk = PluginsAlpha_License::check('post-gpt');
-
-                if (empty($chk['ok'])) {
-                    return new WP_Error(
-                        $chk['code'] ?: 'pga_lic',
-                        $chk['message'] ?: __('Licença inválida ou módulo não disponível.', 'plugins-alpha'),
-                        [
-                            'status' => 403,
-                            // se quiser, manda o code também nos dados:
-                            'code'   => $chk['code'] ?? '',
-                        ]
-                    );
-                }
-            }
-
-            // 1) PARAMS
-            $p   = $req->get_json_params();
-            $kw  = self::clean($p['keyword'] ?? '');
-            $url = esc_url_raw($p['source_url'] ?? '');
-
-            if ($kw === '' && $url === '') {
-                return new WP_Error('pga_kw', 'Informe keyword ou URL.', ['status' => 400]);
-            }
-
-            $cat_id = max(0, intval($p['category_id'] ?? 0));
-
-            if (!class_exists('PluginsAlpha_Pages_Generator')) {
-                return new WP_Error('pga_no_generator', 'Classe Generator ausente.', ['status' => 500]);
-            }
-
-            $args = [
-                'keywords'     => $kw ? [$kw] : [''],
-                'locale'       => self::clean($p['locale'] ?? 'pt_BR'),
-                'template'     => self::clean($p['template_key'] ?? 'discover_article'),
-                'source_url'   => $url,
-                'publish_time' => max(time() + 2 * HOUR_IN_SECONDS, intval($p['publish_time'] ?? time() + 2 * HOUR_IN_SECONDS)),
-                'transition'   => [
-                    'strict'    => !empty($p['transition']['strict']),
-                    'min_ratio' => floatval($p['transition']['min_ratio'] ?? 0.3),
-                    'words'     => is_array($p['transition']['words'] ?? null)
-                        ? array_values(array_filter(array_map('trim', $p['transition']['words'])))
-                        : [],
-                ],
-                'category_id'  => $cat_id,
-                // força nosso CPT
-                'post_type'    => 'posts_gpt',
-            ];
-
-            $res = PluginsAlpha_Pages_Generator::generate_and_insert(
-                $args,
-                class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : []
-            );
-
-            if (is_wp_error($res)) {
-                $edata  = $res->get_error_data();
-                $status = is_array($edata) && isset($edata['status']) ? (int)$edata['status'] : 400;
-                $msg    = $res->get_error_message() ?: self::wp_error_to_string($res);
-
-                // devolve postId do “rascunho-inicial” se existir
-                $pId = is_array($edata) && !empty($edata['post_id']) ? (int)$edata['post_id'] : 0;
-
-                return new WP_Error(
-                    $res->get_error_code() ?: 'pga_generate',
-                    $msg,
-                    ['status' => $status, 'postId' => $pId]
-                );
-            }
-
-            if ($kw) self::kw_move_to_done_one($kw);
-
-            return [
-                'ok'      => true,
-                'post_id' => $res['post_id'],
-                'edit'    => get_edit_post_link($res['post_id'], ''),
-                'view'    => $res['view_link'],
-                'state'   => [
-                    'pending' => self::kw_get_pending(),
-                    'done'    => self::kw_get_done(),
-                ],
-            ];
-        });
-    }
-
-
 
     public static function status()
     {

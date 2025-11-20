@@ -1,17 +1,19 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_AdminMenus {
-  public static function register(): void {
-    $icon_url = PGA_URL.'assets/images/favicon-plugins-alpha.png?v='.pga_asset_ver('assets/images/favicon-plugins-alpha.png');
+class PluginsAlpha_AdminMenus
+{
+  public static function register(): void
+  {
+    $icon_url = PGA_URL . 'assets/images/favicon-plugins-alpha.png?v=' . pga_asset_ver('assets/images/favicon-plugins-alpha.png');
 
     // TOP LEVEL
     add_menu_page(
-      __('Plugins Alpha','plugins-alpha'),
+      __('Plugins Alpha', 'plugins-alpha'),
       'Plugins Alpha',
       'edit_posts',
       'plugins-alpha-dashboard',
-      ['PluginsAlpha_AdminMenus','render_dashboard'],
+      ['PluginsAlpha_AdminMenus', 'render_dashboard'],
       $icon_url,
       30
     );
@@ -19,38 +21,38 @@ class PluginsAlpha_AdminMenus {
     // 1) Dashboard (primeiro submenu = o que abre ao clicar no topo)
     add_submenu_page(
       'plugins-alpha-dashboard',
-      __('Plugins Alpha','plugins-alpha'),
-      __('Plugins Alpha','plugins-alpha'),
+      __('Plugins Alpha', 'plugins-alpha'),
+      __('Plugins Alpha', 'plugins-alpha'),
       'edit_posts',
       'plugins-alpha-dashboard',
-      ['PluginsAlpha_AdminMenus','render_dashboard']
+      ['PluginsAlpha_AdminMenus', 'render_dashboard']
     );
 
-    // 2) Posts GPT (lista do CPT)
+    // 2) Posts Órion Posts (lista do CPT)
     add_submenu_page(
       'plugins-alpha-dashboard',
-      __('Posts GPT','plugins-alpha'),
-      __('Posts GPT','plugins-alpha'),
+      __('Órion Posts', 'plugins-alpha'),
+      __('Órion Posts', 'plugins-alpha'),
       'edit_posts',
-      'edit.php?post_type=posts_gpt',   // 👈 tela nativa do CPT
+      'edit.php?post_type=posts_orion',
       null
     );
-    
+
     // 4) Gerar Posts
     add_submenu_page(
       'plugins-alpha-dashboard',
-      __('Gerar Posts','plugins-alpha'),
-      __('Gerar Posts','plugins-alpha'),
+      __('Gerar Posts', 'plugins-alpha'),
+      __('Gerar Posts', 'plugins-alpha'),
       'edit_posts',
-      'plugins-alpha-gpt-posts',
-      ['PluginsAlpha_AdminMenus','render_generator']
+      'plugins-alpha-orion-posts',
+      ['PluginsAlpha_AdminMenus', 'render_generator']
     );
 
     // 3) Alpha Stories (lista do CPT)
     add_submenu_page(
       'plugins-alpha-dashboard',
-      __('Alpha Stories','plugins-alpha'),
-      __('Alpha Stories','plugins-alpha'),
+      __('Alpha Stories', 'plugins-alpha'),
+      __('Alpha Stories', 'plugins-alpha'),
       'edit_posts',
       'edit.php?post_type=alpha_storys', // 👈 tela nativa do CPT
       null
@@ -59,15 +61,25 @@ class PluginsAlpha_AdminMenus {
     // 5) Configurações
     add_submenu_page(
       'plugins-alpha-dashboard',
-      __('Configurações','plugins-alpha'),
-      __('Configurações','plugins-alpha'),
+      __('Configurações', 'plugins-alpha'),
+      __('Configurações', 'plugins-alpha'),
       'manage_options',
       'plugins-alpha-settings',
-      ['PluginsAlpha_AdminMenus','render_settings']
+      ['PluginsAlpha_AdminMenus', 'render_settings']
+    );
+
+    add_submenu_page(
+      'plugins-alpha-dashboard',
+      __('Prompts Órion', 'plugins-alpha'),
+      __('Prompts Órion', 'plugins-alpha'),
+      'manage_options',
+      'plugins-alpha-orion-prompts',
+      ['PluginsAlpha_AdminMenus', 'render_prompts']
     );
   }
 
-  public static function render_dashboard(): void {
+  public static function render_dashboard(): void
+  {
     if (class_exists('PluginsAlpha_Dashboard')) {
       PluginsAlpha_Dashboard::render();
     } else {
@@ -75,7 +87,8 @@ class PluginsAlpha_AdminMenus {
     }
   }
 
-  public static function render_generator(): void {
+  public static function render_generator(): void
+  {
     if (class_exists('PluginsAlpha_Pages_Generator')) {
       PluginsAlpha_Pages_Generator::render();
     } else {
@@ -83,9 +96,18 @@ class PluginsAlpha_AdminMenus {
     }
   }
 
-  public static function render_settings(): void {
+  public static function render_settings(): void
+  {
     if (class_exists('PluginsAlpha_Settings')) {
       PluginsAlpha_Settings::render();
+    } else {
+      echo '<div class="wrap"><h1>Configurações</h1><p>Em breve…</p></div>';
+    }
+  }
+  public static function render_prompts(): void
+  {
+    if (class_exists('PluginsAlpha_Prompts')) {
+      PluginsAlpha_Prompts::render_page();
     } else {
       echo '<div class="wrap"><h1>Configurações</h1><p>Em breve…</p></div>';
     }

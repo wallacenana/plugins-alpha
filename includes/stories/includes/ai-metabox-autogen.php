@@ -7,7 +7,7 @@ add_action('add_meta_boxes', function () {
     'alpha_ai_box',
     'Gerar Stories',
     'alpha_ai_autogen_cb',
-    ['post', 'posts_gpt'], // ajuste o post type se precisar
+    ['post', 'posts_orion'], // ajuste o post type se precisar
     'side',
     'high'
   );

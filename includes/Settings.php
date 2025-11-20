@@ -27,21 +27,58 @@ class PluginsAlpha_Settings
     $in = is_array($in) ? $in : [];
 
     // apis.openai (global)
+    // apis.openai (já existente)
     $api = $in['apis']['openai'] ?? [];
     $out['apis']['openai'] = [
-      'key'          => sanitize_text_field($api['key'] ?? ''),
-      'model_text'   => sanitize_text_field($api['model_text'] ?? 'gpt-4o-mini'),
-      'temperature'  => is_numeric($api['temperature'] ?? null) ? (float)$api['temperature'] : 0.6,
-      'max_tokens'   => max(1, (int)($api['max_tokens'] ?? 6000)),
+      'key'         => sanitize_text_field($api['key'] ?? ''),
+      'model_text'  => sanitize_text_field($api['model_text'] ?? 'gpt-4o-mini'),
+      'temperature' => is_numeric($api['temperature'] ?? null) ? (float) $api['temperature'] : 0.6,
+      'max_tokens'  => max(1, (int) ($api['max_tokens'] ?? 6000)),
     ];
 
-    // GPT Posts (ex.: defaults)
-    $gp = $in['gpt_posts'] ?? [];
-    $out['gpt_posts'] = [
+    // apis.images (thumbnails)
+    $img = $in['apis']['images'] ?? [];
+    $provider = isset($img['provider']) ? sanitize_text_field($img['provider']) : 'pollinations';
+    $allowed_providers = ['pollinations', 'openai', 'none'];
+    if (!in_array($provider, $allowed_providers, true)) {
+      $provider = 'pollinations';
+    }
+
+    // modelos permitidos (você pode expandir depois se quiser)
+    $model = isset($img['model']) ? sanitize_text_field($img['model']) : 'dall-e-3';
+    $allowed_models = ['dall-e-3', 'gpt-image-1'];
+    if (! in_array($model, $allowed_models, true)) {
+      $model = 'dall-e-3';
+    }
+
+    // tamanhos que fazem sentido pra thumbnail
+    $size = isset($img['size']) ? sanitize_text_field($img['size']) : '1024x576';
+    $allowed_sizes = ['1024x576', '1024x1024', '1792x1024', '1024x1792'];
+    if (! in_array($size, $allowed_sizes, true)) {
+      $size = '1024x576';
+    }
+
+    // qualidade
+    $quality = isset($img['quality']) ? sanitize_text_field($img['quality']) : 'standard';
+    if (! in_array($quality, ['standard', 'hd'], true)) {
+      $quality = 'standard';
+    }
+
+    $out['apis']['images'] = [
+      'provider' => $provider,
+      'model'    => sanitize_text_field($img['model'] ?? 'dall-e-3'),
+      'size'     => sanitize_text_field($img['size'] ?? '1024x576'),
+      'quality'  => sanitize_text_field($img['quality'] ?? 'standard'),
+    ];
+
+
+    // orion Posts (ex.: defaults)
+    $gp = $in['orion_posts'] ?? [];
+    $out['orion_posts'] = [
       'defaults' => [
         'locale' => sanitize_text_field($gp['defaults']['locale'] ?? 'pt_BR'),
       ],
-      // acrescente aqui outras chaves do GPT Posts quando precisar
+      // acrescente aqui outras chaves do orion Posts quando precisar
     ];
 
     // Stories (migração do alpha_storys_options)
@@ -92,7 +129,7 @@ class PluginsAlpha_Settings
     // phpcs:enable WordPress.Security.NonceVerification.Recommended
     $tabs = [
       'core'      => __('Geral', 'plugins-alpha'),
-      'gpt-posts' => __('GPT Posts', 'plugins-alpha'),
+      'orion-posts' => __('Órion Posts', 'plugins-alpha'),
       'stories'   => __('Stories', 'plugins-alpha'),
     ];
     $opts = self::get();
@@ -114,8 +151,8 @@ class PluginsAlpha_Settings
 
         <?php
         switch ($tab) {
-          case 'gpt-posts':
-            self::render_tab_gpt_posts($opts);
+          case 'orion-posts':
+            self::render_tab_orion_posts($opts);
             break;
           case 'stories':
             self::render_tab_stories($opts);
@@ -134,7 +171,13 @@ class PluginsAlpha_Settings
 
   private static function render_tab_core(array $o): void
   {
-    $apis  = $o['apis']['openai'] ?? [];
+    $apis = $o['apis']['openai'] ?? [];
+    $img  = $o['apis']['images'] ?? [];
+
+    $prov    = $img['provider'] ?? 'pollinations';
+    $img_model   = $img['model'] ?? 'dall-e-3';
+    $img_size    = $img['size'] ?? '1024x576';
+    $img_quality = $img['quality'] ?? 'standard';
   ?>
     <h2 class="title">OpenAI (global)</h2>
     <table class="form-table" role="presentation">
@@ -155,19 +198,122 @@ class PluginsAlpha_Settings
         <td><input name="pga_settings[apis][openai][max_tokens]" id="pga_openai_maxtok" type="number" class="small-text" value="<?php echo esc_attr($apis['max_tokens'] ?? 6000); ?>"></td>
       </tr>
     </table>
+    <h2 class="title"><?php esc_html_e('OpenAI (global)', 'plugins-alpha'); ?></h2>
+    <table class="form-table" role="presentation">
+      <!-- seus campos já existentes de OpenAI aqui -->
+    </table>
+
+    <h2 class="title"><?php esc_html_e('Imagens (thumbnails automáticas)', 'plugins-alpha'); ?></h2>
+    <table class="form-table" role="presentation">
+      <tr>
+        <th scope="row">
+          <label for="pga_img_provider"><?php esc_html_e('Provedor de imagem', 'plugins-alpha'); ?></label>
+        </th>
+        <td>
+          <select name="pga_settings[apis][images][provider]"
+            id="pga_img_provider">
+            <option value="pollinations" <?php selected($prov, 'pollinations'); ?>>
+              <?php esc_html_e('Pollinations (grátis, qualidade variável)', 'plugins-alpha'); ?>
+            </option>
+            <option value="openai" <?php selected($prov, 'openai'); ?>>
+              <?php esc_html_e('OpenAI / DALL·E (pago, melhor qualidade)', 'plugins-alpha'); ?>
+            </option>
+            <option value="none" <?php selected($prov, 'none'); ?>>
+              <?php esc_html_e('Não gerar thumbnails automaticamente', 'plugins-alpha'); ?>
+            </option>
+          </select>
+          <p class="description">
+            <?php esc_html_e('Escolha se as imagens serão geradas pelo Pollinations, OpenAI ou se serão desativadas.', 'plugins-alpha'); ?>
+          </p>
+        </td>
+      </tr>
+
+      <tr class="pga-img-openai-row">
+        <th scope="row">
+          <label for="pga_img_model"><?php esc_html_e('Modelo OpenAI', 'plugins-alpha'); ?></label>
+        </th>
+        <td>
+          <select name="pga_settings[apis][images][model]"
+            id="pga_img_model">
+            <option value="dall-e-3" <?php selected($img_model, 'dall-e-3'); ?>>
+              dall-e-3
+            </option>
+            <option value="gpt-image-1" <?php selected($img_model, 'gpt-image-1'); ?>>
+              gpt-image-1
+            </option>
+          </select>
+          <p class="description">
+            <?php esc_html_e('Escolha o modelo de imagem da OpenAI compatível com a sua conta.', 'plugins-alpha'); ?>
+          </p>
+        </td>
+      </tr>
+
+      <tr class="pga-img-openai-row">
+        <th scope="row">
+          <label for="pga_img_size"><?php esc_html_e('Tamanho da imagem', 'plugins-alpha'); ?></label>
+        </th>
+        <td>
+          <select name="pga_settings[apis][images][size]"
+            id="pga_img_size">
+            <option value="1024x576" <?php selected($img_size, '1024x576'); ?>>1024x576 (16:9)</option>
+            <option value="1024x1024" <?php selected($img_size, '1024x1024'); ?>>1024x1024 (quadrado)</option>
+            <option value="1792x1024" <?php selected($img_size, '1792x1024'); ?>>1792x1024 (wide)</option>
+            <option value="1024x1792" <?php selected($img_size, '1024x1792'); ?>>1024x1792 (vertical)</option>
+          </select>
+          <p class="description">
+            <?php esc_html_e('Use 16:9 para thumbnails de posts e 1024x1024 para usos genéricos.', 'plugins-alpha'); ?>
+          </p>
+        </td>
+      </tr>
+
+      <tr class="pga-img-openai-row">
+        <th scope="row">
+          <label for="pga_img_quality"><?php esc_html_e('Qualidade', 'plugins-alpha'); ?></label>
+        </th>
+        <td>
+          <select name="pga_settings[apis][images][quality]"
+            id="pga_img_quality">
+            <option value="standard" <?php selected($img_quality, 'standard'); ?>>
+              <?php esc_html_e('Standard (mais barato)', 'plugins-alpha'); ?>
+            </option>
+            <option value="hd" <?php selected($img_quality, 'hd'); ?>>
+              <?php esc_html_e('HD (mais caro, melhor)', 'plugins-alpha'); ?>
+            </option>
+          </select>
+          <p class="description">
+            <?php esc_html_e('HD consome mais créditos, use apenas quando precisar de máxima qualidade.', 'plugins-alpha'); ?>
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <script>
+      (function($) {
+        function pgaToggleImageRows() {
+          var prov = $('#pga_img_provider').val();
+          if (prov === 'openai') {
+            $('.pga-img-openai-row').show();
+          } else {
+            $('.pga-img-openai-row').hide();
+          }
+        }
+        $(document).on('change', '#pga_img_provider', pgaToggleImageRows);
+        $(pgaToggleImageRows);
+      })(jQuery);
+    </script>
   <?php
   }
 
-  private static function render_tab_gpt_posts(array $o): void
+  private static function render_tab_orion_posts(array $o): void
   {
-    $gp = $o['gpt_posts']['defaults'] ?? [];
+    $gp = $o['orion_posts']['defaults'] ?? [];
   ?>
     <h2 class="title">Padrões de geração</h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row"><label for="pga_gp_locale">Locale padrão</label></th>
         <td>
-          <select name="pga_settings[gpt_posts][defaults][locale]" id="pga_gp_locale">
+          <select name="pga_settings[orion_posts][defaults][locale]" id="pga_gp_locale">
             <?php foreach (['pt_BR' => 'Português (Brasil)', 'en_US' => 'English (US)', 'es_ES' => 'Español', 'fr_FR' => 'Français'] as $v => $lab): ?>
               <option value="<?php echo esc_attr($v); ?>" <?php selected(($gp['locale'] ?? 'pt_BR'), $v); ?>>
                 <?php echo esc_html($lab); ?>

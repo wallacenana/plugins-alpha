@@ -25,10 +25,10 @@ class PluginsAlpha_Remote {
     // fallback mock
     $mock = [
       [
-        'slug' => 'gpt-posts',
-        'name' => 'GPT Posts',
+        'slug' => 'orion-posts',
+        'name' => 'Órion Posts',
         'desc' => 'Gere calendários e artigos com IA.',
-        'logo' => PGA_URL.'assets/images/gpt-posts.png',
+        'logo' => PGA_URL.'assets/images/orion-posts.png',
         'price' => 297.00,
         'promo_price' => 197.00,
         'buy_url' => '#',

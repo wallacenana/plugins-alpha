@@ -30,7 +30,7 @@ class PluginsAlpha_PermalinkSettings
 
     add_settings_field(
       'pga_posts_base',
-      __('Base do GPT Posts', 'plugins-alpha'),
+      __('Base do Órion Posts', 'plugins-alpha'),
       [self::class, 'render_posts_field'],
       'permalink',
       'plugins_alpha_permalinks_section'
@@ -50,7 +50,7 @@ class PluginsAlpha_PermalinkSettings
   {
     $value = get_option('pga_posts_base', '');
     echo '<input name="pga_posts_base" type="text" value="' . esc_attr($value) . '" class="regular-text"/>';
-    echo '<p class="description">Slug base dos posts gerados (ex: "gpt", "ia-posts"). Deixe em branco para usar o padrão.</p>';
+    echo '<p class="description">Slug base dos posts gerados (ex: "orion", "ia-posts"). Deixe em branco para usar o padrão.</p>';
   }
 
   public static function handle_save()

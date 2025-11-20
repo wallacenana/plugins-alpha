@@ -496,7 +496,7 @@ class PluginsAlpha_License
     /**
      * Valida a licença e (opcionalmente) um módulo específico.
      *
-     * @param string $module_slug Ex.: 'alpha_stories', 'alpha_gpt_posts' ou '' para só validar a licença.
+     * @param string $module_slug Ex.: 'alpha_stories', 'alpha_orion_posts' ou '' para só validar a licença.
      * @return array {
      *   ok      => bool,
      *   code    => string (ok|licenca_inativa|licenca_expirada|modulo_indisponivel),

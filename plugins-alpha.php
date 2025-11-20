@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Plugins Alpha
- * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Posts GPT, Alpha Stories e muito mais.
+ * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Alpha Órion, Alpha Stories e muito mais.
  * Version: 1.0.1
  * Author: Wallace Tavares
  * Author URI: https://pluginsalpha.com/

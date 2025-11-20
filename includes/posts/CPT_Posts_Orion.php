@@ -1,23 +1,23 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_CPT_Posts_GPT
+class PluginsAlpha_CPT_Posts_Orion
 {
   /**
    * Slug interno do módulo no sistema de licença.
    */
-  const MODULE_SLUG = 'post-gpt';
+  const MODULE_SLUG = 'post-orion';
 
   /**
-   * Option usada na tela de Links Permanentes para base dos posts GPT.
-   * Ex.: 'gpt', 'ia-posts' etc.
+   * Option usada na tela de Links Permanentes para base dos Órion Posts.
+   * Ex.: 'orion', 'ia-posts' etc.
    */
   const OPTION_BASE = 'pga_posts_base';
 
   /**
    * Query var interna usada nas regras de rewrite para resolver o slug.
    */
-  const QUERY_VAR = 'pga_posts_gpt_slug';
+  const QUERY_VAR = 'pga_posts_orion_slug';
 
   /**
    * Bootstrap
@@ -62,7 +62,7 @@ class PluginsAlpha_CPT_Posts_GPT
     }
 
     // Só nos interessa telas do nosso CPT
-    if ($screen->post_type !== 'posts_gpt') {
+    if ($screen->post_type !== 'orion') {
       return;
     }
 
@@ -77,7 +77,7 @@ class PluginsAlpha_CPT_Posts_GPT
       // link para o painel Plugins Alpha (ajusta o slug se for diferente)
       $url = admin_url('admin.php?page=plugins-alpha-dashboard');
 
-      $msg = $chk['message'] ?: __('Licença do módulo Posts GPT inativa. Ative o módulo para continuar gerando e publicando posts.', 'plugins-alpha');
+      $msg = $chk['message'] ?: __('Licença do módulo Alpha Órion inativa. Ative o módulo para continuar gerando e publicando posts.', 'plugins-alpha');
 
       echo '<div class="notice notice-error is-dismissible"><p>'
         . esc_html($msg)
@@ -98,7 +98,7 @@ class PluginsAlpha_CPT_Posts_GPT
         $reason = get_post_meta($post_id, '_pga_blocked_publish_reason', true);
         if ($reason) {
           // Mensagem mais amigável independente do código
-          $msg2 = __('Este post não pôde ser publicado porque a licença do módulo Posts GPT não está ativa ou não inclui este módulo.', 'plugins-alpha');
+          $msg2 = __('Este post não pôde ser publicado porque a licença do módulo Alpha Órion não está ativa ou não inclui este módulo.', 'plugins-alpha');
 
           echo '<div class="notice notice-warning is-dismissible"><p>'
             . esc_html($msg2)
@@ -126,18 +126,18 @@ class PluginsAlpha_CPT_Posts_GPT
   public static function register(): void
   {
     $labels = [
-      'name'               => __('Posts GPT', 'plugins-alpha'),
-      'singular_name'      => __('Post GPT', 'plugins-alpha'),
-      'menu_name'          => __('Posts GPT', 'plugins-alpha'),
+      'name'               => __('Órion Posts', 'plugins-alpha'),
+      'singular_name'      => __('Órion Post', 'plugins-alpha'),
+      'menu_name'          => __('Órion Posts', 'plugins-alpha'),
       'add_new'            => __('Adicionar novo', 'plugins-alpha'),
-      'add_new_item'       => __('Adicionar novo Post GPT', 'plugins-alpha'),
-      'edit_item'          => __('Editar Post GPT', 'plugins-alpha'),
-      'new_item'           => __('Novo Post GPT', 'plugins-alpha'),
-      'view_item'          => __('Ver Post GPT', 'plugins-alpha'),
-      'search_items'       => __('Buscar Posts GPT', 'plugins-alpha'),
-      'not_found'          => __('Nenhum Post GPT encontrado', 'plugins-alpha'),
-      'not_found_in_trash' => __('Nenhum Post GPT na lixeira', 'plugins-alpha'),
-      'all_items'          => __('Posts GPT', 'plugins-alpha'),
+      'add_new_item'       => __('Adicionar novo Órion Post', 'plugins-alpha'),
+      'edit_item'          => __('Editar Órion Post', 'plugins-alpha'),
+      'new_item'           => __('Novo Órion Post', 'plugins-alpha'),
+      'view_item'          => __('Ver Órion Post', 'plugins-alpha'),
+      'search_items'       => __('Buscar Órion Posts', 'plugins-alpha'),
+      'not_found'          => __('Nenhum Órion Post encontrado', 'plugins-alpha'),
+      'not_found_in_trash' => __('Nenhum Órion Post na lixeira', 'plugins-alpha'),
+      'all_items'          => __('Órion Posts', 'plugins-alpha'),
     ];
 
     $supports = [
@@ -154,7 +154,7 @@ class PluginsAlpha_CPT_Posts_GPT
       'post-formats',
     ];
 
-    register_post_type('posts_gpt', [
+    register_post_type('posts_orion', [
       'public'             => true,
       'show_ui'            => true,
       'show_in_menu'       => false,
@@ -173,8 +173,8 @@ class PluginsAlpha_CPT_Posts_GPT
 
   /**
    * Regras de rewrite:
-   * - Se base vazia:   /slug-do-post -> posts_gpt
-   * - Se base "gpt":   /gpt/slug-do-post -> posts_gpt
+   * - Se base vazia:   /slug-do-post -> posts_orion
+   * - Se base "orion":   /orion/slug-do-post -> posts_orion
    */
   public static function add_rewrite_rules(): void
   {
@@ -210,7 +210,7 @@ class PluginsAlpha_CPT_Posts_GPT
   }
 
   /**
-   * Converte a query var interna em uma query padrão de single de posts_gpt.
+   * Converte a query var interna em uma query padrão de single de posts_orion.
    */
   public static function parse_request(\WP $wp): void
   {
@@ -220,8 +220,8 @@ class PluginsAlpha_CPT_Posts_GPT
 
     $slug = sanitize_title($wp->query_vars[self::QUERY_VAR]);
 
-    // Dizemos ao WP: é um single de posts_gpt com esse slug
-    $wp->query_vars['post_type'] = 'posts_gpt';
+    // Dizemos ao WP: é um single de posts_orion com esse slug
+    $wp->query_vars['post_type'] = 'orion';
     $wp->query_vars['name']      = $slug;
 
     // Evita conflito com pagename
@@ -229,13 +229,13 @@ class PluginsAlpha_CPT_Posts_GPT
   }
 
   /**
-   * Ajusta o permalink dos posts_gpt para bater com as nossas regras:
+   * Ajusta o permalink dos posts_orion para bater com as nossas regras:
    * - base vazia   -> /slug
-   * - base "gpt"   -> /gpt/slug
+   * - base "orion"   -> /orion/slug
    */
   public static function filter_permalink($permalink, $post, $leavename, $sample)
   {
-    if ($post->post_type !== 'posts_gpt') {
+    if ($post->post_type !== 'orion') {
       return $permalink;
     }
 
@@ -252,7 +252,7 @@ class PluginsAlpha_CPT_Posts_GPT
   }
 
   /**
-   * Remove ações (Editar, Edição rápida, Ver) para posts_gpt
+   * Remove ações (Editar, Edição rápida, Ver) para posts_orion
    * quando a licença do módulo não está ok E o post não está publicado.
    */
   public static function filter_row_actions($actions, $post)
@@ -261,7 +261,7 @@ class PluginsAlpha_CPT_Posts_GPT
       return $actions;
     }
 
-    if ($post->post_type !== 'posts_gpt') {
+    if ($post->post_type !== 'orion') {
       return $actions;
     }
 
@@ -288,10 +288,10 @@ class PluginsAlpha_CPT_Posts_GPT
    * Remove o link de edição do título quando licença não está ok
    * e o post ainda não foi publicado.
    */
-  public static function filter_edit_link($link, $post_id, $context)
+  public static function filter_edit_link($link, $post_id)
   {
     $post = get_post($post_id);
-    if (!$post || $post->post_type !== 'posts_gpt') {
+    if (!$post || $post->post_type !== 'orion') {
       return $link;
     }
 
@@ -312,7 +312,7 @@ class PluginsAlpha_CPT_Posts_GPT
 
   /**
    * Bloqueia a publicação (inclui cron do WP) quando a licença/módulo não está ok.
-   * - Só age em posts_gpt
+   * - Só age em posts_orion
    * - Só quando status está indo PARA publish
    * - Não interfere em updates de posts já publicados.
    */
@@ -323,7 +323,7 @@ class PluginsAlpha_CPT_Posts_GPT
     }
 
     // Só nos importa o nosso CPT
-    if ($post->post_type !== 'posts_gpt') {
+    if ($post->post_type !== 'orion') {
       return;
     }
 

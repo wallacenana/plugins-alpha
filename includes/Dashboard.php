@@ -56,8 +56,8 @@ class PluginsAlpha_Dashboard {
               <div class="pa-actions">
                 <?php
                   // Botões por slug conhecido
-                  if ($slug === 'gpt-posts') {
-                    $href = admin_url('admin.php?page=plugins-alpha-gpt-posts');
+                  if ($slug === 'orion-posts') {
+                    $href = admin_url('admin.php?page=plugins-alpha-orion-posts');
                     echo '<a class="button button-primary" href="'.esc_url($href).'">'.esc_html__('Abrir Gerar Posts','plugins-alpha').'</a>';
                   } elseif ($slug === 'alpha-stories') {
                     $href = admin_url('admin.php?page=plugins-alpha-alpha-stories');

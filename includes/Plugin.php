@@ -6,9 +6,10 @@ class PluginsAlpha_Plugin
   public static function init(): void
   {
     if (class_exists('PluginsAlpha_Keywords')) PluginsAlpha_Keywords::init();
-    if (class_exists('PluginsAlpha_CPT_Posts_GPT')) PluginsAlpha_CPT_Posts_GPT::init();
+    if (class_exists('PluginsAlpha_CPT_Posts_Orion')) PluginsAlpha_CPT_Posts_Orion::init();
     if (class_exists('PluginsAlpha_PermalinkSettings')) PluginsAlpha_PermalinkSettings::init();
     if (class_exists('PluginsAlpha_Settings')) PluginsAlpha_Settings::init();
+    
     require_once PGA_PATH . 'includes/stories/autoload.php';
     // Menus e assets
     add_action('admin_menu', ['PluginsAlpha_AdminMenus', 'register']);
@@ -31,7 +32,7 @@ class PluginsAlpha_Plugin
 
     if ($screen) {
       // CPTs que vão usar esse JS
-      $allowed_post_types = ['posts_gpt', 'alpha_storys'];
+      $allowed_post_types = ['posts_orion', 'alpha_storys'];
 
       if (!empty($screen->post_type) && in_array($screen->post_type, $allowed_post_types, true)) {
         $is_cpt_screen = true;
@@ -53,7 +54,7 @@ class PluginsAlpha_Plugin
     // SweetAlert2
     wp_enqueue_script(
       'sweetalert2',
-      'https://cdn.jsdelivr.net/npm/sweetalert2@11',
+      PGA_URL . 'assets/vendor/sweetalert2@11.js',
       [],
       '11',
       true

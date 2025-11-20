@@ -2,36 +2,6 @@
 (function ($) {
   const REST = PGA_CFG.rest;
   const NONCE = PGA_CFG.nonce;
-  async function callGenerate(data) {
-    try {
-      const res = await fetch(`${PGA_CFG.rest}/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-WP-Nonce': PGA_CFG.nonce,
-        },
-        body: JSON.stringify(data),
-      });
-      const json = await res.json();
-      if (!res.ok || json.code === 'pga_no_license') {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Licença necessária',
-          text: 'Para gerar ou agendar posts, ative sua licença Plugins Alpha.',
-          confirmButtonText: 'Ativar agora',
-          confirmButtonColor: '#2271b1',
-        }).then(() => {
-          window.location.href = 'admin.php?page=plugins-alpha-settings';
-        });
-        return;
-      }
-      // sucesso
-      Swal.fire('Sucesso!', 'Post agendado com sucesso!', 'success');
-    } catch (err) {
-      console.error(err);
-      Swal.fire('Erro!', 'Falha na comunicação com o servidor.', 'error');
-    }
-  }
 
   // ------------------ utils ------------------
   async function fetchJSON(url, options = {}) {
@@ -223,6 +193,7 @@
         if (p.locale) $('#pga_locale').val(p.locale);
         if (p.category_id) $('#pga_category').val(String(p.category_id));
         if (p.template_key) $('#pga_template_key').val(p.template_key);
+        if (p.length) $('#pga_length').val(p.length);
         if (p.source_url) $('#pga_source_url').val(p.source_url);
         if (p.total) $('#pga_total').val(String(p.total));
         if (p.per_day) $('#pga_per_day').val(String(p.per_day));
@@ -233,6 +204,7 @@
     function collectPrefs() {
       return {
         locale: $('#pga_locale').val(),
+        length: $('#pga_length').val(),
         template_key: $('#pga_template_key').val(),
         source_url: ($('#pga_source_url').val() || '').trim(),
         category_id: parseInt($('#pga_category').val() || '0', 10),
@@ -446,6 +418,7 @@
             mode: prefs.mode,
             keywords: kwList.join('\n'),
             locale: prefs.locale,
+            length: prefs.length,
             template_key: prefs.template_key,
             source_url: prefs.source_url,
             total: prefs.total,
@@ -481,6 +454,7 @@
         return;
       }
 
+      console.log(plan)
       const jobs = plan.jobs || [];
       if (!jobs.length) {
         await Swal.fire({
@@ -495,30 +469,86 @@
       let okCount = 0, failCount = 0;
       let editLinks = [];
 
+
+      async function generateExtraLongPost(job) {
+        // 1) OUTLINE – manda TUDO que o planner calculou, inclusive publish_time
+        const outlineRes = await fetchJSON(`${REST}/orion/outline`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+          body: JSON.stringify({
+            // compat com o PHP (ele aceita keyword OU keywords)
+            keyword: job.keyword,
+            keywords: [job.keyword],
+            length: job.length,
+            locale: job.locale,
+            template: job.template_key,
+            template_key: job.template_key,
+            source_url: job.source_url,
+            publish_time: job.publish_time,
+            category_id: job.category_id,
+            post_type: 'posts_orion',
+          }),
+        });
+
+        if (!outlineRes || outlineRes.code) {
+          throw new Error(outlineRes?.message || 'Erro ao gerar esboço');
+        }
+
+        const postId = outlineRes.post_id;
+        const sections = outlineRes.sections || [];
+
+        // 2) GERA CADA SEÇÃO EM SEQUÊNCIA
+        for (const section of sections) {
+          const sid = section.id;
+
+          const secRes = await fetchJSON(`${REST}/orion/section`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+            body: JSON.stringify({ post_id: postId, section_id: sid }),
+          });
+
+          if (secRes && secRes.code) {
+            throw new Error(secRes.message || `Erro ao gerar seção ${sid}`);
+          }
+        }
+
+        const finRes = await fetchJSON(`${REST}/orion/finalize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+          body: JSON.stringify({ post_id: postId }),
+        });
+
+        if (finRes && finRes.code) {
+          throw new Error(finRes.message || 'Erro ao finalizar post');
+        }
+
+        return finRes;
+      }
+
       await Swal.fire({
         title: 'Gerando posts…',
         html: `
-              <div id="pga_loader" style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:6px">
-                <!-- spinner svg -->
-                <svg width="22" height="22" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <g fill="none" fill-rule="evenodd" stroke-width="4">
-                    <circle cx="22" cy="22" r="18" stroke="#e5e7eb" />
-                    <path d="M40 22c0-9.941-8.059-18-18-18" stroke="#3b82f6">
-                      <animateTransform attributeName="transform" type="rotate" from="0 22 22" to="360 22 22" dur="0.9s" repeatCount="indefinite"/>
-                    </path>
-                  </g>
-                </svg>
-                <div id="pga_step_label" style="font-weight:600">Aguarde…</div>
-              </div>
-          
-              <div id="pga_prog" style="margin-top:8px">0 / ${jobs.length}</div>
-          
-              <div class="swal2-progress-steps" style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px">
-                <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
-              </div>
-          
-              <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px"></div>
-            `,
+            <div id="pga_loader" style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:6px">
+              <!-- spinner svg -->
+              <svg width="22" height="22" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <g fill="none" fill-rule="evenodd" stroke-width="4">
+                  <circle cx="22" cy="22" r="18" stroke="#e5e7eb" />
+                  <path d="M40 22c0-9.941-8.059-18-18-18" stroke="#3b82f6">
+                    <animateTransform attributeName="transform" type="rotate" from="0 22 22" to="360 22 22" dur="0.9s" repeatCount="indefinite"/>
+                  </path>
+                </g>
+              </svg>
+              <div id="pga_step_label" style="font-weight:600">Aguarde…</div>
+            </div>
+
+            <div id="pga_prog" style="margin-top:8px">0 / ${jobs.length}</div>
+
+            <div class="swal2-progress-steps" style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px">
+              <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
+            </div>
+
+            <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px"></div>
+          `,
         showConfirmButton: false,
         showCancelButton: false,
         focusConfirm: false,
@@ -530,26 +560,85 @@
 
           for (let i = 0; i < jobs.length; i++) {
             const j = jobs[i];
+
             try {
-              const r = await fetchJSON(`${REST}/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-                body: JSON.stringify(j)
-              });
+              // 🔹 fluxo novo, SEM /generate
+              const r = await generateExtraLongPost(j);
+
               okCount++;
-              if (r.edit) editLinks.push(`<li><a target="_blank" rel="noopener" href="${r.edit}">Editar #${r.post_id}</a></li>`);
-              if (r.state) {
-                $('#pga_keywords').val((r.state.pending || []).join('\n'));
-                $('#pga_kw_done').empty().append((r.state.done || []).map(k => `<li>${k}</li>`).join(''));
+              // ===== LINK DE EDIÇÃO =====
+              if (r.edit || r.post_id || r.view_link) {
+                let editUrl = '';
+
+                // 1) se o back mandar URL completa em r.edit, usa direto
+                if (typeof r.edit === 'string' && r.edit.indexOf('http') === 0) {
+                  editUrl = r.edit;
+                } else {
+                  // 2) se r.edit for ID ou vier só post_id, monta URL absoluta
+                  const postId = r.post_id || r.edit;
+                  if (postId) {
+                    const base = window.location.origin || '';
+                    editUrl = `${base}/wp-admin/post.php?post=${postId}&action=edit`;
+                  }
+                }
+
+                if (editUrl) {
+                  const labelId = r.post_id || r.edit;
+                  editLinks.push(
+                    `<li><a target="_blank" rel="noopener" href="${editUrl}">Editar #${labelId}</a></li>`
+                  );
+                }
               }
+
+              // ===== ATUALIZAÇÃO DE PALAVRAS-CHAVE =====
+              if (r.state) {
+                // comportamento igual ao antigo, se o back mandar state
+                $('#pga_keywords').val((r.state.pending || []).join('\n'));
+                $('#pga_kw_done').empty().append(
+                  (r.state.done || []).map(k => `<li>${k}</li>`).join('')
+                );
+              } else {
+                // 🔁 fallback: mover keyword do job manualmente
+                let kw = '';
+
+                if (j.keyword) {
+                  kw = j.keyword.trim();
+                } else if (j.keywords) {
+                  if (Array.isArray(j.keywords)) {
+                    kw = (j.keywords[0] || '').toString().trim();
+                  } else {
+                    kw = String(j.keywords).split('\n')[0].trim();
+                  }
+                }
+
+                if (kw) {
+                  // remove essa keyword do textarea de pendentes
+                  const lines = $('#pga_keywords')
+                    .val()
+                    .split('\n')
+                    .map(l => l.trim())
+                    .filter(l => l && l !== kw);
+
+                  $('#pga_keywords').val(lines.join('\n'));
+
+                  // acrescenta na lista de concluídas (sem limpar)
+                  $('#pga_kw_done').append(`<li>${kw}</li>`);
+                }
+              }
+
             } catch (e) {
               failCount++;
             }
-            const done = i + 1, pct = Math.round((done / jobs.length) * 100);
+
+            const done = i + 1;
+            const pct = Math.round((done / jobs.length) * 100);
+
             if ($status) $status.textContent = `${done} / ${jobs.length}`;
             if ($bar) $bar.style.width = pct + '%';
+
             await new Promise(r => setTimeout(r, 150));
           }
+
           Swal.close();
         }
       });
@@ -557,7 +646,13 @@
       await Swal.fire({
         icon: (failCount ? 'warning' : 'success'),
         title: 'Finalizado',
-        html: `Sucesso: <b>${okCount}</b><br>Falhas: <b>${failCount}</b><br><ul style="text-align:left;margin-top:8px">${editLinks.join('')}</ul>`
+        html: `
+          Sucesso: <b>${okCount}</b><br>
+          Falhas: <b>${failCount}</b><br>
+          <ul style="text-align:left;margin-top:8px">
+            ${editLinks.join('')}
+          </ul>
+        `
       });
     });
 

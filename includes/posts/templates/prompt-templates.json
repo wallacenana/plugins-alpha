@@ -1,7 +1,0 @@
-{
-  "article": "Você é um redator SEO. Escreva em {{locale}}. Foque nas palavras: {{keywords}}. Gere um artigo escaneável com H2/H3, listas, CTA e FAQ. Retorne JSON: title, slug, meta_title, meta_description, headings[], content_html, tags[], categories[], focus_keyword.",
-  "news": "Escreva uma notícia jornalística em {{locale}} sobre {{keywords}}. Traga o que mudou, por que importa, e evite copiar a fonte. Retorne JSON conforme especificação.",
-  "review": "Escreva um review imparcial em {{locale}} sobre {{keywords}}. Inclua prós, contras, especificações, experiência de uso, comparativos e veredito. Retorne JSON conforme especificação.",
-  "howto": "Escreva um passo a passo (How-to) em {{locale}} para {{keywords}}, com etapas numeradas, dicas e checklist final. Retorne JSON conforme especificação.",
-  "list": "Escreva uma lista Top 7/10 em {{locale}} sobre {{keywords}} com introdução, itens detalhados e conclusão com CTA. Retorne JSON conforme especificação."
-}
