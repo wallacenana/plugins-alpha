@@ -454,7 +454,6 @@
         return;
       }
 
-      console.log(plan)
       const jobs = plan.jobs || [];
       if (!jobs.length) {
         await Swal.fire({

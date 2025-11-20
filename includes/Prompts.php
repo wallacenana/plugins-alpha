@@ -449,18 +449,18 @@ class PluginsAlpha_Prompts
     {
         switch ($length) {
             case 'short':
-                return ['min_sections' => 3, 'max_sections' => 4];
-
-            case 'medium':
                 return ['min_sections' => 4, 'max_sections' => 6];
 
+            case 'medium':
+                return ['min_sections' => 6, 'max_sections' => 10];
+
             case 'long':
-                return ['min_sections' => 8, 'max_sections' => 12];
+                return ['min_sections' => 10, 'max_sections' => 15];
 
             case 'extra-long':
             case 'extra_long':
             case 'extra':
-                return ['min_sections' => 12, 'max_sections' => 20];
+                return ['min_sections' => 15, 'max_sections' => 20];
 
             default:
                 return ['min_sections' => 4, 'max_sections' => 6];
@@ -471,8 +471,8 @@ class PluginsAlpha_Prompts
     public static function build_outline_prompt(
         string $keyword,
         string $articleTitle,
-        string $length = 'short',
-        string $locale = 'pt_BR'
+        string $length,
+        string $locale
     ): string {
         $tpl = self::get_prompt_for('outline');
 
@@ -480,7 +480,6 @@ class PluginsAlpha_Prompts
         $cfg                       = self::outline_config($length);
         $minSections               = $cfg['min_sections'];
         $maxSections               = $cfg['max_sections'];
-
         $vars = [
             'keyword'      => $keyword,
             'articleTitle' => $articleTitle,
@@ -511,14 +510,8 @@ class PluginsAlpha_Prompts
         [$globalMin, $globalMax] = self::length_to_range($length);
 
         $totalMax = $globalMax > 0 ? $globalMax : 800;
-
-        // número de seções (segurança para não dar divisão por zero)
         $sectionsCount = max(1, $sectionsCount);
-
-        // limite máximo por seção = total / número de seções
         $approxMax = (int) floor($totalMax / $sectionsCount);
-
-        // mínimo só pra não ficar ridiculamente curto
         $approxMin = max(80, (int) floor($approxMax * 0.5));
 
         $children = (array)($section['children'] ?? []);
@@ -627,6 +620,8 @@ Atue como um especialista em SEO escrevendo em {{locale}}.
 
 Você deve criar APENAS UM ESBOÇO (outline) completo para um artigo de blog
 com a frase chave de foco: "{{keyword}}".
+se o que estiver no campo acima for um texto ou link, então deve ser acessado o link e modelado os tópicos ou seguido as diretrizes.
+se atente tabém se o campo acima tiver vários nomes de produtos, então é provavel que o usuário esteja fazendo um review comparativo ou até mesmo um post review de algum produto.
 
 O título do artigo já está definido e NÃO PODE ser traído pelo conteúdo:
 "{{articleTitle}}"
@@ -646,6 +641,7 @@ Regras de tamanho:
 Estrutura:
 - "sections" é um array de seções de nível H2.
 - Cada H2 pode conter um array "children" com H3 relacionados.
+- com exceção da introdução, ao menos 1 H2 tem q ter subseções.
 - Inclua "bullets" com ideias que serão desenvolvidas em cada seção.
 
 Finalização:
@@ -684,6 +680,55 @@ TXT;
             }
             TXT;
     }
+
+    public static function build_meta_description_prompt(
+        string $keyword,
+        string $articleTitle,
+        string $locale = 'pt_BR',
+        string $content = ''
+    ): string {
+        $keyword      = trim($keyword);
+        $articleTitle = trim($articleTitle);
+        $locale       = $locale ?: 'pt_BR';
+
+        // dá uma resumida no conteúdo pra não mandar 10km de texto
+        if ($content !== '') {
+            // remove tags e limita o contexto pra ~1500 caracteres
+            $plain = wp_strip_all_tags($content);
+            $plain = html_entity_decode($plain, ENT_QUOTES, 'UTF-8');
+            if (mb_strlen($plain) > 1500) {
+                $plain = mb_substr($plain, 0, 1500) . '...';
+            }
+        } else {
+            $plain = '';
+        }
+
+        $ctx = $plain ? "Trecho do artigo para contexto:\n\"{$plain}\"\n\n" : '';
+
+        $txt = <<<TXT
+Você é um especialista em SEO, escrevendo em {$locale} para artigos focados em Google Discover.
+
+Gere APENAS uma meta descrição em texto simples (sem HTML, sem markdown, sem aspas ao redor, sem emojis).
+
+Regras:
+- Idioma: {$locale}.
+- Tamanho: entre 130 e 150 caracteres (ideal ~150).
+- Deve ser uma frase única, fluida, que desperte curiosidade sem ser clickbait barato.
+- Incluir a frase chave de foco de forma natural: "{$keyword}".
+- Não use "clique aqui", "não perca", "leia agora", "descubra" e similares.
+- Não use aspas, não use **markdown**, não use tags HTML.
+- Fale diretamente com o leitor, mas sem prometer coisas impossíveis.
+
+Título exato do artigo:
+"{$articleTitle}"
+
+{$ctx}
+Retorne APENAS a meta descrição final, nada mais.
+TXT;
+
+        return $txt;
+    }
+
 
 
     private static function default_article(): string
@@ -814,6 +859,7 @@ TXT;
         $s .= "- Não cite palavras como \"thumbnail\", \"blog\", \"post\", \"imagem\" no prompt.\n";
         $s .= "- Foque em uma única cena marcante, em proporção 16:9.\n";
         $s .= "- Tamanho do prompt: pelo menos 200 caracteres.\n";
+        $s .= "- não escreva palavras como 'Descubra', 'veja como' ou palavras desse tipo, de preferencia por inserir uma dor com uma solução dessa dor, então fale de possiveis beneficios'.\n";
 
         return $s;
     }

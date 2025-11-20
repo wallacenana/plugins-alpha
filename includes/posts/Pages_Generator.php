@@ -130,6 +130,58 @@ class PluginsAlpha_Pages_Generator
 <?php
   }
 
+  protected static function generate_meta_description_ai(
+    string $keyword,
+    string $title,
+    string $locale,
+    string $content_html
+  ): string {
+    $keyword = trim($keyword);
+    $title   = trim($title);
+    $locale  = $locale ?: 'pt_BR';
+
+    if ($title === '') {
+      return '';
+    }
+
+    // 1) monta o prompt “inteligente” com contexto
+    $prompt = PluginsAlpha_Prompts::build_meta_description_prompt(
+      $keyword,
+      $title,
+      $locale,
+      $content_html
+    );
+
+    // 2) chama o endpoint dedicado de meta description
+    if (!class_exists('PluginsAlpha_OpenAI')) {
+      return '';
+    }
+
+    $resp = PluginsAlpha_OpenAI::meta_description($prompt);
+
+    if (is_wp_error($resp)) {
+      return '';
+    }
+
+    // $resp é a descrição bruta (string)
+    $raw = trim((string)$resp);
+    if ($raw === '') {
+      return '';
+    }
+
+    // 3) sanitiza: sem tags, uma linha só, tamanho ok
+    $raw = wp_strip_all_tags($raw);
+    $raw = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
+    $raw = preg_replace('/\s+/', ' ', $raw); // uma linha só
+
+    // corta entre 130 e 160 chars (segurança de tamanho)
+    if (mb_strlen($raw) > 160) {
+      $raw = mb_substr($raw, 0, 157) . '...';
+    }
+
+    return trim($raw);
+  }
+
   /**
    * $args:
    *  - keywords[]  (usa a 1ª como foco)
@@ -138,185 +190,7 @@ class PluginsAlpha_Pages_Generator
    *  - publish_time  (timestamp futuro)
    *  - category_id   (int)
    */
-  public static function generate_and_insert(array $args, array $settings = [])
-  {
-    $keyword     = trim((string)($args['keywords'][0] ?? ''));
-    $template    = $args['template'] ?? 'discover_article';
-    $length      = $args['length'] ?? 'short';
-    $locale      = $args['locale'] ?? 'pt_BR';
-    $url         = $args['source_url'] ?? '';
-    $publish_ts  = self::compute_publish_time($args);
-    $category_id = intval($args['category_id'] ?? 0);
-    $post_type   = !empty($args['post_type']) ? sanitize_key($args['post_type']) : 'posts_orion';
 
-    if ($keyword === '') {
-      return new WP_Error('pga_no_kw', 'Keyword vazia.');
-    }
-
-    if ($publish_ts < (time() + 60)) {
-      $publish_ts = time() + 60;
-    }
-
-    $slug = sanitize_title($keyword);
-
-    // 0) Cria rascunho ANTES
-    $draft_id = wp_insert_post([
-      'post_type'    => $post_type,
-      'post_status'  => 'future',
-      'post_title'   => '(Gerando) ' . $keyword,
-      'post_name'    => $slug,
-      'post_content' => '',
-      'post_author'  => get_current_user_id(),
-    ], true);
-
-    if (is_wp_error($draft_id)) {
-      return $draft_id;
-    }
-
-    update_post_meta($draft_id, '_pga_job_status',  'generating');
-    update_post_meta($draft_id, '_pga_job_started', time());
-
-    if ($category_id > 0 && taxonomy_exists('posts_orion_cat') && term_exists($category_id, 'posts_orion_cat')) {
-      wp_set_post_terms($draft_id, [$category_id], 'posts_orion_cat', false);
-    }
-
-    // 1) TÍTULOS
-    $titlePrompt = PluginsAlpha_Prompts::build_title_prompt(
-      $keyword,
-      3,
-      5,
-      $locale
-    );
-
-    $titles = PluginsAlpha_OpenAI::titles($titlePrompt);
-    if (is_wp_error($titles)) {
-      update_post_meta($draft_id, '_pga_job_status', 'error');
-      return new WP_Error(
-        $titles->get_error_code() ?: 'pga_ai_titles',
-        $titles->get_error_message(),
-        ['status' => 504, 'post_id' => $draft_id]
-      );
-    }
-
-    $chosenTitle = self::pick_best_title($titles, $keyword);
-    if (!$chosenTitle) {
-      $chosenTitle = ucfirst($keyword);
-    }
-
-    $content_html = '';
-    $meta_title   = '';
-    $meta_desc    = '';
-    $image_alt    = '';
-
-    // 2) PARA long/extra-long → outline + seções
-    $use_outline = in_array($length, ['long', 'extra-long', 'extra_long', 'extra'], true);
-
-    if ($use_outline) {
-      $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt(
-        $keyword,
-        $chosenTitle,
-        $length,
-        $locale
-      );
-
-      $sections = PluginsAlpha_OpenAI::outline($outlinePrompt);
-      if (!is_wp_error($sections)) {
-        $fromOutline = self::generate_content_from_outline(
-          $keyword,
-          $chosenTitle,
-          $sections,
-          $length,
-          $locale
-        );
-
-        if (!is_wp_error($fromOutline)) {
-          $content_html = (string)($fromOutline['content'] ?? '');
-          $meta_title   = (string)($fromOutline['meta_title'] ?? '');
-          $meta_desc    = (string)($fromOutline['meta_description'] ?? '');
-          $image_alt    = (string)($fromOutline['image_alt'] ?? '');
-        }
-      }
-    }
-
-    // 3) FALLBACK pra short/medium OU se outline falhar
-    if ($content_html === '') {
-
-      $opts = [
-        'locale'       => $locale,
-        'forced_title' => $chosenTitle,
-      ];
-
-      $contentPrompt = PluginsAlpha_Prompts::build_content_prompt(
-        $template,
-        $keyword,
-        $length,
-        $opts,
-        $url,
-      );
-
-      $tmpTimeout = function ($t) {
-        return max((int)$t, 120);
-      };
-      add_filter('http_request_timeout', $tmpTimeout, 9999, 1);
-
-      $resp = PluginsAlpha_OpenAI::complete($contentPrompt);
-
-      remove_filter('http_request_timeout', $tmpTimeout, 9999);
-
-      if (is_wp_error($resp)) {
-        update_post_meta($draft_id, '_pga_job_status', 'error');
-        $code   = $resp->get_error_code();
-        $msg    = $resp->get_error_message();
-        $status = (stripos($msg, 'cURL error 28') !== false) ? 504 : 400;
-
-        return new WP_Error(
-          $code ?: 'pga_ai_complete',
-          $msg,
-          ['status' => $status, 'post_id' => $draft_id]
-        );
-      }
-
-      $title        = $resp['title'] ?: $chosenTitle;
-      $content_html = $resp['content'] ?? '';
-      $meta_title   = $resp['meta_title'] ?? '';
-      $meta_desc    = $resp['meta_description'] ?? '';
-      $image_alt    = $resp['image_alt'] ?? '';
-    } else {
-      $title = $chosenTitle;
-    }
-
-    // limpa H1 se vier
-    $content_html = preg_replace('#</?h1[^>]*>#i', '', $content_html);
-
-    if ($title === '' || $content_html === '') {
-      update_post_meta($draft_id, '_pga_job_status', 'error');
-      return new WP_Error(
-        'empty_content',
-        'O conteúdo, o título e o resumo estão vazios.',
-        ['status' => 400, 'post_id' => $draft_id]
-      );
-    }
-    $res = self::do_schedule_post($draft_id, [
-      'keyword'        => $keyword,
-      'title'          => $title,
-      'content'        => $content_html,
-      'locale'         => $locale,
-      'template'       => $template,
-      'publish_time'   => $publish_ts,
-      'post_type'      => $post_type,
-      'meta_title'     => $meta_title,
-      'meta_desc'      => $meta_desc,
-      'image_alt'      => $image_alt,
-      'generate_image' => !$use_outline,
-    ]);
-
-    if (is_wp_error($res)) {
-      update_post_meta($draft_id, '_pga_job_status', 'error');
-      return $res;
-    }
-
-    return $res;
-  }
 
   public static function create_draft_and_outline(array $args)
   {
@@ -431,6 +305,7 @@ class PluginsAlpha_Pages_Generator
       $length,
       $locale
     );
+
     $outline = PluginsAlpha_OpenAI::outline($outlinePrompt);
     if (is_wp_error($outline)) {
       update_post_meta($draft_id, '_pga_job_status', 'error');
@@ -749,6 +624,18 @@ class PluginsAlpha_Pages_Generator
     $meta_desc  = get_post_meta($post_id, '_pga_meta_description', true) ?: '';
     $image_alt  = get_post_meta($post_id, '_pga_image_alt',        true) ?: '';
 
+    if ($meta_desc === '') {
+      $meta_desc = self::generate_meta_description_ai(
+        $keyword,
+        $title,
+        $locale,
+        $content_html
+      );
+      if ($meta_desc !== '') {
+        update_post_meta($post_id, '_pga_meta_description', $meta_desc);
+      }
+    }
+
     // --- 5) Post Type ---
     $post_type = get_post_type($post_id) ?: 'posts_orion';
 
@@ -782,39 +669,6 @@ class PluginsAlpha_Pages_Generator
     ];
   }
 
-
-
-  public static function generate_outline(array $args)
-  {
-    $keyword = trim((string)($args['keywords'][0] ?? ''));
-    $length  = $args['length'] ?? 'short';
-    $locale  = $args['locale'] ?? 'pt_BR';
-
-    if ($keyword === '') {
-      return new WP_Error('pga_no_kw', 'Keyword vazia para ESBOÇO.');
-    }
-
-    $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt(
-      $keyword,
-      $length,
-      $locale
-    );
-
-    $sections = PluginsAlpha_OpenAI::outline($outlinePrompt);
-    if (is_wp_error($sections)) {
-      return $sections;
-    }
-
-    // aqui você pode salvar em meta, se quiser guardar o pré-post
-    // ou simplesmente retornar pro frontend
-    return [
-      'keyword'  => $keyword,
-      'length'   => $length,
-      'locale'   => $locale,
-      'sections' => $sections,
-    ];
-  }
-
   protected static function generate_content_from_outline(
     string $keyword,
     string $articleTitle,
@@ -837,7 +691,7 @@ class PluginsAlpha_Pages_Generator
     };
     add_filter('http_request_timeout', $tmpTimeout, 9999, 1);
     $sectionsCount = count($sections);
-    
+
     foreach ($sections as $section) {
       $sectionPrompt = PluginsAlpha_Prompts::build_section_prompt(
         $keyword,
@@ -876,6 +730,15 @@ class PluginsAlpha_Pages_Generator
     $content_html = trim(implode("\n\n", $htmlParts));
     if ($content_html === '') {
       return new WP_Error('pga_outline_content_empty', 'Nenhum conteúdo gerado a partir do esboço.');
+    }
+
+    if ($meta_desc === '') {
+      $meta_desc = self::generate_meta_description_ai(
+        $keyword,
+        $articleTitle,
+        $locale,
+        $content_html
+      );
     }
 
     return [
@@ -1072,7 +935,7 @@ class PluginsAlpha_Pages_Generator
       'model'  => 'flux',
       // se um dia você tiver conta, dá pra ligar: 'nologo' => 'true',
     ], $base_url);
-
+    error_log($url);
     $res = wp_remote_get($url, [
       'timeout'   => 60,
       'headers'   => [
@@ -1283,7 +1146,29 @@ class PluginsAlpha_Pages_Generator
 
     // Thumb (se pedido)
     if ($generate_img && $keyword !== '' && $title !== '') {
-      $img_prompt = PluginsAlpha_Prompts::build_image_prompt($keyword, $title, $locale, $template);
+      // 1) META-PROMPT (instruções) vindo do Prompts.php
+      $meta_img_prompt = PluginsAlpha_Prompts::build_image_prompt(
+        $keyword,
+        $title,
+        $locale,
+        $template
+      );
+
+      $img_prompt = '';
+
+      if ($meta_img_prompt && class_exists('PluginsAlpha_OpenAI')) {
+        // 2) Converte para o PROMPT FINAL de imagem (string única)
+        $resolved = PluginsAlpha_OpenAI::image_prompt($meta_img_prompt);
+        if (!is_wp_error($resolved)) {
+          $img_prompt = trim((string)$resolved);
+        }
+      }
+
+      // fallback: se IA falhar, usa o meta-prompt mesmo (comportamento antigo)
+      if ($img_prompt === '') {
+        $img_prompt = $meta_img_prompt;
+      }
+
       if ($img_prompt) {
         $opts     = class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [];
         $imgOpts  = $opts['apis']['images'] ?? [];
@@ -1316,5 +1201,51 @@ class PluginsAlpha_Pages_Generator
       'post_id'   => $post_id,
       'view_link' => get_permalink($post_id),
     ];
+  }
+
+  /**
+   * Transforma um META-PROMPT de imagem (tipo "Você é um gerador de prompts...")
+   * em um único prompt final, pronto pra ser enviado pro provider (Pollinations/OpenAI).
+   */
+  protected static function resolve_image_prompt(string $raw, string $locale = 'pt_BR'): string
+  {
+    $raw = trim($raw);
+    if ($raw === '') {
+      return '';
+    }
+
+    // Heurística: se o template ainda tem cara de "sistema" (meta-prompt),
+    // pedimos pra OpenAI devolver SÓ o prompt final.
+    $looks_like_meta =
+      stripos($raw, 'você é um gerador de prompts') !== false ||
+      stripos($raw, 'you are a prompt generator') !== false;
+
+    if (!$looks_like_meta) {
+      // Já parece um prompt direto → devolve como está.
+      return $raw;
+    }
+
+    // Monta instrução pra IA devolver apenas UM prompt de imagem.
+    $prompt_for_ai = $raw . "\n\n" .
+      "Agora, com base em TODAS as instruções acima, responda APENAS com um único prompt " .
+      "de imagem, em {$locale}, em uma única linha, sem aspas, sem explicações, " .
+      "sem quebra de linha extra e sem repetir as regras.";
+
+    if (!class_exists('PluginsAlpha_OpenAI')) {
+      // fallback: usa o meta-prompt direto, como já estava.
+      return $raw;
+    }
+
+    $resp = PluginsAlpha_OpenAI::complete($prompt_for_ai);
+
+    if (is_wp_error($resp)) {
+      // se a IA falhar, volta pro comportamento antigo
+      return $raw;
+    }
+
+    $content = trim((string)($resp['content'] ?? ''));
+
+    // se vier vazio, mantém o original pra não quebrar
+    return $content !== '' ? $content : $raw;
   }
 }

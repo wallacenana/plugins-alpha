@@ -247,6 +247,137 @@ class PluginsAlpha_OpenAI
         return $j['data'][0]['b64_json'] ?? new WP_Error('pga_openai_img_empty', 'Resposta de imagem vazia.');
     }
 
+    public static function meta_description(string $prompt)
+    {
+        $c = self::cfg();
+        if (!$c['key']) {
+            return new WP_Error('pga_no_key', 'Chave OpenAI não configurada.');
+        }
+
+        $system = "Você é um gerador de META DESCRIÇÕES para SEO. "
+            . "Responda SOMENTE em JSON UTF-8 válido, sem markdown, "
+            . "no formato {\"description\":\"...\"}.";
+
+        $body = [
+            'model'       => $c['model_text'],
+            'temperature' => $c['temperature'],
+            'max_tokens'  => min(600, $c['max_tokens']),
+            'messages'    => [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user',   'content' => $prompt],
+            ],
+        ];
+
+        $args = [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $c['key'],
+                'Content-Type'  => 'application/json',
+            ],
+            'body'    => wp_json_encode($body),
+            'timeout' => $c['timeout'],
+        ];
+
+        $res  = wp_remote_post('https://api.openai.com/v1/chat/completions', $args);
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        $code = wp_remote_retrieve_response_code($res);
+        $raw  = wp_remote_retrieve_body($res);
+        if ($code !== 200) {
+            $msg = 'HTTP ' . $code;
+            $j = json_decode($raw, true);
+            if (!empty($j['error']['message'])) {
+                $msg = $j['error']['message'];
+            }
+            return new WP_Error('pga_openai_meta_http', $msg, ['http_code' => $code]);
+        }
+
+        $json = json_decode($raw, true);
+        $txt  = (string)($json['choices'][0]['message']['content'] ?? '');
+
+        $parsed = self::extract_json($txt);
+        if (!is_array($parsed) || empty($parsed['description'])) {
+            return new WP_Error('pga_meta_parse', 'Falha ao decodificar meta description.');
+        }
+
+        $desc = trim((string)$parsed['description']);
+        if ($desc === '') {
+            return new WP_Error('pga_meta_empty', 'Meta description vazia.');
+        }
+
+        return $desc;
+    }
+
+    /**
+     * Gera um PROMPT FINAL de imagem (não o meta-prompt),
+     * no estilo do titles(): retorna só a string com o prompt.
+     */
+    public static function image_prompt(string $prompt)
+    {
+        $c = self::cfg();
+        if (!$c['key']) {
+            return new WP_Error('pga_no_key', 'Chave OpenAI não configurada.');
+        }
+
+        $system = "Você é um gerador de PROMPTS DE IMAGEM realistas. "
+            . "Sua tarefa é transformar instruções em um ÚNICO prompt final "
+            . "para gerar uma imagem, em uma linha, sem explicações. "
+            . "Responda SOMENTE em JSON UTF-8 válido, sem markdown, "
+            . "no formato {\"prompt\":\"...\"}.";
+
+        $body = [
+            'model'       => $c['model_text'],
+            'temperature' => $c['temperature'],
+            'max_tokens'  => min(600, $c['max_tokens']),
+            'messages'    => [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user',   'content' => $prompt],
+            ],
+        ];
+
+        $args = [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $c['key'],
+                'Content-Type'  => 'application/json',
+            ],
+            'body'    => wp_json_encode($body),
+            'timeout' => $c['timeout'],
+        ];
+
+        $res  = wp_remote_post('https://api.openai.com/v1/chat/completions', $args);
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        $code = wp_remote_retrieve_response_code($res);
+        $raw  = wp_remote_retrieve_body($res);
+        if ($code !== 200) {
+            $msg = 'HTTP ' . $code;
+            $j = json_decode($raw, true);
+            if (!empty($j['error']['message'])) {
+                $msg = $j['error']['message'];
+            }
+            return new WP_Error('pga_openai_image_http', $msg, ['http_code' => $code]);
+        }
+
+        $json = json_decode($raw, true);
+        $txt  = (string)($json['choices'][0]['message']['content'] ?? '');
+
+        $parsed = self::extract_json($txt);
+        if (!is_array($parsed) || empty($parsed['prompt'])) {
+            return new WP_Error('pga_image_prompt_parse', 'Falha ao decodificar prompt de imagem.');
+        }
+
+        $imgPrompt = trim((string)$parsed['prompt']);
+        if ($imgPrompt === '') {
+            return new WP_Error('pga_image_prompt_empty', 'Prompt de imagem vazio.');
+        }
+
+        return $imgPrompt;
+    }
+
+
     // ---- helper para extrair JSON de respostas em texto/markdown ----
     private static function extract_json(string $txt)
     {

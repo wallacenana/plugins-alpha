@@ -389,6 +389,7 @@ class PluginsAlpha_REST
 
             $locale  = self::clean($p['locale'] ?? 'pt_BR');
             $tpl     = self::clean($p['template_key'] ?? 'article');
+            $length  = self::clean($p['length'] ?? 'short');
             $total   = max(1, intval($p['total'] ?? ($mode === 'single' ? 1 : count($kw_in))));
             $perDay  = max(1, intval($p['per_day'] ?? 3));
             $firstH  = max(2, intval($p['first_delay_hours'] ?? 2));
@@ -426,6 +427,7 @@ class PluginsAlpha_REST
                     $jobs[] = [
                         'keyword'      => ($mode === 'single' ? ($kw_in[0] ?? '') : ($kw_in[$i] ?? '')),
                         'locale'       => $locale,
+                        'length'       => $length,
                         'template_key' => $tpl,
                         'source_url'   => $url,
                         'publish_time' => $t,
