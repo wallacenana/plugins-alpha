@@ -338,6 +338,14 @@
       await refreshKeywords();
     });
 
+    $('#pga_template_key').on('change', function () {
+      const val = $(this).val();
+      if (val === 'modelar') {
+        $('#pga_source_url').closest('.pga-field').show();
+      } else {
+        $('#pga_source_url').closest('.pga-field').hide(); // ou esconder se quiser
+      }
+    });
     // ---------- Planejar -> gerar sequencial ----------
     $('#pga_plan').off('click').on('click', async () => {
       const prefs = collectPrefs();
@@ -385,24 +393,27 @@
         return;
       }
 
-      // === 1) REGRAS BÁSICAS DE KEYWORDS ===
-      if (prefs.mode === 'multi' && kwList.length === 0) {
-        await Swal.fire({
-          icon: 'warning',
-          title: 'Sem palavras-chave',
-          text: 'Insira ao menos 1 palavra-chave.'
-        });
-        return;
-      }
 
-      if (prefs.mode === 'multi' && kwList.length < prefs.total) {
-        const ok = (await Swal.fire({
-          icon: 'question',
-          title: 'Quantidade insuficiente',
-          html: `Você pediu <b>${prefs.total}</b> posts mas só tem <b>${kwList.length}</b> palavras. Gerar ${kwList.length}?`,
-          showCancelButton: true
-        })).isConfirmed;
-        if (!ok) return;
+      if (prefs.template_key !== "modelar") {
+        // === 1) REGRAS BÁSICAS DE KEYWORDS ===
+        if (prefs.mode === 'multi' && kwList.length === 0) {
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Sem palavras-chave',
+            text: 'Insira ao menos 1 palavra-chave.'
+          });
+          return;
+        }
+
+        if (prefs.mode === 'multi' && kwList.length < prefs.total) {
+          const ok = (await Swal.fire({
+            icon: 'question',
+            title: 'Quantidade insuficiente',
+            html: `Você pediu <b>${prefs.total}</b> posts mas só tem <b>${kwList.length}</b> palavras. Gerar ${kwList.length}?`,
+            showCancelButton: true
+          })).isConfirmed;
+          if (!ok) return;
+        }
       }
 
       // === 2) PLANO ===
@@ -467,7 +478,6 @@
       // === 3) GERAÇÃO ===
       let okCount = 0, failCount = 0;
       let editLinks = [];
-
 
       async function generateExtraLongPost(job) {
         // 1) OUTLINE – manda TUDO que o planner calculou, inclusive publish_time

@@ -225,6 +225,29 @@ class PluginsAlpha_Prompts
                         </td>
                     </tr>
 
+                    <tr>
+                        <th scope="row">
+                            <label for="pga_orion_prompt_outline_modelar">
+                                <?php esc_html_e('Esboço (modelar URL)', 'plugins-alpha'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <textarea id="pga_orion_prompt_outline_modelar"
+                                name="pga_orion_prompts[outline_modelar]"
+                                rows="10"
+                                class="large-text code"><?php
+                                                        echo esc_textarea(pga_orion_prompt_value($raw, 'outline_modelar'));
+                                                        ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e(
+                                    'Usado quando o modelo for "Modelar URL". Gera o esboço em JSON ("sections") a partir do conteúdo da URL informada.',
+                                    'plugins-alpha'
+                                ); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+
 
                 </table>
 
@@ -304,12 +327,13 @@ class PluginsAlpha_Prompts
                 return self::default_image_prompt();
             case 'outline':
                 return self::default_outline_prompt();
+            case 'outline_modelar':
+                return self::default_outline_modelar_prompt();
             case 'article':
             default:
                 return self::default_article();
         }
     }
-
 
     /**
      * Faz o replace dos placeholders padrão.
@@ -499,6 +523,114 @@ class PluginsAlpha_Prompts
      *  DEFAULTS – aqui você pode ir refinando com calma depois
      * ------------------------------------------------------------------ */
 
+    protected static function default_outline_modelar_prompt(): string
+    {
+        return <<<TXT
+Atue como um especialista em SEO escrevendo em {{locale}}.
+
+Você deve criar APENAS UM ESBOÇO (outline) COMPLETO para um artigo de blog
+MODELADO a partir do conteúdo da seguinte URL, sem copiar trechos literalmente:
+
+URL base para modelagem:
+{{url}}
+
+Frase chave ou comando principal:
+"{{keyword}}"
+
+Itens adicionais (produtos, variações, termos complementares), se existirem:
+{{extra}}
+
+O título do artigo já está definido e NÃO PODE ser traído:
+"{{articleTitle}}"
+
+Regras de estrutura:
+- O artigo final terá entre {{min_words}} e {{max_words}} palavras.
+- Crie entre {{min_sections}} e {{max_sections}} seções principais (H2).
+- Cada H2 pode ter 1 a 3 subseções (H3).
+- A estrutura deve refletir a lógica da página de origem, mas com melhorias:
+  mais clareza, melhor organização e foco em Discover.
+- Se {{extra}} listar vários produtos, pense como um review comparativo / roundup.
+
+Para cada seção (H2):
+- Defina "heading" (título da seção).
+- Defina "word_goal" com min/max de palavras sugeridas.
+- Preencha "bullets" com os tópicos/ideias que serão desenvolvidos.
+- Em "children", liste eventuais H3 com seus próprios "bullets".
+
+FORMATO DA RESPOSTA (OBRIGATÓRIO) — JSON UTF-8 válido, sem markdown:
+
+{
+  "sections": [
+    {
+      "id": "1",
+      "level": "h2",
+      "heading": "Título da seção...",
+      "word_goal": { "min": 300, "max": 500 },
+      "bullets": ["...", "..."],
+      "children": [
+        {
+          "id": "1.1",
+          "level": "h3",
+          "heading": "Subtítulo...",
+          "bullets": ["...", "..."]
+        }
+      ]
+    }
+  ]
+}
+
+Não escreva nada fora desse JSON.
+TXT;
+    }
+
+    public static function build_outline_prompt_modelar(
+        string $keyword,
+        string $articleTitle,
+        string $length,
+        string $locale,
+        string $url,
+        array $allKeywords = []
+    ): string {
+        $tpl       = self::get_prompt_for('outline_modelar');
+        $locale    = $locale ?: 'pt_BR';
+        $url       = trim($url);
+
+        // range de palavras e nº de seções igual ao outline normal
+        [$minWords, $maxWords] = self::length_to_range($length);
+        $cfg                   = self::outline_config($length);
+        $minSections           = $cfg['min_sections'];
+        $maxSections           = $cfg['max_sections'];
+
+        // monta string com keywords extras (se existirem)
+        $extra = '';
+        if (!empty($allKeywords)) {
+            $clean = array_values(array_filter(array_map('trim', $allKeywords)));
+            if ($clean) {
+                $extra = implode("\n", array_map(function ($k) {
+                    return '- ' . $k;
+                }, $clean));
+            }
+        }
+
+        $vars = [
+            'keyword'      => $keyword,
+            'articleTitle' => $articleTitle,
+            'locale'       => $locale,
+            'min_words'    => (string)$minWords,
+            'max_words'    => (string)$maxWords,
+            'min_sections' => (string)$minSections,
+            'max_sections' => (string)$maxSections,
+            'url'          => $url,
+            'extra'        => $extra,
+        ];
+
+        $base = self::replace_vars($tpl, $vars);
+
+        // o template já descreve o JSON; não precisa sufixo extra
+        return $base;
+    }
+
+
     public static function build_section_prompt(
         string $keyword,
         string $articleTitle,
@@ -582,7 +714,7 @@ REGRAS CRÍTICAS SOBRE O TÍTULO:
   respeite essa estrutura no conjunto das seções (não crie um número diferente).
 - Não mude o foco do artigo. Não contradiga o que o título promete.
 
-frase chave de foco: "{$keyword}".
+frase chave de foco ou comando: "{$keyword}". Entenda se este item é uma frase chave ou um comando, se forum comando, siga o sentido do que o conteudo quer dizer e se tiver uma url, acesse para modelar o conteudo, mas não insira um link como referencia.
 
 Regras de tamanho:
 - O texto desta seção deve ter aproximadamente entre {$approxMin} e {$approxMax} palavras.
@@ -714,7 +846,7 @@ Regras:
 - Idioma: {$locale}.
 - Tamanho: entre 130 e 150 caracteres (ideal ~150).
 - Deve ser uma frase única, fluida, que desperte curiosidade sem ser clickbait barato.
-- Incluir a frase chave de foco de forma natural: "{$keyword}".
+- Incluir a frase chave de foco de forma natural: "{$keyword}", mas caso essa keyword seja um comando, siga o que o comando diz e crie algo que faça sentido.
 - Não use "clique aqui", "não perca", "leia agora", "descubra" e similares.
 - Não use aspas, não use **markdown**, não use tags HTML.
 - Fale diretamente com o leitor, mas sem prometer coisas impossíveis.
@@ -756,12 +888,11 @@ TXT;
         $s .= 'Crie um ARTIGO REVIEW do tipo "roundup" (vários produtos) sobre: "{{keyword}}".' . "\n";
         $s .= 'Se {{forced_title}} não estiver vazio, use como título principal no JSON.' . "\n\n";
         $s .= "Regras principais:\n";
-        $s .= "- Conteúdo mínimo de 1500 palavras.\n";
         $s .= "- Estruture em seções por produto e seções comparativas (prós, contras, para quem é indicado).\n";
         $s .= "- Nunca afirme que existe um \"melhor absoluto\"; mostre cenários.\n";
         $s .= "- Use HTML no campo \"content\" (sem <h1>), focando em <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>.\n";
         $s .= "- Inclua CTAs leves para o leitor visitar a página oficial ou site de compra.\n\n";
-        $s .= "- Gere internamente meta_title, meta_description e image_alt coerentes com a keyword.\n";
+        $s .= "- O conteudo deve ser real e buscar de fato produtos que resolvam o problema em questão.\n\n";
 
         return $s;
     }
@@ -860,6 +991,7 @@ TXT;
         $s .= "- Foque em uma única cena marcante, em proporção 16:9.\n";
         $s .= "- Tamanho do prompt: pelo menos 200 caracteres.\n";
         $s .= "- não escreva palavras como 'Descubra', 'veja como' ou palavras desse tipo, de preferencia por inserir uma dor com uma solução dessa dor, então fale de possiveis beneficios'.\n";
+        $s .= "- peça para não ter textos ou marca d'agua";
 
         return $s;
     }

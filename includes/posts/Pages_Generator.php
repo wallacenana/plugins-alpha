@@ -26,7 +26,7 @@ class PluginsAlpha_Pages_Generator
 
         <div class="pga-card">
           <div class="pga-row">
-            <div class="pga-field" style="width: 100%; flex: 1 1 100%">
+            <div class="pga-field" style="width: 100%; flex: 1 1 100%; display: none;">
               <label>URL (opcional)</label>
               <input id="pga_source_url" type="url" placeholder="https://...">
             </div>
@@ -51,6 +51,7 @@ class PluginsAlpha_Pages_Generator
                 <option value="howto">Guia / How-to</option>
                 <!--<option value="list">Lista</option>-->
                 <option value="news">Notícia</option>
+                <option value="modelar">Modelar URL</option>
               </select>
             </div>
 
@@ -213,6 +214,20 @@ class PluginsAlpha_Pages_Generator
 
     $publish_ts = 0;
 
+    if ($keyword === '' && !empty($url)) {
+      $keyword = self::derive_keyword_from_url($url);
+    }
+
+    // 🔹 se ainda assim não tiver nada, aí sim erro
+    if ($keyword === '' && $url === '') {
+      return new WP_Error('pga_no_kw', 'Keyword vazia e URL ausente.');
+    }
+
+    // se ainda não conseguiu keyword mas tem URL, usa algo genérico
+    if ($keyword === '' && $url !== '') {
+      $keyword = 'Artigo baseado em ' . parse_url($url, PHP_URL_HOST);
+    }
+
     // 1) Se veio publish_time no args, pode ser timestamp OU string de data
     if (!empty($args['publish_time'])) {
       $raw = $args['publish_time'];
@@ -246,7 +261,7 @@ class PluginsAlpha_Pages_Generator
     // 0) Cria rascunho
     $draft_id = wp_insert_post([
       'post_type'    => $post_type,
-      'post_status'  => 'future', // se você já deixou assim pra garantir agendamento
+      'post_status'  => 'draft', // se você já deixou assim pra garantir agendamento
       'post_title'   => '(Gerando) ' . $keyword,
       'post_name'    => $slug,
       'post_content' => '',
@@ -299,14 +314,33 @@ class PluginsAlpha_Pages_Generator
 
     update_post_meta($draft_id, '_pga_job_status', 'outline_done');
 
-    $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt(
-      $keyword,
-      $chosenTitle,
-      $length,
-      $locale
-    );
+    // lista completa de keywords, se veio como array
+    $allKeywords = [];
+    if (is_array($kwSrc)) {
+      $allKeywords = array_values(array_filter(array_map('trim', $kwSrc)));
+    }
+
+    // escolher QUAL prompt de outline usar
+    if ($template === 'modelar') {
+      $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt_modelar(
+        $keyword,
+        $chosenTitle,
+        $length,
+        $locale,
+        $url,
+        $allKeywords
+      );
+    } else {
+      $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt(
+        $keyword,
+        $chosenTitle,
+        $length,
+        $locale
+      );
+    }
 
     $outline = PluginsAlpha_OpenAI::outline($outlinePrompt);
+
     if (is_wp_error($outline)) {
       update_post_meta($draft_id, '_pga_job_status', 'error');
       return $outline;
@@ -383,6 +417,45 @@ class PluginsAlpha_Pages_Generator
       'post_type' => $post_type,
     ];
   }
+
+  /**
+   * Tenta derivar uma keyword razoável a partir da URL:
+   * - Título da página, se conseguir
+   * - Senão, último segmento do path
+   */
+  protected static function derive_keyword_from_url(string $url): string
+  {
+    $url = trim($url);
+    if ($url === '') return '';
+
+    $resp = wp_remote_get($url, ['timeout' => 15]);
+    if (is_wp_error($resp)) return '';
+
+    $code = wp_remote_retrieve_response_code($resp);
+    if ($code !== 200) return '';
+
+    $body = wp_remote_retrieve_body($resp);
+    if (!$body) return '';
+
+    // tenta pegar o <title>
+    if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $body, $m)) {
+      $title = trim(wp_strip_all_tags($m[1]));
+      if ($title !== '') return $title;
+    }
+
+    // fallback: último segmento da URL
+    $path = parse_url($url, PHP_URL_PATH);
+    $path = trim((string)$path, "/");
+    if ($path !== '') {
+      $parts = explode('/', $path);
+      $last  = end($parts);
+      $last  = str_replace(['-', '_'], ' ', $last);
+      return trim($last);
+    }
+
+    return '';
+  }
+
 
   public static function generate_section_content(int $post_id, string $section_id)
   {
@@ -573,34 +646,32 @@ class PluginsAlpha_Pages_Generator
       return new WP_Error('pga_no_outline', 'Esboço não encontrado para este post.');
     }
 
-    $locale      = get_post_meta($post_id, '_pga_outline_locale',   true) ?: 'pt_BR';
-    $keyword     = get_post_meta($post_id, '_pga_outline_keyword',  true) ?: '';
-    $template    = get_post_meta($post_id, '_pga_outline_template', true) ?: 'discover_article';
-    $title       = get_post_meta($post_id, '_pga_chosen_title',     true) ?: $keyword;
+    $locale    = get_post_meta($post_id, '_pga_outline_locale',   true) ?: 'pt_BR';
+    $keyword   = get_post_meta($post_id, '_pga_outline_keyword',  true) ?: '';
+    $template  = get_post_meta($post_id, '_pga_outline_template', true) ?: 'discover_article';
+    $title     = get_post_meta($post_id, '_pga_chosen_title',     true) ?: $keyword;
+    $post_type = get_post_type($post_id) ?: 'posts_orion';
 
-    // --- 2) Publish_ts CORRIGIDO ---
+    // --- 2) Publish_ts corrigido / reaproveitado ---
     $publish_ts = (int) get_post_meta($post_id, '_pga_publish_ts', true);
 
     if (!$publish_ts) {
-      // quando nada foi salvo → usa mesmo modelo do fluxo antigo
       $publish_ts = self::compute_publish_time([
-        'keywords'                 => [$keyword],
-        'schedule_idx'             => 0,
-        'schedule_total'           => 1,
-        'schedule_per_day'         => 1,
-        'schedule_first_delay_hours' => 24, // <- respeita o que você queria
+        'keywords'                   => [$keyword],
+        'schedule_idx'               => 0,
+        'schedule_total'             => 1,
+        'schedule_per_day'           => 1,
+        'schedule_first_delay_hours' => 24,
       ]);
     }
 
-    // mesmo comportamento do fluxo antigo:
     if ($publish_ts < (time() + 60)) {
       $publish_ts = time() + 60;
     }
 
-    // salva meta, garantindo consistência
     update_post_meta($post_id, '_pga_publish_ts', $publish_ts);
 
-    // --- 3) Monta conteúdo final ---
+    // --- 3) Monta conteúdo final a partir das seções ---
     $htmlParts = [];
     foreach ($sections as $s) {
       $sid      = (string)($s['id'] ?? '');
@@ -619,27 +690,12 @@ class PluginsAlpha_Pages_Generator
       return new WP_Error('pga_final_empty', 'Nenhum conteúdo de seção encontrado para juntar.');
     }
 
-    // --- 4) Metadados já tratados nos steps ---
+    // --- 4) Meta dados ---
     $meta_title = get_post_meta($post_id, '_pga_meta_title',       true) ?: $title;
     $meta_desc  = get_post_meta($post_id, '_pga_meta_description', true) ?: '';
     $image_alt  = get_post_meta($post_id, '_pga_image_alt',        true) ?: '';
 
-    if ($meta_desc === '') {
-      $meta_desc = self::generate_meta_description_ai(
-        $keyword,
-        $title,
-        $locale,
-        $content_html
-      );
-      if ($meta_desc !== '') {
-        update_post_meta($post_id, '_pga_meta_description', $meta_desc);
-      }
-    }
-
-    // --- 5) Post Type ---
-    $post_type = get_post_type($post_id) ?: 'posts_orion';
-
-    // --- 6) Finalmente agenda igual ao fluxo antigo ---
+    // --- 5) Agenda / criação final do post ---
     $res = self::do_schedule_post($post_id, [
       'keyword'        => $keyword,
       'title'          => $title,
@@ -660,14 +716,16 @@ class PluginsAlpha_Pages_Generator
       return $res;
     }
 
-    // devolve no formato do fluxo antigo
+    // ❗ AQUI: Generator só devolve os dados. Nada de kw_get_* aqui.
     return [
       'ok'        => true,
       'post_id'   => $post_id,
       'edit'      => get_edit_post_link($post_id, ''),
       'view_link' => get_permalink($post_id),
+      'keyword'   => $keyword, // <- devolve pro REST poder mexer nas listas
     ];
   }
+
 
   protected static function generate_content_from_outline(
     string $keyword,
@@ -935,7 +993,6 @@ class PluginsAlpha_Pages_Generator
       'model'  => 'flux',
       // se um dia você tiver conta, dá pra ligar: 'nologo' => 'true',
     ], $base_url);
-    error_log($url);
     $res = wp_remote_get($url, [
       'timeout'   => 60,
       'headers'   => [

@@ -4,29 +4,11 @@ if (!defined('ABSPATH')) exit;
 class PluginsAlpha_REST
 {
 
-    // ---------------------- storage keywords ----------------------
-    private static function get_opt($key, $default = [])
-    {
-        $opt = get_option($key, null);
-        if ($opt === null) {
-            update_option($key, $default, false);
-            return $default;
-        }
-        return is_array($opt) ? $opt : $default;
-    }
     private static function set_opt($key, $val)
     {
         update_option($key, is_array($val) ? array_values($val) : $val, false);
     }
 
-    private static function kw_get_pending(): array
-    {
-        return self::get_opt('pga_keywords_pending', []);
-    }
-    private static function kw_get_done(): array
-    {
-        return self::get_opt('pga_keywords_done', []);
-    }
     private static function kw_set_pending(array $a)
     {
         self::set_opt('pga_keywords_pending', self::unique_clean($a));
@@ -39,40 +21,55 @@ class PluginsAlpha_REST
     {
         self::set_opt('pga_keywords_done', []);
     }
-    private static function kw_move_to_done_one(string $used)
+
+    protected static function kw_get_pending()
     {
-        if ($used === '') return;
+        $raw = get_option('pga_kw_pending', '');
+        $lines = preg_split('/\r\n|\r|\n/', (string)$raw);
+        $lines = array_values(array_filter(array_map('trim', $lines)));
+        return $lines;
+    }
 
-        $pend = self::kw_get_pending();
+    protected static function kw_get_done()
+    {
+        $raw = get_option('pga_kw_done', '');
+        $lines = preg_split('/\r\n|\r|\n/', (string)$raw);
+        $lines = array_values(array_filter(array_map('trim', $lines)));
+        return $lines;
+    }
 
-        // helper compatível
-        $lower = function ($s) {
-            return function_exists('mb_strtolower')
-                ? mb_strtolower($s, 'UTF-8')
-                : strtolower($s);
-        };
+    /**
+     * Move UMA keyword da lista de pendentes para a lista de concluídas
+     */
+    protected static function kw_move_to_done_one(string $kw)
+    {
+        $kw = trim($kw);
+        if ($kw === '') return;
 
-        // remove a keyword (case-insensitive)
-        $usedL = $lower($used);
-        $pend  = array_values(array_filter($pend, function ($k) use ($lower, $usedL) {
-            return $lower($k) !== $usedL;
+        $pending = self::kw_get_pending();
+        $done    = self::kw_get_done();
+
+        // remove da pending
+        $pending = array_values(array_filter($pending, function ($item) use ($kw) {
+            return mb_strtolower($item) !== mb_strtolower($kw);
         }));
-        self::kw_set_pending($pend);
 
-        // adiciona em "done" se ainda não estiver
-        $done = self::kw_get_done();
+        // adiciona na done, se ainda não existir
         $exists = false;
         foreach ($done as $d) {
-            if ($lower($d) === $usedL) {
+            if (mb_strtolower($d) === mb_strtolower($kw)) {
                 $exists = true;
                 break;
             }
         }
         if (!$exists) {
-            $done[] = $used;
-            self::set_opt('pga_keywords_done', $done);
+            $done[] = $kw;
         }
+
+        update_option('pga_kw_pending', implode("\n", $pending));
+        update_option('pga_kw_done',    implode("\n", $done));
     }
+
 
     private static function unique_clean(array $arr): array
     {
@@ -134,18 +131,6 @@ class PluginsAlpha_REST
         });
 
         return self::unique_clean($lines);
-    }
-
-
-    private static function wp_error_to_string($err): string
-    {
-        if (!is_wp_error($err)) return '';
-        $msg = $err->get_error_message();
-        $code = $err->get_error_code();
-        $data = $err->get_error_data();
-        if (is_array($data) && isset($data['http_code'])) $msg .= sprintf(' (HTTP %s)', $data['http_code']);
-        if ($code) $msg = "[$code] $msg";
-        return $msg ?: 'Erro desconhecido';
     }
 
     private static function guard(callable $fn)
@@ -322,7 +307,7 @@ class PluginsAlpha_REST
         $v = self::verify_nonce($req);
         if (is_wp_error($v)) return $v;
 
-        $params  = $req->get_json_params();
+        $params = $req->get_json_params();
         if (empty($params)) {
             $params = $req->get_params();
         }
@@ -336,12 +321,40 @@ class PluginsAlpha_REST
             );
         }
 
+        // 1) Finaliza via Generator
         $res = PluginsAlpha_Pages_Generator::finalize_from_sections($post_id);
 
         if (is_wp_error($res)) {
             return $res;
         }
 
+        // 2) Descobre a keyword usada nesse job
+        $keyword = '';
+        if (is_array($res) && !empty($res['keyword'])) {
+            $keyword = (string)$res['keyword'];
+        } else {
+            $keyword = (string)get_post_meta($post_id, '_pga_outline_keyword', true);
+        }
+
+        // 3) Atualiza listas de palavras (pending → done), se os helpers existirem
+        $state = null;
+
+        if ($keyword !== '' && method_exists(__CLASS__, 'kw_move_to_done_one')) {
+            self::kw_move_to_done_one($keyword);
+        }
+
+        if (method_exists(__CLASS__, 'kw_get_pending') && method_exists(__CLASS__, 'kw_get_done')) {
+            $state = [
+                'pending' => self::kw_get_pending(),
+                'done'    => self::kw_get_done(),
+            ];
+        }
+
+        if ($state !== null) {
+            $res['state'] = $state;
+        }
+
+        // 4) Resposta final pro JS (mantém compatibilidade)
         return rest_ensure_response($res);
     }
 
@@ -374,25 +387,58 @@ class PluginsAlpha_REST
     {
         $v = self::verify_nonce($req);
         if (is_wp_error($v)) return $v;
+
         return self::guard(function () use ($req) {
-            $p       = $req->get_json_params();
-            $mode    = (isset($p['mode']) && $p['mode'] === 'single') ? 'single' : 'multi';
-            $kw_in   = self::lines_to_array($p['keywords'] ?? '');
-            $url     = esc_url_raw($p['source_url'] ?? '');
+            $p     = $req->get_json_params();
+            $mode  = (isset($p['mode']) && $p['mode'] === 'single') ? 'single' : 'multi';
 
-            if ($mode === 'multi' && empty($kw_in)) {
-                return new WP_Error('pga_kw', 'Informe palavras-chave (modo múltiplo).', ['status' => 400]);
-            }
-            if ($mode === 'single' && empty($kw_in) && empty($url)) {
-                return new WP_Error('pga_kw', 'Informe ao menos 1 palavra ou uma URL (modo único).', ['status' => 400]);
+            // keywords em linhas → array
+            $kw_in = self::lines_to_array($p['keywords'] ?? '');
+            $url   = esc_url_raw($p['source_url'] ?? '');
+
+            // template / length / locale
+            $locale = self::clean($p['locale'] ?? 'pt_BR');
+            $tpl    = self::clean($p['template_key'] ?? 'article');
+            $length = self::clean($p['length'] ?? 'short');
+
+            $isModelar = ($tpl === 'modelar');
+
+            /**
+             * VALIDAÇÃO
+             *  - modo normal: exige keywords (multi) ou keyword+url (single)
+             *  - modo "modelar": aceita só URL, ou URL + keywords; se os dois vazios → erro
+             */
+            if (! $isModelar) {
+                if (empty($url)) {
+                    if ($mode === 'multi' && empty($kw_in)) {
+                        return new WP_Error(
+                            'pga_kw',
+                            'Informe palavras-chave (modo múltiplo).',
+                            ['status' => 400]
+                        );
+                    }
+                    if ($mode === 'single' && empty($kw_in) && empty($url)) {
+                        return new WP_Error(
+                            'pga_kw',
+                            'Informe ao menos 1 palavra ou uma URL (modo único).',
+                            ['status' => 400]
+                        );
+                    }
+                }
+            } else {
+                // modelar: precisa de URL OU de pelo menos 1 palavra-chave
+                if (empty($url) && empty($kw_in)) {
+                    return new WP_Error(
+                        'pga_kw',
+                        'Para modelar, informe uma URL ou pelo menos 1 palavra-chave.',
+                        ['status' => 400]
+                    );
+                }
             }
 
-            $locale  = self::clean($p['locale'] ?? 'pt_BR');
-            $tpl     = self::clean($p['template_key'] ?? 'article');
-            $length  = self::clean($p['length'] ?? 'short');
-            $total   = max(1, intval($p['total'] ?? ($mode === 'single' ? 1 : count($kw_in))));
-            $perDay  = max(1, intval($p['per_day'] ?? 3));
-            $firstH  = max(2, intval($p['first_delay_hours'] ?? 2));
+            $total  = max(1, intval($p['total'] ?? ($mode === 'single' ? 1 : count($kw_in))));
+            $perDay = max(1, intval($p['per_day'] ?? 3));
+            $firstH = max(2, intval($p['first_delay_hours'] ?? 2));
 
             $transition = [
                 'strict'    => !empty($p['transition']['strict']),
@@ -403,29 +449,40 @@ class PluginsAlpha_REST
             ];
 
             // monta agenda leve
-            $jobs = [];
-            $now  = time();
-            $days = (int)ceil($total / max(1, $perDay));
-            $i    = 0;
+            $jobs   = [];
+            $now    = time();
+            $days   = (int) ceil($total / max(1, $perDay));
+            $i      = 0;
             $cat_id = max(0, intval($p['category_id'] ?? 0));
+
             for ($d = 0; $d < $days; $d++) {
                 $slotsToday = min($perDay, $total - count($jobs));
-                $base = [9 * 3600, 14 * 3600, 19 * 3600];
+                $base       = [9 * 3600, 14 * 3600, 19 * 3600];
+
                 for ($s = 0; $s < $slotsToday; $s++) {
                     $baseIdx = min($s, count($base) - 1);
-                    $offset = wp_rand(-40 * MINUTE_IN_SECONDS, 40 * MINUTE_IN_SECONDS);
-                    $t      = strtotime('+' . $d . ' day', $now) + $base[$baseIdx] + $offset;
+                    $offset  = wp_rand(-40 * MINUTE_IN_SECONDS, 40 * MINUTE_IN_SECONDS);
+                    $t       = strtotime('+' . $d . ' day', $now) + $base[$baseIdx] + $offset;
 
                     if ($i === 0) {
                         $min = $now + $firstH * HOUR_IN_SECONDS;
-
                         if ($t < $min) {
                             $t = $min + wp_rand(300, 2400);
                         }
                     }
 
+                    // escolhe keyword para este job
+                    $keywordValue = '';
+                    if ($mode === 'single') {
+                        $keywordValue = $kw_in[0] ?? '';
+                    } else {
+                        $keywordValue = $kw_in[$i] ?? '';
+                    }
+
+                    // no template "modelar", é permitido keyword vazia;
+                    // o create_draft_and_outline depois deriva da URL se necessário.
                     $jobs[] = [
-                        'keyword'      => ($mode === 'single' ? ($kw_in[0] ?? '') : ($kw_in[$i] ?? '')),
+                        'keyword'      => $keywordValue,
                         'locale'       => $locale,
                         'length'       => $length,
                         'template_key' => $tpl,
@@ -434,23 +491,31 @@ class PluginsAlpha_REST
                         'transition'   => $transition,
                         'category_id'  => $cat_id,
                     ];
+
                     $i++;
-                    if (count($jobs) >= $total) break;
+                    if (count($jobs) >= $total) {
+                        break;
+                    }
                 }
             }
 
-            if ($mode === 'multi' && count($kw_in) < $total) {
+            // CORTE DE JOBS QUANDO FALTAM KEYWORDS
+            // - fluxo antigo: se pediu 10 posts mas só mandou 3 keywords, reduzia para 3
+            // - EXCETO no template "modelar" sem keywords, onde queremos manter os jobs
+            if ($mode === 'multi' && count($kw_in) < $total && ! $isModelar) {
                 $jobs = array_slice($jobs, 0, count($kw_in));
             }
+
             return [
-                'ok'   => true,
-                'mode' => $mode,
-                'total_requested' => $total,
-                'jobs' => $jobs,
+                'ok'                 => true,
+                'mode'               => $mode,
+                'total_requested'    => $total,
+                'jobs'               => $jobs,
                 'available_keywords' => count($kw_in),
             ];
         });
     }
+
 
     public static function status()
     {
