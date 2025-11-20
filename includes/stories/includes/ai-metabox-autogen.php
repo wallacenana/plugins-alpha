@@ -43,14 +43,19 @@ function alpha_ai_autogen_cb($post)
       ?>>
       Gerar story agora
     </button>
-    <span id="alpha_ai_generate_now_status" style="margin-left:8px;">
+    <span
+      id="alpha_ai_generate_now_status"
+      data-license-ok="<?php echo !empty($chk['ok']) ? '1' : '0'; ?>"
+      data-license-message="<?php echo esc_attr($chk['message'] ?? ''); ?>"
+      style="margin-left:8px;">
       <?php
-      // mostra uma mensagenzinha do lado se a licença não estiver ok
+      // mensagem visível do lado do botão (opcional)
       if (empty($chk['ok']) && !empty($chk['message'])) {
         echo esc_html($chk['message']);
       }
       ?>
     </span>
+
   </p>
 
 
@@ -73,6 +78,10 @@ function alpha_ai_autogen_cb($post)
       const st = document.getElementById('alpha_ai_generate_now_status');
       if (!btn) return;
       if (btn.disabled) return;
+
+      // lê o que o PHP colocou no span
+      const LICENSE_VALID = st.dataset.licenseOk === '1';
+      const LICENSE_MSG = st.dataset.licenseMessage || '';
 
       async function ensureSwal() {
 
@@ -199,11 +208,6 @@ function alpha_ajax_ai_generate_now()
 
   if (!$source_id || !get_post($source_id)) {
     wp_send_json_error(['message' => 'Post de origem inválido.'], 400);
-  }
-
-  // só aceito gerar a partir de post
-  if (get_post_type($source_id) !== 'post') {
-    wp_send_json_error(['message' => 'Geração deve ser feita a partir de um post.'], 400);
   }
 
   // permissão: vai gravar storys irmã => precisa editar o post de origem

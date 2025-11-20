@@ -20,8 +20,8 @@ function alpha_register_cpt_storys()
   require_once PGA_PATH . 'includes/stories/MetaBox.php';
   PluginsAlpha_Stories_MetaBox::init();
 
-  $base = trim((string) get_option('pga_story_base', ''), '/');
-  if ($base === '') $base = '';
+  // base sempre com algo válido
+  $base = alpha_storys_get_base_slug();
 
   $args = [
     'label'               => esc_html('Alpha Stories', 'alpha-storys'),
@@ -37,10 +37,23 @@ function alpha_register_cpt_storys()
     'capability_type'     => 'post',
     'map_meta_cap'        => true,
     'hierarchical'        => false,
+
+    // agora o arquivo e o slug batem com a base
     'has_archive'         => $base,
     'exclude_from_search' => false,
-    'supports'            => ['title', 'editor', 'thumbnail', 'excerpt', 'author', 'comments', 'custom-fields', 'revisions'],
+    'supports'            => [
+      'title',
+      'editor',
+      'thumbnail',
+      'excerpt',
+      'author',
+      'comments',
+      'custom-fields',
+      'revisions'
+    ],
     'taxonomies'          => ['category'],
+
+    // rewrite sempre com slug válido
     'rewrite'             => [
       'slug'       => $base,
       'with_front' => false,
@@ -52,11 +65,25 @@ function alpha_register_cpt_storys()
   register_post_type('alpha_storys', $args);
 }
 
+
 // Flush quando a base mudar nos Links Permanentes
 add_action('update_option_pga_story_base', function ($old, $new) {
   if ($old !== $new) flush_rewrite_rules(false);
 }, 10, 2);
 
+
+function alpha_storys_get_base_slug(): string
+{
+  // valor salvo na tela de Links Permanentes (Plugins Alpha / Stories)
+  $base = trim((string) get_option('pga_story_base', ''), '/');
+
+  // se estiver vazio, usamos um padrão seguro
+  if ($base === '') {
+    $base = 'stories'; // pode trocar por 'web-stories', 'alpha-stories', etc.
+  }
+
+  return $base;
+}
 
 
 /**

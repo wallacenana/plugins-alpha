@@ -25,14 +25,6 @@ function alpha_ai_get_api_key(): string {
     }
   }
 
-  // 2) Constantes globais, se definidas
-  if (defined('ALPHA_OPENAI_KEY') && ALPHA_OPENAI_KEY) {
-    return trim(ALPHA_OPENAI_KEY);
-  }
-  if (defined('OPENAI_API_KEY') && OPENAI_API_KEY) {
-    return trim(OPENAI_API_KEY);
-  }
-
   // 3) Variável de ambiente
   $env = getenv('OPENAI_API_KEY');
   if (is_string($env) && trim($env) !== '') {
@@ -184,10 +176,9 @@ function alpha_sideload_image_to_post($image_url, $attach_to_post_id = 0) {
 /** =========================
  *  Render: páginas -> blocos
  *  ========================= */
-function alpha_render_storys_pages_to_blocks(array $pages, $storys_id) {
+function alpha_render_storys_pages_to_blocks(array $pages) {
   $blocks = '';
 
-  $featured_set = has_post_thumbnail($storys_id);
   foreach ($pages as $idx => $p) {
     $heading  = isset($p['heading']) ? wp_strip_all_tags($p['heading']) : '';
     $body     = isset($p['body'])    ? wp_kses_post($p['body']) : '';

@@ -1,16 +1,20 @@
 <?php
 // Início do buffer com um minificador "AMP-safe"
 ob_start(function ($html) {
-  // Protege blocos sensíveis antes de minificar
   $tokens = [];
+  $i = 0;
+
+  // 1) Protege blocos sensíveis antes de minificar
   $protect = [
     '/<script type="application\/ld\+json"[^>]*>.*?<\/script>/si', // JSON-LD
     '/<style amp-custom[^>]*>.*?<\/style>/si',                     // CSS AMP
   ];
-  foreach ($protect as $re) {
-    $html = preg_replace_callback($re, function ($m) use (&$tokens) {
-      $key = '%%ALPHA_PROTECT_' . count($tokens) . '%%';
-      $tokens[$key] = $m[0];
+
+  foreach ($protect as $regex) {
+    $html = preg_replace_callback($regex, function ($m) use (&$tokens, &$i) {
+      $key = "%%PGA_TOKEN_{$i}%%";
+      $tokens[$key] = $m[0]; // guarda o bloco inteiro (sem mexer no CSS)
+      $i++;
       return $key;
     }, $html);
   }
