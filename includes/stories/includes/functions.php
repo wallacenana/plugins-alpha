@@ -1,9 +1,10 @@
 <?php
 
 // alpha-storys.php (principal)
-if ( ! defined('ABSPATH') ) exit;
+if (! defined('ABSPATH')) exit;
 // === 1) Constrói as páginas a partir do conteúdo: AGORA divide por <hr> (linha horizontal) ===
-function alpha_build_storys_pages_from_content($html) {
+function alpha_build_storys_pages_from_content($html)
+{
   $pages   = [];
   $content = do_shortcode($html);
 
@@ -26,13 +27,17 @@ function alpha_build_storys_pages_from_content($html) {
   $has_marker = (strpos($content, '[[ALPHA_SPLIT]]') !== false);
 
   // Helper: dentro de um pedaço (entre HRs), dividir por H2 múltiplos
-  $build_from_chunk = function($chunk_html) {
+  $build_from_chunk = function ($chunk_html) {
     $chunk_html = trim($chunk_html);
     if ($chunk_html === '') return [];
 
     // quebra preservando <h2> como delimitadores
-    $parts = preg_split('/(<h2[^>]*>.*?<\/h2>)/is', $chunk_html, -1,
-      PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+    $parts = preg_split(
+      '/(<h2[^>]*>.*?<\/h2>)/is',
+      $chunk_html,
+      -1,
+      PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY
+    );
 
     $pages_local = [];
     $current_title = '';
@@ -88,7 +93,8 @@ function alpha_build_storys_pages_from_content($html) {
 
 
 // === 2) Fecha/normaliza cada seção: título opcional (1º <h2>), CTA e limpeza do texto ===
-function alpha_finalize_section($title, $body_html) {
+function alpha_finalize_section($title, $body_html)
+{
   // Se não vier título externo, usa o 1º <h2> do bloco (se existir) e remove-o do corpo
   if (empty($title) && preg_match('/<h2[^>]*>(.*?)<\/h2>/is', $body_html, $mh2)) {
     $title     = wp_strip_all_tags($mh2[1]);
@@ -247,8 +253,7 @@ function alpha_from_blocks(array $blocks)
           $current['cta_url']  = esc_url_raw($m[1]);
           if (empty($current['cta_text'])) $current['cta_text'] = wp_strip_all_tags($m[2]);
         }
-      }
-      elseif ($name === 'core/image') {
+      } elseif ($name === 'core/image') {
         if (empty($current['image'])) {
           $url = '';
           if (!empty($attrs['id'])) {
@@ -258,8 +263,7 @@ function alpha_from_blocks(array $blocks)
           if (!$url && preg_match('/<img[^>]+src=["\']([^"\']+)["\']/', $html, $m)) $url = esc_url_raw($m[1]);
           if ($url) $current['image'] = $url;
         }
-      }
-      elseif ($name === 'core/shortcode') {
+      } elseif ($name === 'core/shortcode') {
         $sc = '';
         if (!empty($attrs['text'])) $sc = (string) $attrs['text'];
         elseif (!empty($html))      $sc = $html;
@@ -272,8 +276,7 @@ function alpha_from_blocks(array $blocks)
           if (!empty($atts['icon'])) $current['cta_icon'] = esc_url_raw($atts['icon']);
           if ($type) $current['cta_type'] = $type;
         }
-      }
-      elseif ($name === 'core/button') {
+      } elseif ($name === 'core/button') {
         if (empty($current['cta_url']) && !empty($attrs['url'])) {
           $current['cta_url'] = esc_url_raw($attrs['url']);
           $current['cta_type'] = $current['cta_type'] ?: 'button';
@@ -298,53 +301,80 @@ function alpha_from_blocks(array $blocks)
   return $pages;
 }
 
-function alpha_storys_get_or_create_storys($source_post_id) {
+function alpha_storys_get_or_create_storys($source_post_id)
+{
+  $source_post_id = absint($source_post_id);
+  if (! $source_post_id) {
+    return 0;
+  }
+
   $existing = (int) get_post_meta($source_post_id, '_alpha_storys_id', true);
   if ($existing && get_post($existing)) {
     return $existing;
   }
 
-  $q = new WP_Query([
+  // Essa meta_query é segura: 1 resultado, fields=ids, no_found_rows=true.
+  // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+  $q = new WP_Query(array(
     'post_type'      => 'alpha_storys',
-    'post_status'    => ['publish','draft','pending','future','private'],
-    'meta_key'       => '_alpha_storys_source_post',
-    'meta_value'     => $source_post_id,
+    'post_status'    => array('publish', 'draft', 'pending', 'future', 'private'),
+    'meta_query'     => array(
+      array(
+        'key'     => '_alpha_storys_source_post',
+        'value'   => $source_post_id,
+        'compare' => '=',
+        'type'    => 'NUMERIC',
+      ),
+    ),
     'fields'         => 'ids',
     'posts_per_page' => 1,
     'no_found_rows'  => true,
-  ]);
+  ));
+  // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+
   if ($q->have_posts()) {
     $id = (int) $q->posts[0];
     update_post_meta($source_post_id, '_alpha_storys_id', $id);
     return $id;
   }
 
-  $args = [
+  // 3) Cria novo story
+  $args = array(
     'post_type'   => 'alpha_storys',
     'post_title'  => get_the_title($source_post_id),
     'post_status' => 'draft',
     'post_author' => (int) get_post_field('post_author', $source_post_id),
-  ];
+  );
+
   $id = wp_insert_post($args, true);
-  if (is_wp_error($id)) return $id;
+  if (is_wp_error($id)) {
+    return $id;
+  }
+  $id = (int) $id;
 
-  update_post_meta($id, '_alpha_storys_source_post', (int)$source_post_id);
-  update_post_meta($source_post_id, '_alpha_storys_id', (int)$id);
+  update_post_meta($id, '_alpha_storys_source_post', $source_post_id);
+  update_post_meta($source_post_id, '_alpha_storys_id', $id);
 
+  // Thumbnail
   $thumb_id = get_post_thumbnail_id($source_post_id);
-  if ($thumb_id) set_post_thumbnail($id, $thumb_id);
-
-  if (function_exists('alpha_storys_options')) {
-    $o = alpha_storys_options();
-    if (!empty($o['publisher_logo_id'])) {
-      update_post_meta($id, '_alpha_storys_logo_id', (int)$o['publisher_logo_id']);
-    }
-    update_post_meta(
-      $id,
-      '_alpha_storys_publisher',
-      !empty($o['publisher_name']) ? sanitize_text_field($o['publisher_name']) : get_bloginfo('name')
-    );
+  if ($thumb_id) {
+    set_post_thumbnail($id, $thumb_id);
   }
 
-  return (int) $id;
+  // Opções padrão (publisher, logo, etc.)
+  if (function_exists('alpha_storys_options')) {
+    $o = alpha_storys_options();
+
+    if (! empty($o['publisher_logo_id'])) {
+      update_post_meta($id, '_alpha_storys_logo_id', (int) $o['publisher_logo_id']);
+    }
+
+    $publisher = ! empty($o['publisher_name'])
+      ? sanitize_text_field($o['publisher_name'])
+      : get_bloginfo('name');
+
+    update_post_meta($id, '_alpha_storys_publisher', $publisher);
+  }
+
+  return $id;
 }

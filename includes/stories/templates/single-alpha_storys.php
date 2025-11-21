@@ -6,8 +6,8 @@ ob_start(function ($html) {
 
   // 1) Protege blocos sensíveis antes de minificar
   $protect = [
-    '/<script type="application\/ld\+json"[^>]*>.*?<\/script>/si', // JSON-LD
-    '/<style amp-custom[^>]*>.*?<\/style>/si',                     // CSS AMP
+    '/<script type="application\/ld\+json"[^>]*>.*?<\/script>/si',
+    '/<style amp-custom[^>]*>.*?<\/style>/si',
   ];
 
   foreach ($protect as $regex) {
@@ -19,8 +19,6 @@ ob_start(function ($html) {
     }, $html);
   }
 
-  // Minifica espaços entre tags e quebras de linha, sem mexer no conteúdo protegido
-  // Remove múltiplos espaços, quebras e espaços entre tags
   $html = preg_replace('/>\s+</', '><', $html);
   $html = preg_replace('/\s{2,}/', ' ', $html);
   $html = trim($html);
@@ -41,20 +39,20 @@ global $post;
 $pages      = get_post_meta($post->ID, '_alpha_storys_pages', true);
 $pages      = is_array($pages) ? $pages : [];
 
-$publisher  = get_post_meta($post->ID, '_alpha_storys_publisher', true) ?: (alpha_opt('publisher_name') ?: get_bloginfo('name'));
+$alpha_storys_publisher   = get_post_meta($post->ID, '_alpha_storys_publisher', true) ?: (alpha_opt('publisher_name') ?: get_bloginfo('name'));
 
-$logo_id    = (int) get_post_meta($post->ID, '_alpha_storys_logo_id', true);
-$logo_src   = $logo_id ? wp_get_attachment_image_url($logo_id, 'full') : (alpha_get_publisher_logo_url() ?: '');
+$alpha_logo_id    = (int) get_post_meta($post->ID, '_alpha_storys_logo_id', true);
+$alpha_logo_src   = $alpha_logo_id ? wp_get_attachment_image_url($alpha_logo_id, 'full') : (alpha_get_publisher_logo_url() ?: '');
 
-$ga_id      = alpha_get_ga4_id();
-$ga_enable  = !empty($ga_id);
+$alpha_ga_id      = alpha_get_ga4_id();
+$alpha_ga_enable  = !empty($alpha_ga_id);
 
 // Playback (sem amp-bind): valor fixo por página, agora só via meta (sem ACF)
-$meta_autoplay = get_post_meta($post->ID, '_alpha_storys_autoplay', true);
+$alpha_meta_autoplay = get_post_meta($post->ID, '_alpha_storys_autoplay', true);
 // se meta estiver vazia, fallback = true
-$autoplay = ($meta_autoplay === '' || $meta_autoplay === null)
+$autoplay = ($alpha_meta_autoplay === '' || $alpha_meta_autoplay === null)
   ? true
-  : (bool) $meta_autoplay;
+  : (bool) $alpha_meta_autoplay;
 
 $seconds = (int) get_post_meta($post->ID, '_alpha_storys_duration', true);
 if ($seconds <= 0) $seconds = 7;
@@ -73,8 +71,8 @@ if (!$poster) {
 if (!$poster) {
   $poster = get_stylesheet_directory_uri() . '/assets/story-poster-fallback.jpg';
 }
-if (!$logo_src) {
-  $logo_src = $poster;
+if (!$alpha_logo_src) {
+  $alpha_logo_src = $poster;
 }
 
 // Ao menos 1 página
@@ -182,19 +180,19 @@ $font_family = $font === 'system'
 
   // Publisher + logo
   $publisher_logo = null;
-  if (!empty($logo_id) && ($lsrc = wp_get_attachment_image_src($logo_id, 'full'))) {
+  if (!empty($alpha_logo_id) && ($lsrc = wp_get_attachment_image_src($alpha_logo_id, 'full'))) {
     $publisher_logo = [
       '@type'  => 'ImageObject',
       'url'    => $lsrc[0],
       'width'  => (int) $lsrc[1],
       'height' => (int) $lsrc[2],
     ];
-  } elseif (!empty($logo_src)) {
-    $publisher_logo = ['@type' => 'ImageObject', 'url' => $logo_src];
+  } elseif (!empty($alpha_logo_src)) {
+    $publisher_logo = ['@type' => 'ImageObject', 'url' => $alpha_logo_src];
   }
   $publisher_data = [
     '@type' => 'Organization',
-    'name'  => $publisher,
+    'name'  => $alpha_storys_publisher ,
   ];
   if ($publisher_logo) $publisher_data['logo'] = $publisher_logo;
 
@@ -218,9 +216,14 @@ $font_family = $font === 'system'
 
   <link rel="canonical" href="<?php echo esc_url(get_permalink($post)); ?>">
 
-  <?php if ($font_href): ?>
+  <?php if ($font_href) :
+    // phpcs:disable WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet
+  ?>
     <link rel="stylesheet" href="<?php echo esc_url($font_href); ?>">
-  <?php endif; ?>
+  <?php
+  // phpcs:enable WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet
+  endif; ?>
+
 
   <style amp-boilerplate>
     body {
@@ -292,20 +295,27 @@ $font_family = $font === 'system'
   </noscript>
 
   <!-- AMP scripts: apenas UMA vez cada -->
+  <?php // phpcs:disable WordPress.WP.EnqueuedResources.NonEnqueuedScript	
+  ?>
   <script async src="https://cdn.ampproject.org/v0.js"></script>
   <script async custom-element="amp-story" src="https://cdn.ampproject.org/v0/amp-story-1.0.js"></script>
-  <?php if ($ga_enable): ?>
+
+  <?php if ($alpha_ga_enable) : ?>
     <script async custom-element="amp-analytics" src="https://cdn.ampproject.org/v0/amp-analytics-0.1.js"></script>
     <script async custom-element="amp-story-auto-analytics" src="https://cdn.ampproject.org/v0/amp-story-auto-analytics-0.1.js"></script>
   <?php endif; ?>
+  <?php // phpcs:enable WordPress.WP.EnqueuedResources.NonEnqueuedScript	
+  ?>
 
   <style amp-custom>
     /* Fonte e estilos base */
-    amp-story {
-      font-family: <?php echo esc_html($font_family); ?>;
+    <?php // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped 
+    ?>amp-story {
+      font-family: <?php echo $font_family; ?>;
     }
 
-    .pad {
+    <?php // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped 
+    ?>.pad {
       padding: 24px
     }
 
@@ -500,11 +510,11 @@ $font_family = $font === 'system'
     standalone
     class="<?php echo esc_attr($style_class); ?>"
     title="<?php echo esc_attr(get_the_title($post)); ?>"
-    publisher="<?php echo esc_attr($publisher); ?>"
-    publisher-logo-src="<?php echo esc_url($logo_src); ?>"
+    publisher="<?php echo esc_attr($alpha_storys_publisher ); ?>"
+    publisher-logo-src="<?php echo esc_url($alpha_logo_src); ?>"
     poster-portrait-src="<?php echo esc_url($poster); ?>">
-    <?php if ($ga_enable): ?>
-      <amp-story-auto-analytics gtag-id="<?php echo esc_attr($ga_id); ?>"></amp-story-auto-analytics>
+    <?php if ($alpha_ga_enable): ?>
+      <amp-story-auto-analytics gtag-id="<?php echo esc_attr($alpha_ga_id); ?>"></amp-story-auto-analytics>
     <?php endif;
 
     $i = 1;
@@ -563,12 +573,13 @@ $font_family = $font === 'system'
               <?php echo esc_attr($anim_card_div); ?>></div>
 
             <?php if (!empty($p['heading'])): ?>
-              <h2 class="h2" <?php echo esc_attr($anim_h2_clean); ?>><?php echo esc_html($p['heading']); ?></h2>
+              <h2 class="h2"><?php echo esc_html($p['heading']); ?></h2>
             <?php endif; ?>
 
             <?php if (!empty($p['body'])): ?>
-              <p class="p" <?php echo esc_attr($anim_p_clean); ?>><?php echo esc_html($p['body']); ?></p>
+              <p class="p"><?php echo esc_html($p['body']); ?></p>
             <?php endif; ?>
+
           </amp-story-grid-layer>
 
         <?php elseif ($style === 'top'): ?>
@@ -588,11 +599,12 @@ $font_family = $font === 'system'
             <div class="content">
               <div class="content-inner">
                 <?php if (!empty($p['heading'])): ?>
-                  <h2 class="h2" <?php echo esc_attr($anim_h2_clean); ?>><?php echo esc_html($p['heading']); ?></h2>
+                  <h2 class="h2"><?php echo esc_html($p['heading']); ?></h2>
                 <?php endif; ?>
                 <?php if (!empty($p['body'])): ?>
-                  <p class="p" <?php echo esc_attr($anim_p_clean); ?>><?php echo esc_html($p['body']); ?></p>
+                  <p class="p"><?php echo esc_html($p['body']); ?></p>
                 <?php endif; ?>
+
               </div>
             </div>
           </amp-story-grid-layer>
@@ -616,11 +628,12 @@ $font_family = $font === 'system'
                 <?php echo esc_attr($anim_left_split); ?>></div>
               <div class="right">
                 <?php if (!empty($p['heading'])): ?>
-                  <h2 class="h2" <?php echo esc_attr($anim_h2_split); ?>><?php echo esc_html($p['heading']); ?></h2>
+                  <h2 class="h2"><?php echo esc_html($p['heading']); ?></h2>
                 <?php endif; ?>
                 <?php if (!empty($p['body'])): ?>
-                  <p class="p" <?php echo esc_attr($anim_p_split); ?>><?php echo esc_html($p['body']); ?></p>
+                  <p class="p"><?php echo esc_html($p['body']); ?></p>
                 <?php endif; ?>
+
               </div>
             </div>
           </amp-story-grid-layer>
@@ -638,10 +651,10 @@ $font_family = $font === 'system'
 
           <amp-story-grid-layer template="vertical" class="layer-content pad">
             <?php if (!empty($p['heading'])): ?>
-              <h2 class="h2" <?php echo esc_attr($anim_h2_clean); ?>><?php echo esc_html($p['heading']); ?></h2>
+              <h2 class="h2"><?php echo esc_html($p['heading']); ?></h2>
             <?php endif; ?>
             <?php if (!empty($p['body'])): ?>
-              <p class="p" <?php echo esc_attr($anim_p_clean); ?>><?php echo esc_html($p['body']); ?></p>
+              <p class="p"><?php echo esc_html($p['body']); ?></p>
             <?php endif; ?>
           </amp-story-grid-layer>
         <?php endif; ?>

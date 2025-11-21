@@ -228,20 +228,74 @@ class PluginsAlpha_Stories_MetaBox
   {
     if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) return;
     if ($post->post_type !== 'alpha_storys') return;
-    if (!isset($_POST[self::NONCE]) || !wp_verify_nonce($_POST[self::NONCE], self::NONCE)) return;
+    // Verifica nonce
+    if (! isset($_POST[self::NONCE])) {
+      return;
+    }
+
+    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+    $nonce = wp_unslash($_POST[self::NONCE]);
+
+    if (! wp_verify_nonce($nonce, self::NONCE)) {
+      return;
+    }
 
     // sempre habilitado nessa tela
-    $enabled   = 1;
-    $autoplay  = !empty($_POST['storys_autoplay']) ? 1 : 0;
-    $duration  = isset($_POST['storys_duration']) ? (string) $_POST['storys_duration'] : '7';
-    $show_ctrl = !empty($_POST['storys_show_controls']) ? 1 : 0;
+    $enabled = 1;
 
-    $style     = isset($_POST['storys_style']) ? sanitize_text_field($_POST['storys_style']) : 'clean';
-    $font      = isset($_POST['storys_font'])  ? sanitize_text_field($_POST['storys_font'])  : 'plusjakarta';
+    // autoplay (checkbox)
+    $autoplay = 0;
+    if (isset($_POST['storys_autoplay'])) {
+      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+      $autoplay = ! empty(wp_unslash($_POST['storys_autoplay'])) ? 1 : 0;
+    }
 
-    $bg        = isset($_POST['storys_background_color']) ? sanitize_text_field($_POST['storys_background_color']) : '#ffffff';
-    $txt       = isset($_POST['storys_text_color'])       ? sanitize_text_field($_POST['storys_text_color'])       : '#ffffff';
-    $accent    = isset($_POST['storys_accent_color'])     ? sanitize_text_field($_POST['storys_accent_color'])     : '#cc0000';
+    // duração
+    $duration_raw = isset($_POST['storys_duration'])
+      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+      ? wp_unslash($_POST['storys_duration'])
+      : '7';
+    $duration = (string) absint($duration_raw);
+
+    // controles (checkbox)
+    $show_ctrl = 0;
+    if (isset($_POST['storys_show_controls'])) {
+      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+      $show_ctrl = ! empty(wp_unslash($_POST['storys_show_controls'])) ? 1 : 0;
+    }
+
+    // style / font
+    $style_raw = isset($_POST['storys_style'])
+      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+      ? wp_unslash($_POST['storys_style'])
+      : 'clean';
+    $style = sanitize_text_field($style_raw);
+
+    $font_raw = isset($_POST['storys_font'])
+      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+      ? wp_unslash($_POST['storys_font'])
+      : 'plusjakarta';
+    $font = sanitize_text_field($font_raw);
+
+    // cores
+    $bg_raw = isset($_POST['storys_background_color'])
+      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+      ? wp_unslash($_POST['storys_background_color'])
+      : '#ffffff';
+    $bg = sanitize_text_field($bg_raw);
+
+    $txt_raw = isset($_POST['storys_text_color'])
+      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+      ? wp_unslash($_POST['storys_text_color'])
+      : '#ffffff';
+    $txt = sanitize_text_field($txt_raw);
+
+    $accent_raw = isset($_POST['storys_accent_color'])
+      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+      ? wp_unslash($_POST['storys_accent_color'])
+      : '#cc0000';
+    $accent = sanitize_text_field($accent_raw);
+
 
     $poster_id = isset($_POST['storys_poster']) ? (int) $_POST['storys_poster'] : 0;
     $logo_id   = isset($_POST['storys_publisher_logo']) ? (int) $_POST['storys_publisher_logo'] : 0;

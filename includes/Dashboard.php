@@ -1,11 +1,13 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Dashboard {
-  public static function render() : void {
+class PluginsAlpha_Dashboard
+{
+  public static function render(): void
+  {
     $items = PluginsAlpha_Remote::catalog();
     if (!is_array($items)) $items = [];
-    ?>
+?>
     <div class="wrap pa-wrap">
       <h1 class="pa-title"><?php echo esc_html__('Plugins Alpha — Dashboard', 'plugins-alpha'); ?></h1>
       <p class="pa-subtitle"><?php echo esc_html__('Gerencie seus geradores e descubra novos módulos.', 'plugins-alpha'); ?></p>
@@ -55,29 +57,30 @@ class PluginsAlpha_Dashboard {
 
               <div class="pa-actions">
                 <?php
-                  // Botões por slug conhecido
-                  if ($slug === 'orion-posts') {
-                    $href = admin_url('admin.php?page=plugins-alpha-orion-posts');
-                    echo '<a class="button button-primary" href="'.esc_url($href).'">'.esc_html__('Abrir Gerar Posts','plugins-alpha').'</a>';
-                  } elseif ($slug === 'alpha-stories') {
-                    $href = admin_url('admin.php?page=plugins-alpha-alpha-stories');
-                    echo '<a class="button button-primary" href="'.esc_url($href).'">'.esc_html__('Abrir Web Stories','plugins-alpha').'</a>';
-                  } else {
-                    // Botão genérico para módulos novos: vai para o dashboard
-                    $href = admin_url('admin.php?page=plugins-alpha-dashboard');
-                    echo '<a class="button" href="'.esc_url($href).'">'.esc_html__('Abrir', 'plugins-alpha').'</a>';
-                  }
+                // Botões por slug conhecido
+                if ($slug === 'orion-posts') {
+                  $href = admin_url('admin.php?page=plugins-alpha-orion-posts');
+                  echo '<a class="button button-primary" href="' . esc_url($href) . '">' . esc_html__('Abrir Gerar Posts', 'plugins-alpha') . '</a>';
+                } elseif ($slug === 'alpha-stories') {
+                  $href = admin_url('admin.php?page=plugins-alpha-alpha-stories');
+                  echo '<a class="button button-primary" href="' . esc_url($href) . '">' . esc_html__('Abrir Web Stories', 'plugins-alpha') . '</a>';
+                } else {
+                  // Botão genérico para módulos novos: vai para o dashboard
+                  $href = admin_url('admin.php?page=plugins-alpha-dashboard');
+                  echo '<a class="button" href="' . esc_url($href) . '">' . esc_html__('Abrir', 'plugins-alpha') . '</a>';
+                }
 
-                  // Link de compra/assinatura
-                  if ($buy) {
-                    echo ' <a class="button" target="_blank" rel="noopener noreferrer" href="'.esc_url($buy).'">'.esc_html__('Comprar / Assinar','plugins-alpha').'</a>';
-                  }
+                // Link de compra/assinatura
+                if ($buy) {
+                  echo ' <a class="button" target="_blank" rel="noopener noreferrer" href="' . esc_url($buy) . '">' . esc_html__('Comprar / Assinar', 'plugins-alpha') . '</a>';
+                }
 
-                  /**
-                   * Ação para módulos injetarem botões extras no card.
-                   * Ex.: add_action('plugins_alpha/dashboard/card_actions', function($slug,$item){ ... });
-                   */
-                  do_action('plugins_alpha/dashboard/card_actions', $slug, $it);
+                /**
+                 * Ação para módulos injetarem botões extras no card.
+                 * Ex.: add_action('plugins_alpha/dashboard/card_actions', function($slug,$item){ ... });
+                 */
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+                do_action('plugins_alpha/dashboard/card_actions', $slug, $it);
                 ?>
               </div>
             </div>
@@ -85,6 +88,6 @@ class PluginsAlpha_Dashboard {
         </div>
       <?php endif; ?>
     </div>
-    <?php
+<?php
   }
 }

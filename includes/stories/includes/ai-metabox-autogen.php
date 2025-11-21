@@ -201,9 +201,18 @@ function alpha_ajax_ai_generate_now()
 {
   // valida nonce do AJAX
   check_ajax_referer('alpha_ai_generate_now', 'nonce');
+  $source_id = 0;
 
-  // pode vir como source_id (preferido) ou post_id (retrocompat)
-  $source_id = isset($_POST['source_id']) ? (int) $_POST['source_id'] : (int)($_POST['post_id'] ?? 0);
+  // source_id
+  if (isset($_POST['source_id'])) {
+    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+    $source_id = absint(wp_unslash($_POST['source_id']));
+  }
+
+  if (! $source_id && isset($_POST['post_id'])) {
+    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+    $source_id = absint(wp_unslash($_POST['post_id']));
+  }
   $preview   = !empty($_POST['preview']);
 
   if (!$source_id || !get_post($source_id)) {

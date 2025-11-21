@@ -245,16 +245,29 @@ add_action('admin_notices', function () {
   }
 
   // 2) Aviso específico na tela de edição se a publicação foi bloqueada
-  if ($screen->base === 'post') {
-    $post_id = isset($_GET['post']) ? (int) $_GET['post'] : 0;
+  if ('post' === $screen->base) {
+
+    $post_id = 0;
+
+    // phpcs:disable WordPress.Security.NonceVerification.Recommended
+    if (isset($_GET['post'])) {
+      $post_id = absint(wp_unslash($_GET['post']));
+    }
+    // phpcs:enable WordPress.Security.NonceVerification.Recommended
+
     if ($post_id > 0) {
       $reason = get_post_meta($post_id, '_pga_story_blocked_publish_reason', true);
-      if ($reason) {
-        $msg2 = __('Este story não pôde ser publicado porque a licença do módulo Alpha Stories não está ativa ou não inclui este módulo.', 'plugins-alpha');
 
-        echo '<div class="notice notice-warning is-dismissible"><p>'
-          . esc_html($msg2)
-          . '</p></div>';
+      if ($reason) {
+        $msg2 = esc_html__(
+          'Este story não pôde ser publicado porque a licença do módulo Alpha Stories não está ativa ou não inclui este módulo.',
+          'plugins-alpha'
+        );
+
+        printf(
+          '<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
+          esc_html($msg2)
+        );
 
         // Remove a meta pra não mostrar o aviso pra sempre
         delete_post_meta($post_id, '_pga_story_blocked_publish_reason');

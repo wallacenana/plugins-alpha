@@ -20,6 +20,7 @@ class PluginsAlpha_License
             ?? 'https://pluginsalpha.com/wp-json/pga-admin/v1';
 
         $base = rtrim($base, '/');
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound	
         return apply_filters('plugins_alpha/license_api_base', $base);
     }
 

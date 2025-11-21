@@ -225,7 +225,7 @@ class PluginsAlpha_Pages_Generator
 
     // se ainda não conseguiu keyword mas tem URL, usa algo genérico
     if ($keyword === '' && $url !== '') {
-      $keyword = 'Artigo baseado em ' . parse_url($url, PHP_URL_HOST);
+      $keyword = 'Artigo baseado em ' . wp_parse_url($url, PHP_URL_HOST);
     }
 
     // 1) Se veio publish_time no args, pode ser timestamp OU string de data
@@ -444,7 +444,7 @@ class PluginsAlpha_Pages_Generator
     }
 
     // fallback: último segmento da URL
-    $path = parse_url($url, PHP_URL_PATH);
+    $path = wp_parse_url($url, PHP_URL_PATH);
     $path = trim((string)$path, "/");
     if ($path !== '') {
       $parts = explode('/', $path);

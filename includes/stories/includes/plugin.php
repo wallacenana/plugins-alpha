@@ -6,5 +6,4 @@ require_once ALPHA_STORYS_PATH . 'includes/functions.php';
 require_once ALPHA_STORYS_PATH . 'includes/template-loader.php';
 require_once ALPHA_STORYS_PATH . 'includes/helpers.php';
 require_once ALPHA_STORYS_PATH . 'includes/admin-settings.php';
-require_once ALPHA_STORYS_PATH . 'includes/admin-bulk.php';
 require_once ALPHA_STORYS_PATH . 'includes/ai-metabox-autogen.php';

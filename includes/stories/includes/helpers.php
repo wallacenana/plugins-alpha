@@ -4,17 +4,20 @@ if (!defined('ABSPATH')) exit;
 /** =========================
  *  Opções e utilitários
  *  ========================= */
-function alpha_storys_options() {
+function alpha_storys_options()
+{
   $o = get_option('alpha_storys_options', []);
   return is_array($o) ? $o : [];
 }
 
-function alpha_opt($key, $default = null) {
+function alpha_opt($key, $default = null)
+{
   $opts = alpha_storys_options();
   return array_key_exists($key, $opts) ? $opts[$key] : $default;
 }
 
-function alpha_ai_get_api_key(): string {
+function alpha_ai_get_api_key(): string
+{
 
   // 1) PRIORIDADE: settings do Alpha GPT Posts (agp_settings[apis][openai][key])
   if (class_exists('PluginsAlpha_Settings')) {
@@ -52,23 +55,27 @@ function alpha_ai_get_api_key(): string {
 }
 
 
-function alpha_ai_get_model(): string {
+function alpha_ai_get_model(): string
+{
   $o = alpha_storys_options();
   return !empty($o['ai_model']) ? (string)$o['ai_model'] : 'gpt-4o-mini';
 }
 
-function alpha_ai_get_temperature(): float {
+function alpha_ai_get_temperature(): float
+{
   $o = alpha_storys_options();
   $t = isset($o['ai_temperature']) ? (float)$o['ai_temperature'] : 0.4;
   return max(0, min(1, $t));
 }
 
-function alpha_ai_get_default_brief(): string {
+function alpha_ai_get_default_brief(): string
+{
   $o = alpha_storys_options();
   return isset($o['ai_brief_default']) ? (string)$o['ai_brief_default'] : '';
 }
 
-function alpha_get_ga4_id(): string {
+function alpha_get_ga4_id(): string
+{
   $mode = alpha_opt('ga_mode', 'auto'); // auto|manual|off
   if ($mode === 'off') return '';
   if ($mode === 'manual') {
@@ -84,7 +91,7 @@ function alpha_get_ga4_id(): string {
   foreach ($candidates as $opt_name) {
     $opt = get_option($opt_name);
     if (is_array($opt)) {
-      foreach (['measurementID','measurementId','measurement_id','ga4MeasurementId'] as $k) {
+      foreach (['measurementID', 'measurementId', 'measurement_id', 'ga4MeasurementId'] as $k) {
         if (!empty($opt[$k]) && preg_match('/^G-[A-Z0-9\-]{4,}$/i', $opt[$k])) return $opt[$k];
       }
       $flat = json_decode(json_encode($opt), true);
@@ -98,7 +105,8 @@ function alpha_get_ga4_id(): string {
   return preg_match('/^G-[A-Z0-9\-]{4,}$/i', $id) ? $id : '';
 }
 
-function alpha_get_publisher_logo_url($size = 'full') {
+function alpha_get_publisher_logo_url($size = 'full')
+{
   $id = (int) alpha_opt('publisher_logo_id', 0);
   return $id ? wp_get_attachment_image_url($id, $size) : '';
 }
@@ -106,22 +114,25 @@ function alpha_get_publisher_logo_url($size = 'full') {
 /** =========================
  *  storys: criar ou localizar
  *  ========================= */
-function alpha_get_or_create_storys_for_post($post_id) {
+function alpha_get_or_create_storys_for_post($post_id)
+{
   $post = get_post($post_id);
   if (!$post) return 0;
 
   $storys_id = (int) get_post_meta($post_id, '_alpha_storys_id', true);
   if ($storys_id && get_post($storys_id)) return $storys_id;
-
+  // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
   $q = new WP_Query([
     'post_type'      => 'alpha_storys',
     'posts_per_page' => 1,
-    'post_status'    => ['publish','draft','pending'],
+    'post_status'    => ['publish', 'draft', 'pending'],
     'meta_query'     => [[
       'key'   => '_alpha_storys_source_post',
       'value' => $post_id,
     ]]
   ]);
+  // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+
   if ($q->have_posts()) {
     $storys_id = (int)$q->posts[0]->ID;
     wp_reset_postdata();
@@ -154,7 +165,8 @@ function alpha_get_or_create_storys_for_post($post_id) {
 /** =========================
  *  Mídia: sideload de imagens
  *  ========================= */
-function alpha_sideload_image_to_post($image_url, $attach_to_post_id = 0) {
+function alpha_sideload_image_to_post($image_url, $attach_to_post_id = 0)
+{
   $image_url = trim((string)$image_url);
   if ($image_url === '' || !filter_var($image_url, FILTER_VALIDATE_URL)) return 0;
 
@@ -176,15 +188,16 @@ function alpha_sideload_image_to_post($image_url, $attach_to_post_id = 0) {
 /** =========================
  *  Render: páginas -> blocos
  *  ========================= */
-function alpha_render_storys_pages_to_blocks(array $pages) {
+function alpha_render_storys_pages_to_blocks(array $pages)
+{
   $blocks = '';
 
   foreach ($pages as $idx => $p) {
     $heading  = isset($p['heading']) ? wp_strip_all_tags($p['heading']) : '';
     $body     = isset($p['body'])    ? wp_kses_post($p['body']) : '';
-    $cta_text = isset($p['cta_text'])? sanitize_text_field($p['cta_text']) : '';
-    $cta_url = isset($p['cta_url'])? sanitize_text_field($p['cta_url']) : '';
-    $prompt = isset($p['prompt'])? sanitize_text_field($p['prompt']) : '';
+    $cta_text = isset($p['cta_text']) ? sanitize_text_field($p['cta_text']) : '';
+    $cta_url = isset($p['cta_url']) ? sanitize_text_field($p['cta_url']) : '';
+    $prompt = isset($p['prompt']) ? sanitize_text_field($p['prompt']) : '';
 
     $blocks .= "<!-- wp:group {\"className\":\"alpha-storys-page\"} -->\n";
     $blocks .= "<div class=\"wp-block-group alpha-storys-page\">\n";
@@ -199,7 +212,9 @@ function alpha_render_storys_pages_to_blocks(array $pages) {
       $blocks .= "<!-- wp:paragraph -->\n";
       $blocks .= "<p>" . wp_kses($body, [
         'a' => ['href' => [], 'rel' => [], 'target' => []],
-        'strong' => [], 'em' => [], 'br' => []
+        'strong' => [],
+        'em' => [],
+        'br' => []
       ]) . "</p>\n";
       $blocks .= "<!-- /wp:paragraph -->\n";
     }
@@ -209,12 +224,14 @@ function alpha_render_storys_pages_to_blocks(array $pages) {
       $blocks .= "<a href=\"" . esc_attr($cta_url) . "\" target=\"_blank\">" . esc_html($cta_text) . "</a>\n";
       $blocks .= "<!-- /wp:paragraph -->\n";
     }
-    
+
     if ($prompt !== '') {
       $blocks .= "<!-- wp:paragraph -->\n";
       $blocks .= "<p>" . wp_kses($prompt, [
         'a' => ['href' => [], 'rel' => [], 'target' => []],
-        'strong' => [], 'em' => [], 'br' => []
+        'strong' => [],
+        'em' => [],
+        'br' => []
       ]) . "</p>\n";
       $blocks .= "<!-- /wp:paragraph -->\n";
     }
@@ -229,7 +246,8 @@ function alpha_render_storys_pages_to_blocks(array $pages) {
 /** =========================
  *  IA: gerar e salvar conteúdo
  *  ========================= */
-function alpha_ai_generate_for_post($post_id) {
+function alpha_ai_generate_for_post($post_id)
+{
   $o   = alpha_storys_options();
   $key = alpha_ai_get_api_key();
   if (!$key) return new WP_Error('alpha_ai_key', 'Configure sua OpenAI API Key nas Configurações.');
@@ -247,6 +265,7 @@ function alpha_ai_generate_for_post($post_id) {
   }
 
   // --- MONTA PROMPT (igual ao seu) ---
+  // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
   $raw_html = apply_filters('the_content', get_post_field('post_content', $source_id));
   $title    = get_the_title($source_id);
   $brief    = alpha_ai_get_default_brief();
@@ -293,7 +312,7 @@ function alpha_ai_generate_for_post($post_id) {
   $code = wp_remote_retrieve_response_code($res);
   $body = wp_remote_retrieve_body($res);
   if ($code !== 200) {
-    return new WP_Error('alpha_ai_http', 'OpenAI retornou '.$code.': '.substr($body, 0, 300));
+    return new WP_Error('alpha_ai_http', 'OpenAI retornou ' . $code . ': ' . substr($body, 0, 300));
   }
 
   $obj = json_decode($body, true);
@@ -322,7 +341,7 @@ function alpha_ai_generate_for_post($post_id) {
     $pages[] = [
       'heading'  => isset($p['heading']) ? wp_strip_all_tags($p['heading']) : '',
       'body'     => isset($p['body'])    ? wp_strip_all_tags($p['body'])    : '',
-      'cta_text' => isset($p['cta_text'])? sanitize_text_field($p['cta_text']): '',
+      'cta_text' => isset($p['cta_text']) ? sanitize_text_field($p['cta_text']) : '',
       'cta_url'  => isset($p['cta_url']) ? esc_url_raw($p['cta_url']) : '',
       'prompt'   => isset($p['prompt'])  ? sanitize_text_field($p['prompt']) : '',
     ];
@@ -330,6 +349,7 @@ function alpha_ai_generate_for_post($post_id) {
 
   // ====== SEMPRE CRIAR UMA NOVA STORY ======
   // Conta quantas já existem para numerar o título
+  // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
   $existing = new WP_Query([
     'post_type'      => 'alpha_storys',
     'posts_per_page' => -1,
@@ -341,6 +361,8 @@ function alpha_ai_generate_for_post($post_id) {
     'post_status'    => 'any',
     'no_found_rows'  => true,
   ]);
+  // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+
   $seq = (int) $existing->post_count + 1;
 
   $story_title = sprintf('%s — Story #%d', $title, $seq);
@@ -372,4 +394,3 @@ function alpha_ai_generate_for_post($post_id) {
 
   return ['ok' => true, 'count' => count($pages), 'target_id' => (int)$target_id];
 }
-

@@ -31,13 +31,22 @@ class PluginsAlpha_Prompts
      */
     private static function handle_save(): void
     {
-        if ('POST' !== ($_SERVER['REQUEST_METHOD'] ?? '')) {
+        // METHOD
+        $method = isset($_SERVER['REQUEST_METHOD'])
+            ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_METHOD']))
+            : '';
+
+        if ('POST' !== $method) {
             return;
         }
 
+        // NONCE
         if (
             empty($_POST['pga_orion_prompts_nonce']) ||
-            ! wp_verify_nonce($_POST['pga_orion_prompts_nonce'], 'pga_orion_prompts_save')
+            ! wp_verify_nonce(
+                sanitize_text_field(wp_unslash($_POST['pga_orion_prompts_nonce'])),
+                'pga_orion_prompts_save'
+            )
         ) {
             return;
         }
@@ -46,7 +55,26 @@ class PluginsAlpha_Prompts
             return;
         }
 
-        $in  = isset($_POST['pga_orion_prompts']) ? $_POST['pga_orion_prompts'] : array();
+        // DADOS
+        // pega o array bruto e remove as barras
+        $raw = array();
+
+        if (isset($_POST['pga_orion_prompts'])) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+            $raw = wp_unslash($_POST['pga_orion_prompts']);
+        }
+
+        // sanitiza tudo que veio
+        $in = array();
+
+        if (is_array($raw)) {
+            $in = array_map('wp_kses_post', $raw); // ou sanitize_textarea_field, se preferir
+        }
+
+
+        $in  = is_array($raw)
+            ? array_map('wp_kses_post', $raw) // ou outra sanitização que você preferir
+            : array();
         $out = array();
 
         if (is_array($in)) {
@@ -81,6 +109,7 @@ class PluginsAlpha_Prompts
         $raw = self::get_all_raw();
 
         // função helper bem simples (sem closure) só para montar valor do textarea:
+        // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
         function pga_orion_prompt_value(array $raw, string $key): string
         {
             if (isset($raw[$key]) && is_string($raw[$key]) && trim($raw[$key]) !== '') {
@@ -89,6 +118,7 @@ class PluginsAlpha_Prompts
             // se não tiver salvo, mostra o default para o admin saber o que está sendo usado
             return PluginsAlpha_Prompts::default_prompt_for($key);
         }
+        // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 
         settings_errors('plugins-alpha-orion-prompts');
 ?>
@@ -215,13 +245,11 @@ class PluginsAlpha_Prompts
                                 class="large-text code"><?php
                                                         echo esc_textarea(pga_orion_prompt_value($raw, 'outline'));
                                                         ?></textarea>
-                            <p class="description">
-                                <?php esc_html_e(
-                                    'Usado para gerar o esboço em JSON ("sections") dos artigos longos / extra longos. '
-                                        . 'Se ficar vazio, o plugin usa o prompt padrão interno.',
-                                    'plugins-alpha'
-                                ); ?>
-                            </p>
+                            <?php esc_html_e(
+                                'Usado para gerar o esboço em JSON ("sections") dos artigos longos / extra longos.Se ficar vazio, o plugin usa o prompt padrão interno.',
+                                'plugins-alpha'
+                            ); ?>
+
                         </td>
                     </tr>
 
@@ -525,63 +553,65 @@ class PluginsAlpha_Prompts
 
     protected static function default_outline_modelar_prompt(): string
     {
-        return <<<TXT
-Atue como um especialista em SEO escrevendo em {{locale}}.
+        $s  = '';
+        $s .= 'Atue como um especialista em SEO escrevendo em {{locale}}.' . "\n\n";
 
-Você deve criar APENAS UM ESBOÇO (outline) COMPLETO para um artigo de blog
-MODELADO a partir do conteúdo da seguinte URL, sem copiar trechos literalmente:
+        $s .= 'Você deve criar APENAS UM ESBOÇO (outline) COMPLETO para um artigo de blog ' .
+            'MODELADO a partir do conteúdo da seguinte URL, sem copiar trechos literalmente:' . "\n\n";
 
-URL base para modelagem:
-{{url}}
+        $s .= 'URL base para modelagem:' . "\n";
+        $s .= '{{url}}' . "\n\n";
 
-Frase chave ou comando principal:
-"{{keyword}}"
+        $s .= 'Frase chave ou comando principal:' . "\n";
+        $s .= '"{{keyword}}"' . "\n\n";
 
-Itens adicionais (produtos, variações, termos complementares), se existirem:
-{{extra}}
+        $s .= 'Itens adicionais (produtos, variações, termos complementares), se existirem:' . "\n";
+        $s .= '{{extra}}' . "\n\n";
 
-O título do artigo já está definido e NÃO PODE ser traído:
-"{{articleTitle}}"
+        $s .= 'O título do artigo já está definido e NÃO PODE ser alterado:' . "\n";
+        $s .= '"{{articleTitle}}"' . "\n\n";
 
-Regras de estrutura:
-- O artigo final terá entre {{min_words}} e {{max_words}} palavras.
-- Crie entre {{min_sections}} e {{max_sections}} seções principais (H2).
-- Cada H2 pode ter 1 a 3 subseções (H3).
-- A estrutura deve refletir a lógica da página de origem, mas com melhorias:
-  mais clareza, melhor organização e foco em Discover.
-- Se {{extra}} listar vários produtos, pense como um review comparativo / roundup.
+        $s .= 'Regras de estrutura:' . "\n";
+        $s .= '- O artigo final terá entre {{min_words}} e {{max_words}} palavras.' . "\n";
+        $s .= '- Crie entre {{min_sections}} e {{max_sections}} seções principais (H2).' . "\n";
+        $s .= '- Cada H2 pode ter 1 a 3 subseções (H3).' . "\n";
+        $s .= '- A estrutura deve refletir a lógica da página de origem, porém com melhorias: ' .
+            'mais clareza, organização superior e foco em Discover.' . "\n";
+        $s .= '- Se {{extra}} listar vários produtos, pensar como review comparativo / roundup.' . "\n\n";
 
-Para cada seção (H2):
-- Defina "heading" (título da seção).
-- Defina "word_goal" com min/max de palavras sugeridas.
-- Preencha "bullets" com os tópicos/ideias que serão desenvolvidos.
-- Em "children", liste eventuais H3 com seus próprios "bullets".
+        $s .= 'Para cada seção (H2):' . "\n";
+        $s .= '- Defina "heading".' . "\n";
+        $s .= '- Defina "word_goal" com min/max de palavras.' . "\n";
+        $s .= '- Liste "bullets" com ideias que serão desenvolvidas.' . "\n";
+        $s .= '- Em "children", inclua eventuais H3 com seus próprios bullets.' . "\n\n";
 
-FORMATO DA RESPOSTA (OBRIGATÓRIO) — JSON UTF-8 válido, sem markdown:
+        $s .= 'FORMATO DA RESPOSTA (OBRIGATÓRIO) — JSON UTF-8 válido, sem markdown:' . "\n\n";
 
-{
-  "sections": [
-    {
-      "id": "1",
-      "level": "h2",
-      "heading": "Título da seção...",
-      "word_goal": { "min": 300, "max": 500 },
-      "bullets": ["...", "..."],
-      "children": [
-        {
-          "id": "1.1",
-          "level": "h3",
-          "heading": "Subtítulo...",
-          "bullets": ["...", "..."]
-        }
-      ]
+        $s .= '{' . "\n";
+        $s .= '  "sections": [' . "\n";
+        $s .= '    {' . "\n";
+        $s .= '      "id": "1",' . "\n";
+        $s .= '      "level": "h2",' . "\n";
+        $s .= '      "heading": "Título da seção...",' . "\n";
+        $s .= '      "word_goal": { "min": 300, "max": 500 },' . "\n";
+        $s .= '      "bullets": ["...", "..."],' . "\n";
+        $s .= '      "children": [' . "\n";
+        $s .= '        {' . "\n";
+        $s .= '          "id": "1.1",' . "\n";
+        $s .= '          "level": "h3",' . "\n";
+        $s .= '          "heading": "Subtítulo...",' . "\n";
+        $s .= '          "bullets": ["...", "..."]' . "\n";
+        $s .= '        }' . "\n";
+        $s .= '      ]' . "\n";
+        $s .= '    }' . "\n";
+        $s .= '  ]' . "\n";
+        $s .= '}' . "\n\n";
+
+        $s .= 'Não escreva nada fora desse JSON.' . "\n";
+
+        return $s;
     }
-  ]
-}
 
-Não escreva nada fora desse JSON.
-TXT;
-    }
 
     public static function build_outline_prompt_modelar(
         string $keyword,
@@ -699,47 +729,47 @@ TXT;
         }
 
 
-        $txt = <<<TXT
-Atue como um especialista em SEO e GEO escrevendo em {$locale}.
-o foco deste artigo é Google Discover, então o conteúdo deve ser fluido e despertar cada vez mais interesse em ler.
+        $txt  = '';
+        $txt .= "Atue como um especialista em SEO e GEO escrevendo em {$locale}.\n";
+        $txt .= "O foco deste artigo é Google Discover, então o conteúdo deve ser fluido e despertar cada vez mais interesse em ler.\n\n";
 
-Você deve escrever APENAS o conteúdo (HTML) da seção "{$heading}" ({$level})
-do artigo com título exato:
+        $txt .= "Você deve escrever APENAS o conteúdo (HTML) da seção \"{$heading}\" ({$level})\n";
+        $txt .= "do artigo com título exato:\n\n";
+        $txt .= "\"{$articleTitle}\"\n\n";
 
-"{$articleTitle}"
+        $txt .= "REGRAS CRÍTICAS SOBRE O TÍTULO:\n";
+        $txt .= "- O conteúdo desta seção DEVE ser coerente com o título do artigo.\n";
+        $txt .= "- Se o título promete um certo número de passos, dicas, motivos etc,\n";
+        $txt .= "  respeite essa estrutura no conjunto das seções (não crie um número diferente).\n";
+        $txt .= "- Não mude o foco do artigo. Não contradiga o que o título promete.\n\n";
 
-REGRAS CRÍTICAS SOBRE O TÍTULO:
-- O conteúdo desta seção DEVE ser coerente com o título do artigo.
-- Se o título promete um certo número de passos, dicas, motivos etc,
-  respeite essa estrutura no conjunto das seções (não crie um número diferente).
-- Não mude o foco do artigo. Não contradiga o que o título promete.
+        $txt .= "Frase chave de foco ou comando: \"{$keyword}\". Entenda se este item é uma frase chave ou um comando; se for um comando, siga o sentido do que o conteúdo quer dizer e, se tiver uma URL, acesse para modelar o conteúdo, mas não insira um link como referência.\n\n";
 
-frase chave de foco ou comando: "{$keyword}". Entenda se este item é uma frase chave ou um comando, se forum comando, siga o sentido do que o conteudo quer dizer e se tiver uma url, acesse para modelar o conteudo, mas não insira um link como referencia.
+        $txt .= "Regras de tamanho:\n";
+        $txt .= "- O texto desta seção deve ter aproximadamente entre {$approxMin} e {$approxMax} palavras.\n";
+        $txt .= "- Desenvolva bem as ideias, com explicações e exemplos práticos, mas evite enrolação.\n";
+        $txt .= "- Cada parágrafo deve ter no máximo 4 linhas, ou seja, abaixo de 300 palavras. Cada tópico também deve conter no máximo 300 palavras; entre títulos e subtítulos, respeite esse limite.\n\n";
 
-Regras de tamanho:
-- O texto desta seção deve ter aproximadamente entre {$approxMin} e {$approxMax} palavras.
-- Desenvolva bem as ideias, com explicações e exemplos práticos, mas evite enrolação.
-- cada paragrafo deve ter no máximo 4 linhas, ou seja, abaixo de 300 palavras, sempre, inclusive, cada tópico deve conter no máximo 300 palavras, ou seja, entre titulos e subtitulos deve ter no máximo essa quantidade.
+        $txt .= "Regras de HTML:\n";
+        $txt .= "- Não inclua <h1>.\n";
+        $txt .= "- Comece o conteúdo já com a tag {$level} principal desta seção.\n";
+        $txt .= "- A frase chave de foco deve ser distribuída pelo conteúdo levando em conta a performance de SEO.\n";
+        $txt .= "- A frase chave de foco deve estar principalmente na primeira frase de maneira fluida.\n";
+        $txt .= "- A frase chave de foco deve estar presente no último parágrafo.\n";
+        $txt .= "- Use parágrafos (<p>) claros e escaneáveis.\n";
+        $txt .= "- Use <strong> para negrito, nunca ** **.\n";
+        $txt .= "- Use listas não ordenadas (<ul><li>) quando fizer sentido (passo a passo, checklist, dicas etc).\n";
+        $txt .= "- Use <p>, <ul>, <li>, <strong> etc. em HTML puro.\n";
+        $txt .= "- Trechos importantes do texto devem estar em negrito.\n";
+        $txt .= "- No mínimo 40% do conteúdo deve ter palavras de transição, como: mas, por isso, entretanto, isso, quando, em resumo e outras similares, sem perder a voz ativa.\n\n";
 
-Regras de HTML:
-- Não inclua <h1>.
-- Comece o conteúdo já com a tag {$level} principal desta seção.
-- a frase chave de foco deve ser distribuida pelo conteudo levando em conta a performance do SEO.
-- a frase chave de foco deve estar principalmente na primeira frase de maneira fluida.
-- a frase chave de foco deve estar presente no ultimo paragrafo.
-- Use parágrafos (<p>) claros e escaneáveis.
-- Use <strong> para negrito, nunca ** **.
-- Use listas não ordenadas (<ul><li>) quando fizer sentido (passo a passo, checklist, dicas etc).
-- Use <p>, <ul>, <li>, <strong> etc. em HTML puro.
-- trechos importantes do texto devem estar em negrito.
-- no minimo 40% do conteudo deve ter palavras de transição, como, mas, por isso, entretando, isso, quando, em resumo e outras palavras nesse sentido, mas sem perder a voz ativa.
+        $txt .= "Regras críticas sobre a frase chave:\n";
+        $txt .= "- Esta seção deve conter ao menos uma vez a frase chave de foco.\n";
+        $txt .= "- Se esta for a seção de introdução ou conclusão, então a frase chave deve estar na primeira frase de maneira fluida.\n\n";
 
-Regras criticas sobre frase chave:
-- essa sessão deve ter ao menos uma vez a frase chave de foco.
-- se essa for a sessão da introdução ou conclusão, então a frase chave deve estar na primeira frase de maneira fluida.
-Contexto do esboço:
-{$bulletsText}
-TXT;
+        $txt .= "Contexto do esboço:\n";
+        $txt .= $bulletsText . "\n";
+
 
         return $txt;
     }
@@ -747,70 +777,71 @@ TXT;
 
     protected static function default_outline_prompt(): string
     {
-        return <<<TXT
-Atue como um especialista em SEO escrevendo em {{locale}}.
+        $s  = '';
+        $s .= "Atue como um especialista em SEO escrevendo em {{locale}}.\n\n";
 
-Você deve criar APENAS UM ESBOÇO (outline) completo para um artigo de blog
-com a frase chave de foco: "{{keyword}}".
-se o que estiver no campo acima for um texto ou link, então deve ser acessado o link e modelado os tópicos ou seguido as diretrizes.
-se atente tabém se o campo acima tiver vários nomes de produtos, então é provavel que o usuário esteja fazendo um review comparativo ou até mesmo um post review de algum produto.
+        $s .= "Você deve criar APENAS UM ESBOÇO (outline) completo para um artigo de blog\n";
+        $s .= "com a frase chave de foco: \"{{keyword}}\".\n";
+        $s .= "Se o que estiver no campo acima for um texto ou link, então deve ser acessado o link e modelado os tópicos ou seguido as diretrizes.\n";
+        $s .= "Se atente também caso o campo acima tenha vários nomes de produtos; nesse caso, provavelmente o usuário está fazendo um review comparativo ou até mesmo um post review de algum produto.\n\n";
 
-O título do artigo já está definido e NÃO PODE ser traído pelo conteúdo:
-"{{articleTitle}}"
+        $s .= "O título do artigo já está definido e NÃO PODE ser traído pelo conteúdo:\n";
+        $s .= "\"{{articleTitle}}\"\n\n";
 
-Regras IMPORTANTES sobre consistência com o título:
-- Se o título menciona um número específico de passos, dicas, motivos, estratégias etc
-  (por exemplo: "5 passos para ...", "7 motivos para ..."),
-  o esboço DEVE refletir exatamente esse número de itens principais.
-- Não invente mais nem menos passos do que o prometido no título.
-- A intenção do título (promessa principal) deve ser claramente atendida nas seções.
+        $s .= "Regras IMPORTANTES sobre consistência com o título:\n";
+        $s .= "- Se o título menciona um número específico de passos, dicas, motivos, estratégias etc\n";
+        $s .= "  (por exemplo: \"5 passos para ...\", \"7 motivos para ...\"),\n";
+        $s .= "  o esboço DEVE refletir exatamente esse número de itens principais.\n";
+        $s .= "- Não invente mais nem menos passos do que o prometido no título.\n";
+        $s .= "- A intenção do título (promessa principal) deve ser claramente atendida nas seções.\n\n";
 
-Regras de tamanho:
-- O artigo final terá entre {{min_words}} e {{max_words}} palavras.
-- Crie entre {{min_sections}} e {{max_sections}} seções principais (H2).
-- Cada H2 pode ter 1 a 3 subseções (H3).
+        $s .= "Regras de tamanho:\n";
+        $s .= "- O artigo final terá entre {{min_words}} e {{max_words}} palavras.\n";
+        $s .= "- Crie entre {{min_sections}} e {{max_sections}} seções principais (H2).\n";
+        $s .= "- Cada H2 pode ter 1 a 3 subseções (H3).\n\n";
 
-Estrutura:
-- "sections" é um array de seções de nível H2.
-- Cada H2 pode conter um array "children" com H3 relacionados.
-- com exceção da introdução, ao menos 1 H2 tem q ter subseções.
-- Inclua "bullets" com ideias que serão desenvolvidas em cada seção.
+        $s .= "Estrutura:\n";
+        $s .= "- \"sections\" é um array de seções de nível H2.\n";
+        $s .= "- Cada H2 pode conter um array \"children\" com H3 relacionados.\n";
+        $s .= "- Com exceção da introdução, ao menos 1 H2 deve ter subseções.\n";
+        $s .= "- Inclua \"bullets\" com ideias que serão desenvolvidas em cada seção.\n\n";
 
-Finalização:
-- Finalize sempre com a conclusão.
+        $s .= "Finalização:\n";
+        $s .= "- Finalize sempre com a conclusão.\n\n";
 
-A frase chave "{{keyword}}" deve ser considerada em toda a estrutura.
+        $s .= "A frase chave \"{{keyword}}\" deve ser considerada em toda a estrutura.\n";
 
-TXT;
+        return $s;
     }
 
 
     protected static function outline_json_suffix(): string
     {
-        return <<<TXT
-            Responda SOMENTE em JSON UTF-8 válido, sem markdown,
-            seguindo exatamente o formato:
+        $s  = '';
+        $s .= "Responda SOMENTE em JSON UTF-8 válido, sem markdown,\n";
+        $s .= "seguindo exatamente o formato:\n\n";
 
-            {
-            "sections": [
-                {
-                "id": "1",
-                "level": "h2",
-                "heading": "Título H2...",
-                "word_goal": { "min": 300, "max": 500 },
-                "bullets": ["...", "..."],
-                "children": [
-                    {
-                    "id": "1.1",
-                    "level": "h3",
-                    "heading": "Subtítulo H3...",
-                    "bullets": ["...", "..."]
-                    }
-                ]
-                }
-            ]
-            }
-            TXT;
+        $s .= "{\n";
+        $s .= "  \"sections\": [\n";
+        $s .= "    {\n";
+        $s .= "      \"id\": \"1\",\n";
+        $s .= "      \"level\": \"h2\",\n";
+        $s .= "      \"heading\": \"Título H2...\",\n";
+        $s .= "      \"word_goal\": { \"min\": 300, \"max\": 500 },\n";
+        $s .= "      \"bullets\": [\"...\", \"...\"],\n";
+        $s .= "      \"children\": [\n";
+        $s .= "        {\n";
+        $s .= "          \"id\": \"1.1\",\n";
+        $s .= "          \"level\": \"h3\",\n";
+        $s .= "          \"heading\": \"Subtítulo H3...\",\n";
+        $s .= "          \"bullets\": [\"...\", \"...\"]\n";
+        $s .= "        }\n";
+        $s .= "      ]\n";
+        $s .= "    }\n";
+        $s .= "  ]\n";
+        $s .= "}\n";
+
+        return $s;
     }
 
     public static function build_meta_description_prompt(
@@ -837,28 +868,28 @@ TXT;
 
         $ctx = $plain ? "Trecho do artigo para contexto:\n\"{$plain}\"\n\n" : '';
 
-        $txt = <<<TXT
-Você é um especialista em SEO, escrevendo em {$locale} para artigos focados em Google Discover.
+        $s  = '';
+        $s .= "Você é um especialista em SEO, escrevendo em {$locale} para artigos focados em Google Discover.\n\n";
 
-Gere APENAS uma meta descrição em texto simples (sem HTML, sem markdown, sem aspas ao redor, sem emojis).
+        $s .= "Gere APENAS uma meta descrição em texto simples (sem HTML, sem markdown, sem aspas ao redor, sem emojis).\n\n";
 
-Regras:
-- Idioma: {$locale}.
-- Tamanho: entre 130 e 150 caracteres (ideal ~150).
-- Deve ser uma frase única, fluida, que desperte curiosidade sem ser clickbait barato.
-- Incluir a frase chave de foco de forma natural: "{$keyword}", mas caso essa keyword seja um comando, siga o que o comando diz e crie algo que faça sentido.
-- Não use "clique aqui", "não perca", "leia agora", "descubra" e similares.
-- Não use aspas, não use **markdown**, não use tags HTML.
-- Fale diretamente com o leitor, mas sem prometer coisas impossíveis.
+        $s .= "Regras:\n";
+        $s .= "- Idioma: {$locale}.\n";
+        $s .= "- Tamanho: entre 130 e 150 caracteres (ideal ~150).\n";
+        $s .= "- Deve ser uma frase única, fluida, que desperte curiosidade sem ser clickbait barato.\n";
+        $s .= "- Incluir a frase chave de foco de forma natural: \"{$keyword}\", mas caso essa keyword seja um comando, siga o que o comando diz e crie algo que faça sentido.\n";
+        $s .= "- Não use \"clique aqui\", \"não perca\", \"leia agora\", \"descubra\" e similares.\n";
+        $s .= "- Não use aspas, não use markdown, não use tags HTML.\n";
+        $s .= "- Fale diretamente com o leitor, mas sem prometer coisas impossíveis.\n\n";
 
-Título exato do artigo:
-"{$articleTitle}"
+        $s .= "Título exato do artigo:\n";
+        $s .= "\"{$articleTitle}\"\n\n";
 
-{$ctx}
-Retorne APENAS a meta descrição final, nada mais.
-TXT;
+        $s .= "{$ctx}\n";
 
-        return $txt;
+        $s .= "Retorne APENAS a meta descrição final, nada mais.\n";
+
+        return $s;
     }
 
 
