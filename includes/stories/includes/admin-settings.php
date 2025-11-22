@@ -217,33 +217,59 @@ add_action('admin_init', function () {
 
 function alpha_storys_default_prompt_template()
 {
-  // fallback redundante caso admin-settings.php não esteja carregado
-  $tpl  = "Nunca coloque nada sobre perguntas frequentes ou FAQ, como títulos sobre \"perguntas frequentes\".\n";
-  $tpl .= "Transforme posts em Web storys AMP. Gere slides concisos (no máximo com 240 caracteres no corpo). O conteúdo completo deve ter pelo menos 30% de palavras de transição no padrão do Yoast, como mas, porém, entretanto, por isso, em resumo — coisas nesse sentido. No máximo 10 páginas; a primeira página deve ter um título mais chamativo, no padrão de título Discovery, que realmente desperte muita curiosidade (nada de informativo como \\\"introdução a x\\\"). A página 5 deve ser um CTA para um grupo do WhatsApp com conteúdos do site, com link para o grupo no final; o primeiro item fica sem CTA, daí o segundo tem CTA e vai intercalando assim: post com CTA, post sem CTA. O CTA é um texto linkado no final do body; exemplo: saiba mais (onde \\\"saiba mais\\\" é um link como <a href=\\\"#\\\">Saiba mais</a>); gere CTAs variados; a conclusão deve ter um CTA desses também. Todos os links (com exceção do CTA para o grupo) devem mandar para o post em questão. Gere um prompt para que seja gerada a imagem daquele conteúdo; o prompt da imagem deve ser realista, não contendo elementos voltados para ilustração; o prompt deve ser completo (mínimo de 200 caracteres).\n";
-  $tpl .= "repetindo: (no máximo com 240 caracteres no corpo)\n";
-  $tpl .= "A conclusão é sempre um CTA para ver mais conteúdos desses no site em questão.\n";
-  $tpl .= "Sobre o título: quero dar algumas informações para elaborar um bom titulo, leia todas essas informações e depois de comporte-se como um jornalista sênior capaz de se eloquente escritor especialista com um impressionante vocabulário. Seu estilo de escrita é intrigante e consegue surpreender os leitores com opiniões bem elaboradas EM TITULO CURTOS.\n";
-  $tpl .= "Especificidade: títulos que fornecem detalhes, números ou nomes específicos tendem a capturar\n";
-  $tpl .= "atenção. Por exemplo, \"15 melhores empresas\" ou \"Este homem de 32 anos estava ganhando US$ 17/hora\".\n";
-  $tpl .= "Emoção e curiosidade: títulos que evocam uma resposta emocional ou despertam curiosidade podem envolver os leitores.\n";
-  $tpl .= "Por exemplo, \"As cidades mais tristes de todo o país\" ou \"Disney Ride Gets Revisão surpreendente\".\n";
-  $tpl .= "Rentabilidade e relevância: tópicos que repercutem em um amplo público ou são oportuno/relevante pode ser um sucesso. Por exemplo, o foco em \"trabalho híbrido\" ou \"ChatGPT\".\n";
-  $tpl .= "Autoridade: quando o título parece confiável ou cita especialistas, ele pode atrair trustandclicks.Ex.,\"O que os especialistas dizem\" ou \"Pessoas emocionalmente inteligentes usam...\".\n";
-  $tpl .= "Clareza: A clareza não deve ser sacrificada. deve dar uma ideia clara sobre o conteúdo do artigo.\n";
-  $tpl .= "Problema e Solução:Títulos que destacam um problema e fornecem uma solução podem ser Envolvente. Por exemplo, \"Fitbit responde a fãs furiosos com cinco correções de aplicativos muito necessárias\".\n";
-  $tpl .= "E NÃO ESQUEÇA O ASPECTO NOTÍCIA\n";
-  $tpl .= "Oportunidade e relevância: plataformas como o Google Discover são feitas sob medida para fornecer conteúdo que é tendência atual ou é de relevância imediata para os usuários. Títulos que tocam em eventos atuais ou desenvolvimentos recentes têm maior probabilidade de serem revelados.\n";
-  $tpl .= "Engajamento do usuário: as pessoas são naturalmente atraídas pelas últimas notícias ou desenvolvimentos em tópicos nos quais estão interessados. Eles são mais propensos a clicar, ler e se envolver com artigos que fornecem novas percepções ou atualizações sobre eventos atuais.\n";
-  $tpl .= "Personalização: o Google Discover e plataformas semelhantes usam algoritmos que personalizam conteúdo baseado no comportamento do usuário. Se um usuário demonstrou interesse em um evento de notícias recente tópico, é mais provável que eles recebam conteúdo relacionado.\n";
-  $tpl .= "Urgência: as notícias vêm inerentemente com um senso de urgência.\n";
-  $tpl .= "mudanças, surpresas ou eventos impactantes podem fazer com que os usuários cliquem para saber mais. Por exemplo,\n";
-  $tpl .= "\"Disney Ride recebe uma revisão surpreendente\" ou \"O criador do ChatGPT OpenAI isintalks...\".\n";
-  $tpl .= "repetindo: (no máximo com 240 caracteres no corpo)\n\n";
+  $tpl  = '';
+  $tpl .= "Nunca coloque nada sobre perguntas frequentes ou FAQ, como títulos sobre \"perguntas frequentes\".\n";
+  $tpl .= "Transforme posts em Web stories AMP. Gere slides concisos (no máximo com 240 caracteres no corpo).\n";
+  $tpl .= "O conteúdo completo deve ter pelo menos 30% de palavras de transição no padrão do Yoast, como mas, porém, entretanto, por isso, em resumo — coisas nesse sentido.\n";
+  $tpl .= "No máximo 10 páginas; a primeira página deve ter um título mais chamativo, no padrão de título Discovery, que realmente desperte muita curiosidade (nada de informativo como \"introdução a x\").\n";
+  $tpl .= "A página 5 deve ser um CTA para um grupo do WhatsApp com conteúdos do site, com link para o grupo no final.\n";
+  $tpl .= "O primeiro item fica sem CTA, daí o segundo tem CTA e vai intercalando assim: slide sem CTA, slide com CTA. O CTA é um texto linkado no final do body; exemplo: saiba mais (onde \"saiba mais\" é um link como <a href=\"#\">Saiba mais</a>).\n";
+  $tpl .= "Gere CTAs variados; a conclusão deve ter um CTA desses também. Todos os links (com exceção do CTA para o grupo) devem mandar para o post em questão.\n";
+  $tpl .= "Gere um prompt para que seja gerada a imagem daquele conteúdo; o prompt da imagem deve ser realista, não contendo elementos voltados para ilustração;\n";
+  $tpl .= "o prompt deve ser completo (mínimo de 200 caracteres).\n";
+  $tpl .= "Repetindo: (no máximo 240 caracteres no corpo de cada slide).\n";
+  $tpl .= "A conclusão é sempre um CTA para ver mais conteúdos desse tipo no site em questão.\n\n";
 
-  $tpl .= "Retorne APENAS um JSON válido no formato:\n";
-  $tpl .= "{\"pages\":[{\"heading\":\"\",\"body\":\"\",\"cta_text\":\"\",\"cta_url\":\"\",\"prompt\":\"\"}]}\n";
+  $tpl .= "Sobre o título: leia todas as informações abaixo e comporte-se como um jornalista sênior e escritor especialista, com vocabulário rico.\n";
+  $tpl .= "Seu estilo de escrita é intrigante e consegue surpreender os leitores com opiniões bem elaboradas EM TÍTULOS CURTOS.\n";
+  $tpl .= "Especificidade: títulos que fornecem detalhes, números ou nomes específicos tendem a capturar atenção (ex.: \"15 melhores empresas\" ou \"Este homem de 32 anos estava ganhando US$ 17/hora\").\n";
+  $tpl .= "Emoção e curiosidade: títulos que evocam resposta emocional ou curiosidade são bem-vindos.\n";
+  $tpl .= "Rentabilidade e relevância: foque em tópicos com apelo amplo ou relevância atual (ex.: trabalho híbrido, IA, ChatGPT etc.).\n";
+  $tpl .= "Autoridade: títulos que parecem confiáveis ou citam especialistas tendem a engajar.\n";
+  $tpl .= "Clareza: não sacrifique clareza; o título deve dar ideia clara sobre o conteúdo.\n";
+  $tpl .= "Problema e solução: títulos que destacam um problema e oferecem solução são envolventes.\n";
+  $tpl .= "E NÃO ESQUEÇA O ASPECTO DE NOTÍCIA.\n\n";
+
+  $tpl .= "Oportunidade e relevância: o conteúdo deve parecer atual, relevante ou ligado a algo em destaque.\n";
+  $tpl .= "Engajamento: o leitor deve sentir que vai receber uma atualização importante ou uma nova perspectiva.\n";
+  $tpl .= "Personalização: pense em como esse conteúdo poderia ser interessante para quem já se interessa por esse tema.\n";
+  $tpl .= "Urgência: quando fizer sentido, use uma sensação leve de urgência, sem clickbait barato.\n";
+  $tpl .= "Repetindo: corpo de cada slide com no máximo 240 caracteres.\n";
 
   return $tpl;
+}
+
+function alpha_storys_json_format_block()
+{
+  $s  = '';
+  $s .= "Responda APENAS em JSON UTF-8 válido, sem markdown, sem comentários e sem texto fora do JSON.\n";
+  $s .= "Siga exatamente esta estrutura:\n\n";
+
+  $s .= "{\n";
+  $s .= "  \"pages\": [\n";
+  $s .= "    {\n";
+  $s .= "      \"heading\": \"Título do slide...\",\n";
+  $s .= "      \"body\": \"Texto do slide (até 240 caracteres)...\",\n";
+  $s .= "      \"cta_text\": \"Texto do CTA ou string vazia\",\n";
+  $s .= "      \"cta_url\": \"URL do CTA ou string vazia\",\n";
+  $s .= "      \"prompt\": \"Prompt detalhado para gerar a imagem desse slide (mínimo ~200 caracteres)\"\n";
+  $s .= "    }\n";
+  $s .= "  ]\n";
+  $s .= "}\n\n";
+
+  $s .= "Não inclua campos extras, não inclua quebras de linha fora das strings, não escreva nada antes ou depois do JSON.\n";
+
+  return $s;
 }
 
 /* Render do formulário simples */

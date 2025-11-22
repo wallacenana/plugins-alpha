@@ -228,15 +228,12 @@ class PluginsAlpha_Pages_Generator
       $keyword = 'Artigo baseado em ' . wp_parse_url($url, PHP_URL_HOST);
     }
 
-    // 1) Se veio publish_time no args, pode ser timestamp OU string de data
     if (!empty($args['publish_time'])) {
       $raw = $args['publish_time'];
 
       if (is_numeric($raw)) {
-        // timestamp em segundos
         $publish_ts = (int) $raw;
       } else {
-        // tenta interpretar como data/hora
         $t = strtotime((string) $raw);
         if ($t !== false) {
           $publish_ts = $t;
@@ -244,7 +241,6 @@ class PluginsAlpha_Pages_Generator
       }
     }
 
-    // 2) Se ainda não temos nada válido, cai pro compute_publish_time
     if (!$publish_ts) {
       $publish_ts = self::compute_publish_time($args);
     }
@@ -261,7 +257,7 @@ class PluginsAlpha_Pages_Generator
     // 0) Cria rascunho
     $draft_id = wp_insert_post([
       'post_type'    => $post_type,
-      'post_status'  => 'draft', // se você já deixou assim pra garantir agendamento
+      'post_status'  => 'future',
       'post_title'   => '(Gerando) ' . $keyword,
       'post_name'    => $slug,
       'post_content' => '',
@@ -276,9 +272,15 @@ class PluginsAlpha_Pages_Generator
     update_post_meta($draft_id, '_pga_publish_ts', $publish_ts);
     update_post_meta($draft_id, '_pga_job_started', time());
 
-    if ($category_id > 0 && taxonomy_exists('posts_orion_cat') && term_exists($category_id, 'posts_orion_cat')) {
-      wp_set_post_terms($draft_id, [$category_id], 'posts_orion_cat', false);
+    // category_id veio direto das categorias padrão do WP
+    if ($category_id > 0) {
+      // seta a categoria padrão "category" nesse post (se $draft_id já for um post normal)
+      wp_set_post_terms($draft_id, [(int) $category_id], 'category', false);
+
+      // guarda em meta pra usar depois, se precisar
+      update_post_meta($draft_id, '_pga_orion_category_ids', [(int) $category_id]);
     }
+
 
     // 1) TÍTULO
     $titlePrompt = PluginsAlpha_Prompts::build_title_prompt(

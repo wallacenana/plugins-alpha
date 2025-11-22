@@ -250,88 +250,145 @@ function alpha_ai_generate_for_post($post_id)
 {
   $o   = alpha_storys_options();
   $key = alpha_ai_get_api_key();
-  if (!$key) return new WP_Error('alpha_ai_key', 'Configure sua OpenAI API Key nas Configurações.');
+
+  if (! $key) {
+    return new WP_Error('alpha_ai_key', 'Configure sua OpenAI API Key nas Configurações.');
+  }
 
   $post = get_post($post_id);
-  if (!$post) return new WP_Error('alpha_ai_post', 'Post inválido.');
-
-  // Se alguém chamar a partir de um alpha_storys, tente descobrir a origem; senão use o próprio ID como origem
-  $source_id = $post->post_type === 'alpha_storys'
-    ? (int) get_post_meta($post_id, '_alpha_storys_source', true)
-    : (int) $post_id;
-
-  if (!$source_id || !get_post($source_id)) {
-    return new WP_Error('alpha_storys_source', 'Post de origem da story não encontrado.');
+  if (! $post) {
+    return new WP_Error('alpha_ai_post', 'Post inválido.');
   }
 
-  // --- MONTA PROMPT (igual ao seu) ---
-  // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
-  $raw_html = apply_filters('the_content', get_post_field('post_content', $source_id));
-  $title    = get_the_title($source_id);
+  $raw_html = apply_filters('the_content', $post->post_content);
+  $title    = get_the_title($post);
   $brief    = alpha_ai_get_default_brief();
 
-  $o = alpha_storys_options();
+  // ========= PROMPT =========
+  // 1) Prompt da tela de settings (se houver), senão o padrão do plugin
   $system_pt = '';
+
   if (isset($o['ai_prompt_template']) && is_string($o['ai_prompt_template'])) {
-    $system_pt = trim($o['ai_prompt_template']);
+    $system_pt = trim((string) $o['ai_prompt_template']);
   }
-  if ($system_pt === '') {
+
+  if ('' === $system_pt) {
     $system_pt = function_exists('alpha_storys_default_prompt_template')
       ? (string) alpha_storys_default_prompt_template()
-      : "Você transforma posts em Web storys AMP... (prompt padrão de fallback)";
+      : 'Você transforma posts em Web stories AMP...';
   }
 
-  $input_text = $system_pt
-    . "\n\nTÍTULO:\n" . $title
-    . "\n\nHTML DO POST:\n" . wp_strip_all_tags($raw_html)
-    . "\n\nBRIEF PADRÃO:\n" . $brief;
+  // 2) Bloco fixo com o FORMATO JSON obrigatório
+  $format_block = function_exists('alpha_storys_json_format_block')
+    ? alpha_storys_json_format_block()
+    : "Responda APENAS em JSON no formato {\"pages\":[{\"heading\":\"\",\"body\":\"\",\"cta_text\":\"\",\"cta_url\":\"\",\"prompt\":\"\"}]}\n";
 
+  $json_header  = "IMPORTANTE: a resposta deve ser APENAS um JSON válido. ";
+  $json_header .= "A palavra 'json' aparece aqui para atender o requisito da OpenAI.\n\n";
+
+
+  // 3) Monta o texto final que vai para o modelo
+  $input_text  = $json_header;
+  $input_text .= $system_pt . "\n\n";
+  $input_text .= "TÍTULO DO POST:\n" . $title . "\n\n";
+  $input_text .= "HTML DO POST (sem tags):\n" . wp_strip_all_tags($raw_html) . "\n\n";
+  $input_text .= "BRIEF PADRÃO:\n" . $brief . "\n\n";
+  $input_text .= $format_block;
+
+
+  // ========= CHAMADA PARA OPENAI =========
   $payload = [
     'model' => alpha_ai_get_model(),
-    'input' => [[
-      'role'    => 'user',
-      'content' => [
-        ['type' => 'input_text', 'text' => $input_text],
+    'input' => [
+      [
+        'role'    => 'user',
+        'content' => [
+          [
+            'type' => 'input_text',
+            'text' => $input_text,
+          ],
+        ],
       ],
-    ]],
-    'text' => ['format' => ['type' => 'json_object']],
+    ],
+    'text' => [
+      'format' => [
+        'type' => 'json_object',
+      ],
+    ],
     'temperature'       => alpha_ai_get_temperature(),
-    'max_output_tokens' => 1200,
+    'max_output_tokens' => 6000,
   ];
 
-  $res = wp_remote_post('https://api.openai.com/v1/responses', [
-    'timeout' => 60,
-    'headers' => [
-      'Authorization' => 'Bearer ' . $key,
-      'Content-Type'  => 'application/json',
-    ],
-    'body' => wp_json_encode($payload),
-  ]);
+  $res = wp_remote_post(
+    'https://api.openai.com/v1/responses',
+    [
+      'timeout' => 60,
+      'headers' => [
+        'Authorization' => 'Bearer ' . $key,
+        'Content-Type'  => 'application/json',
+      ],
+      'body'    => wp_json_encode($payload),
+    ]
+  );
 
-  if (is_wp_error($res)) return $res;
-  $code = wp_remote_retrieve_response_code($res);
-  $body = wp_remote_retrieve_body($res);
-  if ($code !== 200) {
-    return new WP_Error('alpha_ai_http', 'OpenAI retornou ' . $code . ': ' . substr($body, 0, 300));
+  if (is_wp_error($res)) {
+    return $res;
   }
 
-  $obj = json_decode($body, true);
+  error_log(print_r($res, true));
 
+  $code = wp_remote_retrieve_response_code($res);
+  $body = wp_remote_retrieve_body($res);
+
+  if (200 !== $code) {
+    return new WP_Error(
+      'alpha_ai_http',
+      'OpenAI retornou ' . $code . ': ' . substr((string) $body, 0, 300)
+    );
+  }
+
+  $obj = json_decode((string) $body, true);
+  if (!is_array($obj)) {
+    return new WP_Error('alpha_ai_json', 'Resposta da OpenAI não é um JSON válido no topo.');
+  }
+
+  // tenta ler status tanto no topo quanto no output[0]
+  $status = $obj['status'] ?? ($obj['output'][0]['status'] ?? '');
+
+  if ($status && $status !== 'completed') {
+    // log pra debug
+    error_log('OpenAI status: ' . $status);
+    return new WP_Error(
+      'alpha_ai_incomplete',
+      'OpenAI não conseguiu concluir o JSON (status: ' . $status . ').'
+    );
+  }
+
+  // Extrai texto do output (Responses API)
   $json_text = '';
-  if (!empty($obj['output'][0]['content'])) {
+  if (! empty($obj['output'][0]['content'])) {
     foreach ($obj['output'][0]['content'] as $chunk) {
-      if (!empty($chunk['text'])) $json_text .= $chunk['text'];
-      if (!empty($chunk['raw']))  $json_text .= $chunk['raw'];
+      if (! empty($chunk['text'])) {
+        $json_text .= $chunk['text'];
+      }
+      if (! empty($chunk['raw'])) {
+        $json_text .= $chunk['raw'];
+      }
     }
-  } elseif (!empty($obj['output_text'])) {
+  } elseif (! empty($obj['output_text'])) {
     $json_text = $obj['output_text'];
   }
 
   $data = json_decode($json_text, true);
-  if (!$data && preg_match('/\{.*\}/s', (string)$json_text, $m)) {
+
+  // Fallback: tenta pegar só o primeiro {...} se vier embrulhado em texto
+  if (! $data && preg_match('/\{.*\}/s', (string) $json_text, $m)) {
     $data = json_decode($m[0], true);
   }
-  if (!$data || empty($data['pages']) || !is_array($data['pages'])) {
+
+  error_log(print_r($data, true));
+
+  if (! $data || empty($data['pages']) || ! is_array($data['pages'])) {
     return new WP_Error('alpha_ai_parse', 'Não consegui interpretar o JSON de páginas.');
   }
 
@@ -340,57 +397,38 @@ function alpha_ai_generate_for_post($post_id)
   foreach ($data['pages'] as $p) {
     $pages[] = [
       'heading'  => isset($p['heading']) ? wp_strip_all_tags($p['heading']) : '',
-      'body'     => isset($p['body'])    ? wp_strip_all_tags($p['body'])    : '',
+      'body'     => isset($p['body']) ? wp_strip_all_tags($p['body']) : '',
       'cta_text' => isset($p['cta_text']) ? sanitize_text_field($p['cta_text']) : '',
-      'cta_url'  => isset($p['cta_url']) ? esc_url_raw($p['cta_url']) : '',
-      'prompt'   => isset($p['prompt'])  ? sanitize_text_field($p['prompt']) : '',
+      'cta_url'  => isset($p['cta_url']) ? sanitize_text_field($p['cta_url']) : '',
+      'prompt'   => isset($p['prompt']) ? sanitize_text_field($p['prompt']) : '',
     ];
   }
 
-  // ====== SEMPRE CRIAR UMA NOVA STORY ======
-  // Conta quantas já existem para numerar o título
-  // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-  $existing = new WP_Query([
-    'post_type'      => 'alpha_storys',
-    'posts_per_page' => -1,
-    'fields'         => 'ids',
-    'meta_query'     => [[
-      'key'   => '_alpha_storys_source',
-      'value' => $source_id,
-    ]],
-    'post_status'    => 'any',
-    'no_found_rows'  => true,
-  ]);
-  // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+  // Decide destino: se já for um alpha_storys, usa o próprio; senão, cria/pega o irmão
+  $target_id = ('alpha_storys' === get_post_type($post_id))
+    ? (int) $post_id
+    : alpha_get_or_create_storys_for_post((int) $post_id);
 
-  $seq = (int) $existing->post_count + 1;
-
-  $story_title = sprintf('%s — Story #%d', $title, $seq);
-
-  $target_id = wp_insert_post([
-    'post_type'   => 'alpha_storys',
-    'post_title'  => $story_title,
-    'post_status' => 'draft', // mude para 'publish' se preferir publicar direto
-  ], true);
-
-  if (is_wp_error($target_id)) {
-    return $target_id;
+  if (! $target_id) {
+    return new WP_Error('alpha_storys_target', 'Não foi possível criar ou localizar o Web Story.');
   }
-
-  // Vínculo com a origem + dados
-  update_post_meta($target_id, '_alpha_storys_source', $source_id);
 
   // Renderiza blocos e salva no editor
   $blocks = alpha_render_storys_pages_to_blocks($pages, $target_id);
 
-  wp_update_post([
-    'ID'           => $target_id,
-    'post_content' => $blocks,
-    // mantém o título criado acima
-  ]);
+  wp_update_post(
+    [
+      'ID'           => $target_id,
+      'post_content' => $blocks,
+      'post_title'   => get_post_field('post_title', $target_id) ?: $title,
+    ]
+  );
 
-  // Guarda o JSON bruto
   update_post_meta($target_id, '_alpha_storys_pages', $pages);
 
-  return ['ok' => true, 'count' => count($pages), 'target_id' => (int)$target_id];
+  return [
+    'ok'        => true,
+    'count'     => count($pages),
+    'target_id' => (int) $target_id,
+  ];
 }

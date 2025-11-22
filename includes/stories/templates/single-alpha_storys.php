@@ -1,5 +1,6 @@
 <?php
 // Início do buffer com um minificador "AMP-safe"
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
 ob_start(function ($html) {
   $tokens = [];
   $i = 0;
@@ -192,7 +193,7 @@ $font_family = $font === 'system'
   }
   $publisher_data = [
     '@type' => 'Organization',
-    'name'  => $alpha_storys_publisher ,
+    'name'  => $alpha_storys_publisher,
   ];
   if ($publisher_logo) $publisher_data['logo'] = $publisher_logo;
 
@@ -510,7 +511,7 @@ $font_family = $font === 'system'
     standalone
     class="<?php echo esc_attr($style_class); ?>"
     title="<?php echo esc_attr(get_the_title($post)); ?>"
-    publisher="<?php echo esc_attr($alpha_storys_publisher ); ?>"
+    publisher="<?php echo esc_attr($alpha_storys_publisher); ?>"
     publisher-logo-src="<?php echo esc_url($alpha_logo_src); ?>"
     poster-portrait-src="<?php echo esc_url($poster); ?>">
     <?php if ($alpha_ga_enable): ?>
@@ -685,6 +686,8 @@ $font_family = $font === 'system'
     <?php
       $i++;
     endforeach;
+    // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
+
     ?>
   </amp-story>
 </body>

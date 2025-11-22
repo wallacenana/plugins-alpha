@@ -24,8 +24,9 @@ class PluginsAlpha_Updater
     protected static function get_current_version(): string
     {
         if (defined('PLUGINS_ALPHA_VERSION')) {
-            return PLUGINS_ALPHA_VERSION;
+            return (string) PLUGINS_ALPHA_VERSION;
         }
+
         return '1.0.0';
     }
 
@@ -88,6 +89,7 @@ class PluginsAlpha_Updater
         $remote_version = (string) $remote['version'];
 
         if (version_compare($remote_version, $current, '<=')) {
+            unset($transient->response[self::$plugin_file]);
             return $transient;
         }
 
