@@ -1,12 +1,17 @@
 <?php
-if (!defined('ABSPATH')) exit;
+if (! defined('ABSPATH')) {
+  exit;
+}
 
 class PluginsAlpha_Dashboard
 {
+
   public static function render(): void
   {
     $items = PluginsAlpha_Remote::catalog();
-    if (!is_array($items)) $items = [];
+    if (! is_array($items)) {
+      $items = [];
+    }
 ?>
     <div class="wrap pa-wrap">
       <h1 class="pa-title"><?php echo esc_html__('Plugins Alpha — Dashboard', 'plugins-alpha'); ?></h1>
@@ -21,58 +26,121 @@ class PluginsAlpha_Dashboard
             </a>
           </p>
         </div>
-      <?php else: ?>
+      <?php else : ?>
         <div class="pa-grid">
           <?php
-          // Fallback de logo local
-          $fallback_logo = PGA_URL . 'assets/images/alpha-ico.png?v=' . pga_asset_ver('assets/images/alpha-ico.png');
+          foreach ($items as $it) :
+            if (! is_array($it)) {
+              continue;
+            }
 
-          foreach ($items as $it):
-            $slug   = isset($it['slug']) ? (string)$it['slug'] : '';
-            $name   = isset($it['name']) ? (string)$it['name'] : 'Módulo';
-            $desc   = isset($it['desc']) ? (string)$it['desc'] : '';
-            $logo   = !empty($it['logo']) ? (string)$it['logo'] : $fallback_logo;
-            $price  = isset($it['price']) ? (float)$it['price'] : 0.0;
-            $promo  = isset($it['promo_price']) && $it['promo_price'] !== '' ? (float)$it['promo_price'] : null;
-            $buy    = !empty($it['buy_url']) ? (string)$it['buy_url'] : '';
+            $slug   = isset($it['slug']) ? (string) $it['slug'] : '';
+            $name   = isset($it['name']) ? (string) $it['name'] : 'Módulo';
+            $desc   = isset($it['desc']) ? (string) $it['desc'] : '';
+            $logo   = isset($it['logo']) ? (string) $it['logo'] : '';
+            $price  = isset($it['price']) ? (float) $it['price'] : 0.0;
+            $promo  = array_key_exists('promo_price', $it) ? $it['promo_price'] : null;
+            $buy    = isset($it['buy_url']) ? (string) $it['buy_url'] : '';
+
+            $status       = isset($it['status']) ? (string) $it['status'] : '';
+            $status_label = isset($it['status_label']) ? (string) $it['status_label'] : '';
+            $badge        = isset($it['badge']) ? (string) $it['badge'] : '';
+
+            $admin_url  = isset($it['admin_url']) ? (string) $it['admin_url'] : '';
+            $manage_url = isset($it['manage_url']) ? (string) $it['manage_url'] : '';
+            $docs_url   = isset($it['docs_url']) ? (string) $it['docs_url'] : '';
+            $learn_url  = isset($it['learn_more_url']) ? (string) $it['learn_more_url'] : '';
           ?>
             <div class="pa-card">
               <div class="pa-card-header">
-                <img src="<?php echo esc_url($logo); ?>" alt="<?php echo esc_attr($name); ?>" class="pa-logo">
-                <h3><?php echo esc_html($name); ?></h3>
+                <?php if ($logo) : ?>
+                  <img src="<?php echo esc_url($logo); ?>" alt="<?php echo esc_attr($name); ?>" class="pa-logo">
+                <?php endif; ?>
+
+                <div class="pa-card-title-wrap">
+                  <h3><?php echo esc_html($name); ?></h3>
+
+                  <?php if ($badge !== '') : ?>
+                    <span class="pa-badge"><?php echo esc_html($badge); ?></span>
+                  <?php endif; ?>
+
+                  <?php if ($status_label !== '') : ?>
+                    <span class="pa-status pa-status--<?php echo esc_attr($status); ?>">
+                      <?php echo esc_html($status_label); ?>
+                    </span>
+                  <?php endif; ?>
+                </div>
               </div>
 
-              <?php if ($desc !== ''): ?>
+              <?php if ($desc !== '') : ?>
                 <p class="pa-desc"><?php echo esc_html($desc); ?></p>
               <?php endif; ?>
 
               <div class="pa-pricebox">
-                <?php if ($promo !== null): ?>
-                  <span class="pa-price-promo">R$ <?php echo esc_html(number_format($promo, 2, ',', '.')); ?></span>
-                  <span class="pa-price-old">R$ <?php echo esc_html(number_format($price, 2, ',', '.')); ?></span>
-                <?php else: ?>
-                  <span class="pa-price">R$ <?php echo esc_html(number_format($price, 2, ',', '.')); ?></span>
+                <?php if ($promo !== null) : ?>
+                  <span class="pa-price-promo">
+                    R$ <?php echo esc_html(number_format((float) $promo, 2, ',', '.')); ?>
+                  </span>
+                  <span class="pa-price-old">
+                    R$ <?php echo esc_html(number_format($price, 2, ',', '.')); ?>
+                  </span>
+                <?php else : ?>
+                  <span class="pa-price">
+                    R$ <?php echo esc_html(number_format($price, 2, ',', '.')); ?>
+                  </span>
                 <?php endif; ?>
               </div>
 
               <div class="pa-actions">
                 <?php
-                // Botões por slug conhecido
-                if ($slug === 'orion-posts') {
-                  $href = admin_url('admin.php?page=plugins-alpha-orion-posts');
-                  echo '<a class="button button-primary" href="' . esc_url($href) . '">' . esc_html__('Abrir Gerar Posts', 'plugins-alpha') . '</a>';
+                // Botão principal: prioridade = manage_url > admin_url > slug fallback
+                $primary_href  = '';
+                $primary_label = '';
+
+                if ($manage_url) {
+                  $primary_href  = $manage_url;
+                  $primary_label = __('Abrir', 'plugins-alpha');
+                } elseif ($admin_url) {
+                  $primary_href  = $admin_url;
+                  $primary_label = __('Abrir', 'plugins-alpha');
+                } elseif ($slug === 'orion-posts') {
+                  $primary_href  = admin_url('admin.php?page=plugins-alpha-orion-posts');
+                  $primary_label = __('Abrir Gerar Posts', 'plugins-alpha');
                 } elseif ($slug === 'alpha-stories') {
-                  $href = admin_url('admin.php?page=plugins-alpha-alpha-stories');
-                  echo '<a class="button button-primary" href="' . esc_url($href) . '">' . esc_html__('Abrir Web Stories', 'plugins-alpha') . '</a>';
+                  // fallback extra, caso alguém use slug antigo sem manage_url
+                  $primary_href  = admin_url('edit.php?post_type=alpha_storys');
+                  $primary_label = __('Abrir Web Stories', 'plugins-alpha');
                 } else {
-                  // Botão genérico para módulos novos: vai para o dashboard
-                  $href = admin_url('admin.php?page=plugins-alpha-dashboard');
-                  echo '<a class="button" href="' . esc_url($href) . '">' . esc_html__('Abrir', 'plugins-alpha') . '</a>';
+                  // fallback genérico: dashboard
+                  $primary_href  = admin_url('admin.php?page=plugins-alpha-dashboard');
+                  $primary_label = __('Abrir', 'plugins-alpha');
                 }
 
-                // Link de compra/assinatura
+                if ($primary_href) {
+                  echo '<a class="button button-primary" href="' . esc_url($primary_href) . '">'
+                    . esc_html($primary_label) .
+                    '</a>';
+                }
+
+                // Comprar / Assinar
                 if ($buy) {
-                  echo ' <a class="button" target="_blank" rel="noopener noreferrer" href="' . esc_url($buy) . '">' . esc_html__('Comprar / Assinar', 'plugins-alpha') . '</a>';
+                  echo ' <a class="button" target="_blank" rel="noopener noreferrer" href="' . esc_url($buy) . '">'
+                    . esc_html__('Comprar / Assinar', 'plugins-alpha') .
+                    '</a>';
+                }
+
+                // Documentação (se o remoto mandar)
+                if ($docs_url) {
+                  echo ' <a class="button button-secondary" target="_blank" rel="noopener noreferrer" href="' . esc_url($docs_url) . '">'
+                    . esc_html__('Documentação', 'plugins-alpha') .
+                    '</a>';
+                }
+
+                // Saiba mais (landing / página externa)
+                if ($learn_url) {
+                  echo ' <a class="button button-link" target="_blank" rel="noopener noreferrer" href="' . esc_url($learn_url) . '">'
+                    . esc_html__('Saiba mais', 'plugins-alpha') .
+                    '</a>';
                 }
 
                 /**
