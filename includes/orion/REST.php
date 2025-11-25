@@ -4,7 +4,7 @@ if (!defined('ABSPATH')) exit;
 class PluginsAlpha_REST
 {
 
-    
+
     /**
      * Normaliza array de strings: trim, remove vazios e duplicados (case-insensitive)
      */
@@ -441,7 +441,7 @@ class PluginsAlpha_REST
              *  - modo normal: exige keywords (multi) ou keyword+url (single)
              *  - modo "modelar": aceita só URL, ou URL + keywords; se os dois vazios → erro
              */
-            if (! $isModelar) {
+            if (!$isModelar) {
                 if (empty($url)) {
                     if ($mode === 'multi' && empty($kw_in)) {
                         return new WP_Error(
@@ -471,8 +471,29 @@ class PluginsAlpha_REST
 
             $total  = max(1, intval($p['total'] ?? ($mode === 'single' ? 1 : count($kw_in))));
             $perDay = max(1, intval($p['per_day'] ?? 3));
-            $firstH = max(2, intval($p['first_delay_hours'] ?? 2));
 
+            // ------------------ NOVO BLOCO: trata first_delay_hours ------------------
+            $firstRaw           = $p['first_delay_hours'] ?? 2;
+            $explicitStartTs    = 0;   // se for datetime válido, cai aqui
+            $useExplicitStartTs = false;
+            $firstH             = 2;   // fallback antigo
+
+            if (is_numeric($firstRaw)) {
+                // Fluxo ANTIGO: valor em horas
+                $firstH = max(2, intval($firstRaw));
+            } else {
+                // Tenta interpretar como datetime string (ex: 2025-11-27T09:30)
+                $raw = trim((string)$firstRaw);
+                if ($raw !== '') {
+                    $ts = strtotime($raw);
+                    if ($ts !== false) {
+                        $explicitStartTs    = $ts;
+                        $useExplicitStartTs = true;
+                    }
+                }
+            }
+
+            // ------------------ Transitions (igual antes) ------------------
             $transition = [
                 'strict'    => !empty($p['transition']['strict']),
                 'min_ratio' => floatval($p['transition']['min_ratio'] ?? 0.3),
@@ -481,10 +502,23 @@ class PluginsAlpha_REST
                     : [],
             ];
 
-            // monta agenda leve
-            $jobs   = [];
-            $now    = time();
-            $days   = (int) ceil($total / max(1, $perDay));
+            // ------------------ Monta agenda leve ------------------
+            $jobs = [];
+
+            // base "agora" no fuso do WP
+            $now = current_time('timestamp');
+
+            // Se o usuário escolheu data/hora explícita, usamos ela como dia base
+            if ($useExplicitStartTs) {
+                // se ele mandar algo no passado, jogamos pra agora
+                if ($explicitStartTs < $now) {
+                    $explicitStartTs = $now + 2 * HOUR_IN_SECONDS;
+                }
+                $now   = $explicitStartTs;
+                $firstH = 0; // não vamos mais trabalhar com "horas de atraso" nesse modo
+            }
+
+            $days   = (int)ceil($total / max(1, $perDay));
             $i      = 0;
             $cat_id = max(0, intval($p['category_id'] ?? 0));
 
@@ -495,12 +529,22 @@ class PluginsAlpha_REST
                 for ($s = 0; $s < $slotsToday; $s++) {
                     $baseIdx = min($s, count($base) - 1);
                     $offset  = wp_rand(-40 * MINUTE_IN_SECONDS, 40 * MINUTE_IN_SECONDS);
-                    $t       = strtotime('+' . $d . ' day', $now) + $base[$baseIdx] + $offset;
+
+                    // baseia o dia em $now (que pode ser "agora" OU a data escolhida)
+                    $t = strtotime('+' . $d . ' day', $now) + $base[$baseIdx] + $offset;
 
                     if ($i === 0) {
-                        $min = $now + $firstH * HOUR_IN_SECONDS;
-                        if ($t < $min) {
-                            $t = $min + wp_rand(300, 2400);
+                        if ($useExplicitStartTs) {
+                            // modo data fixa: garante que não publique ANTES da data selecionada
+                            if ($t < $now) {
+                                $t = $now + wp_rand(300, 2400);
+                            }
+                        } else {
+                            // modo antigo (horas de atraso)
+                            $min = $now + $firstH * HOUR_IN_SECONDS;
+                            if ($t < $min) {
+                                $t = $min + wp_rand(300, 2400);
+                            }
                         }
                     }
 
@@ -535,7 +579,7 @@ class PluginsAlpha_REST
             // CORTE DE JOBS QUANDO FALTAM KEYWORDS
             // - fluxo antigo: se pediu 10 posts mas só mandou 3 keywords, reduzia para 3
             // - EXCETO no template "modelar" sem keywords, onde queremos manter os jobs
-            if ($mode === 'multi' && count($kw_in) < $total && ! $isModelar) {
+            if ($mode === 'multi' && count($kw_in) < $total && !$isModelar) {
                 $jobs = array_slice($jobs, 0, count($kw_in));
             }
 
@@ -548,6 +592,7 @@ class PluginsAlpha_REST
             ];
         });
     }
+
 
 
     public static function status()

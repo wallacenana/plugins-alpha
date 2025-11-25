@@ -26,88 +26,113 @@ class PluginsAlpha_Settings
   {
     $in = is_array($in) ? $in : [];
 
-    // apis.openai (global)
-    // apis.openai (já existente)
-    $api = $in['apis']['openai'] ?? [];
-    $out['apis']['openai'] = [
-      'key'         => sanitize_text_field($api['key'] ?? ''),
-      'model_text'  => sanitize_text_field($api['model_text'] ?? 'gpt-4o-mini'),
-      'temperature' => is_numeric($api['temperature'] ?? null) ? (float) $api['temperature'] : 0.6,
-      'max_tokens'  => max(1, (int) ($api['max_tokens'] ?? 6000)),
-    ];
+    // pega o que já existe
+    $current = get_option(self::OPTION, []);
+    $out     = is_array($current) ? $current : [];
 
-    // apis.images (thumbnails)
-    $img = $in['apis']['images'] ?? [];
-    $provider = isset($img['provider']) ? sanitize_text_field($img['provider']) : 'pollinations';
-    $allowed_providers = ['pollinations', 'openai', 'none'];
-    if (!in_array($provider, $allowed_providers, true)) {
-      $provider = 'pollinations';
+    // descobre qual aba está sendo salva
+    // phpcs:disable WordPress.Security.NonceVerification.Missing
+    $tab = isset($_POST['pga_settings_tab'])
+      ? sanitize_key(wp_unslash($_POST['pga_settings_tab']))
+      : '';
+    // phpcs:enable WordPress.Security.NonceVerification.Missing
+
+    // se vier vazio, trata como "todas" (caso raro)
+    if ($tab === '') {
+      $tab = 'core';
     }
 
-    // modelos permitidos (você pode expandir depois se quiser)
-    $model = isset($img['model']) ? sanitize_text_field($img['model']) : 'dall-e-3';
-    $allowed_models = ['dall-e-3', 'gpt-image-1'];
-    if (! in_array($model, $allowed_models, true)) {
-      $model = 'dall-e-3';
+    /*
+     * CORE =============================
+     * (apis.openai + apis.images)
+     */
+    if ($tab === 'core') {
+      // --- apis.openai ---
+      $api = $in['apis']['openai'] ?? [];
+
+      $out['apis']['openai'] = [
+        'key'         => sanitize_text_field($api['key'] ?? ''),
+        'model_text'  => sanitize_text_field($api['model_text'] ?? 'gpt-4o-mini'),
+        'temperature' => is_numeric($api['temperature'] ?? null) ? (float) $api['temperature'] : 0.6,
+        'max_tokens'  => max(1, (int) ($api['max_tokens'] ?? 6000)),
+      ];
+
+      // --- apis.images ---
+      $img      = $in['apis']['images'] ?? [];
+      $provider = isset($img['provider']) ? sanitize_text_field($img['provider']) : 'pollinations';
+      $allowed_providers = ['pollinations', 'openai', 'none'];
+      if (!in_array($provider, $allowed_providers, true)) {
+        $provider = 'pollinations';
+      }
+
+      $model = isset($img['model']) ? sanitize_text_field($img['model']) : 'dall-e-3';
+      $allowed_models = ['dall-e-3', 'gpt-image-1'];
+      if (!in_array($model, $allowed_models, true)) {
+        $model = 'dall-e-3';
+      }
+
+      $size = isset($img['size']) ? sanitize_text_field($img['size']) : '1024x576';
+      $allowed_sizes = ['1024x576', '1024x1024', '1792x1024', '1024x1792'];
+      if (!in_array($size, $allowed_sizes, true)) {
+        $size = '1024x576';
+      }
+
+      $quality = isset($img['quality']) ? sanitize_text_field($img['quality']) : 'standard';
+      if (!in_array($quality, ['standard', 'hd'], true)) {
+        $quality = 'standard';
+      }
+
+      $out['apis']['images'] = [
+        'provider' => $provider,
+        'model'    => $model,
+        'size'     => $size,
+        'quality'  => $quality,
+      ];
     }
 
-    // tamanhos que fazem sentido pra thumbnail
-    $size = isset($img['size']) ? sanitize_text_field($img['size']) : '1024x576';
-    $allowed_sizes = ['1024x576', '1024x1024', '1792x1024', '1024x1792'];
-    if (! in_array($size, $allowed_sizes, true)) {
-      $size = '1024x576';
+    /*
+     * ORION POSTS ======================
+     */
+    if ($tab === 'orion-posts') {
+      $gp = $in['orion_posts'] ?? [];
+      $out['orion_posts'] = [
+        'defaults' => [
+          'locale' => sanitize_text_field($gp['defaults']['locale'] ?? 'pt_BR'),
+        ],
+      ];
     }
 
-    // qualidade
-    $quality = isset($img['quality']) ? sanitize_text_field($img['quality']) : 'standard';
-    if (! in_array($quality, ['standard', 'hd'], true)) {
-      $quality = 'standard';
+    /*
+     * STORIES ==========================
+     */
+    if ($tab === 'stories') {
+      $st = $in['stories'] ?? [];
+      $allowed_styles = ['clean', 'dark-left', 'card', 'split', 'top'];
+      $allowed_fonts  = ['system', 'inter', 'poppins', 'merriweather', 'plusjakarta'];
+
+      $out['stories'] = [
+        'publisher_name'    => sanitize_text_field($st['publisher_name'] ?? get_bloginfo('name')),
+        'publisher_logo_id' => (int)($st['publisher_logo_id'] ?? 0),
+
+        'default_style'     => in_array(($st['default_style'] ?? 'clean'), $allowed_styles, true) ? $st['default_style'] : 'clean',
+        'default_font'      => in_array(($st['default_font'] ?? 'plusjakarta'), $allowed_fonts, true) ? $st['default_font'] : 'plusjakarta',
+        'accent_color'      => preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', ($st['accent_color'] ?? '')) ? $st['accent_color'] : '#ffffff',
+        'autoplay'          => !empty($st['autoplay']) ? 1 : 0,
+        'duration'          => in_array(($st['duration'] ?? '7'), ['5', '7', '10', '12'], true) ? $st['duration'] : '7',
+
+        'ga_mode'           => in_array(($st['ga_mode'] ?? 'auto'), ['auto', 'manual', 'off'], true) ? $st['ga_mode'] : 'auto',
+        'ga_manual_id'      => (function ($id) {
+          $id = trim((string)$id);
+          return preg_match('/^G-[A-Z0-9\-]{4,}$/i', $id) ? $id : '';
+        })($st['ga_manual_id'] ?? ''),
+
+        'ai_brief_default'  => wp_kses_post($st['ai_brief_default'] ?? ''),
+      ];
     }
-
-    $out['apis']['images'] = [
-      'provider' => $provider,
-      'model'    => sanitize_text_field($img['model'] ?? 'dall-e-3'),
-      'size'     => sanitize_text_field($img['size'] ?? '1024x576'),
-      'quality'  => sanitize_text_field($img['quality'] ?? 'standard'),
-    ];
-
-
-    // orion Posts (ex.: defaults)
-    $gp = $in['orion_posts'] ?? [];
-    $out['orion_posts'] = [
-      'defaults' => [
-        'locale' => sanitize_text_field($gp['defaults']['locale'] ?? 'pt_BR'),
-      ],
-      // acrescente aqui outras chaves do orion Posts quando precisar
-    ];
-
-    // Stories (migração do alpha_storys_options)
-    $st = $in['stories'] ?? [];
-    $allowed_styles = ['clean', 'dark-left', 'card', 'split', 'top'];
-    $allowed_fonts  = ['system', 'inter', 'poppins', 'merriweather', 'plusjakarta'];
-
-    $out['stories'] = [
-      'publisher_name'   => sanitize_text_field($st['publisher_name'] ?? get_bloginfo('name')),
-      'publisher_logo_id' => (int)($st['publisher_logo_id'] ?? 0),
-
-      'default_style'    => in_array(($st['default_style'] ?? 'clean'), $allowed_styles, true) ? $st['default_style'] : 'clean',
-      'default_font'     => in_array(($st['default_font'] ?? 'plusjakarta'), $allowed_fonts, true) ? $st['default_font'] : 'plusjakarta',
-      'accent_color'     => preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', ($st['accent_color'] ?? '')) ? $st['accent_color'] : '#ffffff',
-      'autoplay'         => !empty($st['autoplay']) ? 1 : 0,
-      'duration'         => in_array(($st['duration'] ?? '7'), ['5', '7', '10', '12'], true) ? $st['duration'] : '7',
-
-      'ga_mode'          => in_array(($st['ga_mode'] ?? 'auto'), ['auto', 'manual', 'off'], true) ? $st['ga_mode'] : 'auto',
-      'ga_manual_id'     => (function ($id) {
-        $id = trim((string)$id);
-        return preg_match('/^G-[A-Z0-9\-]{4,}$/i', $id) ? $id : '';
-      })($st['ga_manual_id'] ?? ''),
-
-      // prompts/IA só se quiser separar do global:
-      'ai_brief_default' => wp_kses_post($st['ai_brief_default'] ?? ''),
-    ];
 
     return $out;
   }
+
 
   /** Helper para obter settings */
   public static function get(): array
@@ -149,6 +174,8 @@ class PluginsAlpha_Settings
       <form method="post" action="options.php" id="pga-settings-form">
         <?php settings_fields(self::OPTION); ?>
 
+        <input type="hidden" name="pga_settings_tab" value="<?php echo esc_attr($tab); ?>">
+
         <?php
         switch ($tab) {
           case 'orion-posts':
@@ -165,6 +192,7 @@ class PluginsAlpha_Settings
 
         <?php submit_button(); ?>
       </form>
+
     </div>
   <?php
   }
@@ -408,16 +436,6 @@ class PluginsAlpha_Settings
         <td>
           <input name="pga_settings[stories][ga_manual_id]" id="pga_ga_manual_id" type="text" class="regular-text" placeholder="G-XXXXXXXXXX" value="<?php echo esc_attr($st['ga_manual_id'] ?? ''); ?>">
           <p class="description">Usado apenas se “Manual” estiver selecionado.</p>
-        </td>
-      </tr>
-    </table>
-
-    <h2 class="title">Prompt / IA (opcional)</h2>
-    <table class="form-table" role="presentation">
-      <tr>
-        <th scope="row"><label for="pga_st_brief">Brief padrão</label></th>
-        <td>
-          <textarea name="pga_settings[stories][ai_brief_default]" id="pga_st_brief" class="large-text" rows="4" placeholder="tom, público, CTA padrão, nº ideal de slides etc."><?php echo esc_textarea($st['ai_brief_default'] ?? ''); ?></textarea>
         </td>
       </tr>
     </table>

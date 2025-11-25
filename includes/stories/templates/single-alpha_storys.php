@@ -43,9 +43,9 @@ $pages      = is_array($pages) ? $pages : [];
 $alpha_storys_publisher   = get_post_meta($post->ID, '_alpha_storys_publisher', true) ?: (alpha_opt('publisher_name') ?: get_bloginfo('name'));
 
 $alpha_logo_id    = (int) get_post_meta($post->ID, '_alpha_storys_logo_id', true);
-$alpha_logo_src   = $alpha_logo_id ? wp_get_attachment_image_url($alpha_logo_id, 'full') : (alpha_get_publisher_logo_url() ?: '');
+$alpha_logo_src   = $alpha_logo_id ? wp_get_attachment_image_url($alpha_logo_id, 'full') : (PluginsAlpha_Helpers::alpha_get_publisher_logo_url() ?: '');
 
-$alpha_ga_id      = alpha_get_ga4_id();
+$alpha_ga_id      = PluginsAlpha_Helpers::alpha_get_ga4_id();
 $alpha_ga_enable  = !empty($alpha_ga_id);
 
 // Playback (sem amp-bind): valor fixo por página, agora só via meta (sem ACF)
@@ -58,17 +58,31 @@ $autoplay = ($alpha_meta_autoplay === '' || $alpha_meta_autoplay === null)
 $seconds = (int) get_post_meta($post->ID, '_alpha_storys_duration', true);
 if ($seconds <= 0) $seconds = 7;
 
-// Poster obrigatório
-$poster_id  = get_post_thumbnail_id($post->ID);
+$poster_id  = get_post_thumbnail_id($post->ID); // Poster obrigatório
+$poster     = $poster_id ? wp_get_attachment_image_url($poster_id, 'alpha_storys_poster') : '';
 $poster     = $poster_id ? wp_get_attachment_image_url($poster_id, 'storys_poster') : '';
 if (!$poster) {
   foreach ($pages as $p) {
-    if (!empty($p['image'])) {
-      $poster = esc_url($p['image']);
+    $p = (array) $p;
+
+    $img_id = !empty($p['image_id']) ? (int) $p['image_id'] : 0;
+    $url    = '';
+
+    if ($img_id) {
+      // usa o size especial de poster (3:4)
+      $url = wp_get_attachment_image_url($img_id, 'alpha_storys_poster');
+    } elseif (!empty($p['image'])) {
+      // legado: usa URL antiga
+      $url = esc_url($p['image']);
+    }
+
+    if ($url) {
+      $poster = $url;
       break;
     }
   }
 }
+
 if (!$poster) {
   $poster = get_stylesheet_directory_uri() . '/assets/story-poster-fallback.jpg';
 }
@@ -98,10 +112,10 @@ $style = get_post_meta($post->ID, '_alpha_storys_style', true);
 if (!$style) $style = 'clean';
 
 $font = get_post_meta($post->ID, '_alpha_storys_font', true);
-if (!$font) $font = alpha_opt('default_font', 'inter');
+if (!$font) $font = PluginsAlpha_Helpers::alpha_opt('default_font', 'inter');
 
 $accent = get_post_meta($post->ID, '_alpha_storys_accent_color', true);
-if (!$accent) $accent = alpha_opt('accent_color', '#ffffff');
+if (!$accent) $accent = PluginsAlpha_Helpers::alpha_opt('accent_color', '#ffffff');
 
 // Mapeia Google Fonts
 function alpha_font_href($font)
@@ -521,17 +535,64 @@ $font_family = $font === 'system'
     $i = 1;
     foreach ($pages as $p):
       $p = array_merge([
-        'image'    => '',
-        'heading'  => '',
-        'body'     => '',
-        'cta_url'  => '',
-        'cta_text' => '',
-        'cta_type' => '',
-        'cta_icon' => '',
-        'duration' => null,
+        'image'     => '',
+        'image_id'  => 0,
+        'heading'   => '',
+        'body'      => '',
+        'cta_url'   => '',
+        'cta_text'  => '',
+        'cta_type'  => '',
+        'cta_icon'  => '',
+        'duration'  => null,
       ], (array) $p);
 
-      $img = $p['image'] ? esc_url($p['image']) : '';
+      // === IMAGEM DO SLIDE (usa sizes especiais) ==========================
+      $img_id = (int) ($p['image_id'] ?? 0);
+      $img    = '';
+
+      // define o size default por estilo
+      $size = 'alpha_storys_slide'; // vertical 9:16 padrão
+
+      switch ($style) {
+        case 'top':
+          // hero no topo, pode ser 3:4 sem problema
+          $size = 'alpha_storys_poster';
+          break;
+
+        case 'card':
+        case 'split':
+        case 'dark-left':
+        default:
+          $size = 'alpha_storys_slide';
+          break;
+      }
+
+      // 1) Se tiver image_id, usa attachment + size
+      if ($img_id) {
+        $img = wp_get_attachment_image_url($img_id, $size);
+
+        // fallback se precisar
+        if (!$img) {
+          $img = wp_get_attachment_image_url($img_id, 'alpha_storys_slide')
+            ?: wp_get_attachment_image_url($img_id, 'alpha_storys_poster');
+        }
+      }
+
+      // 2) Compat com stories antigos que só tinham 'image' (URL pura)
+      if (!$img && !empty($p['image'])) {
+        $att_id = attachment_url_to_postid($p['image']);
+        if ($att_id) {
+          $img = wp_get_attachment_image_url($att_id, $size)
+            ?: wp_get_attachment_image_url($att_id, 'alpha_storys_slide')
+            ?: wp_get_attachment_image_url($att_id, 'alpha_storys_poster');
+        }
+
+        // último fallback: se ainda não achou attachment, aí sim usa a URL original
+        if (!$img) {
+          $img = esc_url($p['image']);
+        }
+      }
+
       $dur = $p['duration'] ? (int)$p['duration'] : (int)$seconds;
 
       // CTA (fallback = swipe)
@@ -556,8 +617,8 @@ $font_family = $font === 'system'
       <amp-story-page
         id="p<?php echo (int)$i; ?>"
         <?php if ($autoplay): ?>auto-advance-after="<?php echo (int)$dur; ?>s" <?php endif; ?>>
+
         <?php if ($style === 'card'): ?>
-          <!-- Fundo desfocado da própria imagem + overlay -->
           <amp-story-grid-layer template="fill">
             <?php if ($img): ?>
               <amp-img layout="fill" src="<?php echo esc_attr($img); ?>" alt=""></amp-img>
@@ -567,7 +628,6 @@ $font_family = $font === 'system'
             <div class="overlay"></div>
           </amp-story-grid-layer>
 
-          <!-- Conteúdo -->
           <amp-story-grid-layer template="vertical" class="layer-content">
             <div class="card"
               <?php if ($img): ?>style="background-image:url('<?php echo esc_url($img); ?>');" <?php endif; ?>
@@ -576,21 +636,17 @@ $font_family = $font === 'system'
             <?php if (!empty($p['heading'])): ?>
               <h2 class="h2"><?php echo esc_html($p['heading']); ?></h2>
             <?php endif; ?>
-
             <?php if (!empty($p['body'])): ?>
               <p class="p"><?php echo esc_html($p['body']); ?></p>
             <?php endif; ?>
-
           </amp-story-grid-layer>
 
         <?php elseif ($style === 'top'): ?>
-          <!-- Fundo sólido com a cor escolhida -->
           <amp-story-grid-layer template="fill">
             <div class="bg-solid"></div>
           </amp-story-grid-layer>
 
-          <!-- Hero (imagem no topo) + textos embaixo -->
-          <amp-story-grid-layer template="vertical" class="layer-content-top" style="padding: 0; display: block!important">
+          <amp-story-grid-layer template="vertical" class="layer-content-top" style="padding:0;display:block!important">
             <div class="hero" <?php echo esc_attr($anim_card_div); ?>>
               <?php if ($img): ?>
                 <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
@@ -605,13 +661,11 @@ $font_family = $font === 'system'
                 <?php if (!empty($p['body'])): ?>
                   <p class="p"><?php echo esc_html($p['body']); ?></p>
                 <?php endif; ?>
-
               </div>
             </div>
           </amp-story-grid-layer>
 
         <?php elseif ($style === 'split'): ?>
-          <!-- Fundo desfocado + overlay -->
           <amp-story-grid-layer template="fill">
             <?php if ($img): ?>
               <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
@@ -621,7 +675,6 @@ $font_family = $font === 'system'
             <div class="overlay"></div>
           </amp-story-grid-layer>
 
-          <!-- Conteúdo em colunas -->
           <amp-story-grid-layer template="vertical">
             <div class="split">
               <div class="left"
@@ -634,13 +687,11 @@ $font_family = $font === 'system'
                 <?php if (!empty($p['body'])): ?>
                   <p class="p"><?php echo esc_html($p['body']); ?></p>
                 <?php endif; ?>
-
               </div>
             </div>
           </amp-story-grid-layer>
 
         <?php else: ?>
-          <!-- CLEAN / DARK-LEFT: fundo desfocado -->
           <amp-story-grid-layer template="fill">
             <?php if ($img): ?>
               <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
@@ -660,9 +711,9 @@ $font_family = $font === 'system'
           </amp-story-grid-layer>
         <?php endif; ?>
 
+        <!-- CTA fica igual -->
         <?php if ($cta_url): ?>
           <?php if ($cta_type === 'button' && !$is_first): ?>
-            <!-- Botão 1-tap: última layer -->
             <amp-story-cta-layer>
               <a class="btn"
                 href="<?php echo esc_url($cta_url); ?>"
@@ -672,7 +723,6 @@ $font_family = $font === 'system'
               </a>
             </amp-story-cta-layer>
           <?php elseif ($cta_type === 'swipe'): ?>
-            <!-- Swipe up: último filho da página -->
             <amp-story-page-outlink
               layout="nodisplay"
               theme="dark"
@@ -683,6 +733,7 @@ $font_family = $font === 'system'
         <?php endif; ?>
 
       </amp-story-page>
+
     <?php
       $i++;
     endforeach;

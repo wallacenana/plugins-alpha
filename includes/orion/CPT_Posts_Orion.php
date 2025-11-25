@@ -24,30 +24,54 @@ class PluginsAlpha_CPT_Posts_Orion
    */
   public static function init(): void
   {
-    // registra o CPT
+    // já existentes
     add_action('init', [self::class, 'register']);
-
-    // adiciona regras de rewrite baseadas na option
     add_action('init', [self::class, 'add_rewrite_rules'], 20);
-
-    // registra query var custom
     add_filter('query_vars', [self::class, 'register_query_var']);
-
-    // converte query var em query de CPT
     add_action('parse_request', [self::class, 'parse_request']);
-
-    // monta o permalink bonito (root ou com base)
     add_filter('post_type_link', [self::class, 'filter_permalink'], 10, 4);
 
-    // restrições de edição/visualização no admin
     if (is_admin()) {
       add_filter('post_row_actions', [self::class, 'filter_row_actions'], 10, 2);
       add_filter('get_edit_post_link', [self::class, 'filter_edit_link'], 10, 3);
       add_action('admin_notices', [self::class, 'admin_license_notices']);
     }
 
-    // bloqueia publicação (inclui cron) se a licença/módulo não estiver ok
     add_action('transition_post_status', [self::class, 'block_publish_if_no_license'], 10, 3);
+
+    // 🔹 NOVO: inclui posts_orion nos arquivos de categoria / tag
+    add_action('pre_get_posts', [self::class, 'include_in_term_archives']);
+  }
+
+  /**
+   * Inclui o CPT posts_orion nas páginas de categoria e tag.
+   */
+  public static function include_in_term_archives($query): void
+  {
+    // somente front-end + query principal
+    if (is_admin() || ! $query->is_main_query()) {
+      return;
+    }
+
+    // category ou tag (se quiser só category, remove o is_tag)
+    if (! $query->is_category() && ! $query->is_tag()) {
+      return;
+    }
+
+    $post_types = $query->get('post_type');
+
+    if (empty($post_types)) {
+      // padrão do WP é "post", então a gente força os dois
+      $post_types = ['post', 'posts_orion'];
+    } elseif (is_string($post_types)) {
+      $post_types = [$post_types];
+    }
+
+    if (! in_array('posts_orion', $post_types, true)) {
+      $post_types[] = 'posts_orion';
+    }
+
+    $query->set('post_type', $post_types);
   }
 
   public static function admin_license_notices(): void
@@ -118,7 +142,13 @@ class PluginsAlpha_CPT_Posts_Orion
   protected static function get_base_slug(): string
   {
     $base = trim((string) get_option(self::OPTION_BASE, ''), '/');
-    return $base; // '' é válido e significa "sem base"
+
+    // se vazio, define um padrão seguro
+    if ($base === '') {
+      $base = 'blog';
+    }
+
+    return $base;
   }
 
   public static function register(): void
@@ -176,26 +206,14 @@ class PluginsAlpha_CPT_Posts_Orion
    */
   public static function add_rewrite_rules(): void
   {
-    $base = self::get_base_slug();
+    $base = self::get_base_slug();      // aqui NUNCA é vazio
+    $base_regex = preg_quote($base, '#');
 
-    if ($base === '') {
-      // Sem base -> /slug
-      // ⚠ Isso concorre com páginas/posts normais.
-      add_rewrite_rule(
-        '^([^/]+)/?$',
-        'index.php?' . self::QUERY_VAR . '=$matches[1]',
-        'top'
-      );
-    } else {
-      // Com base -> /base/slug
-      $base_regex = preg_quote($base, '#');
-
-      add_rewrite_rule(
-        '^' . $base_regex . '/([^/]+)/?$',
-        'index.php?' . self::QUERY_VAR . '=$matches[1]',
-        'top'
-      );
-    }
+    add_rewrite_rule(
+      '^' . $base_regex . '/([^/]+)/?$',
+      'index.php?' . self::QUERY_VAR . '=$matches[1]',
+      'top'
+    );
   }
 
   /**
@@ -241,14 +259,9 @@ class PluginsAlpha_CPT_Posts_Orion
       return $permalink;
     }
 
-    $base = self::get_base_slug();
+    $base = self::get_base_slug();  // nunca vazio
     $slug = $post->post_name;
-
-    if ($base === '') {
-      $path = $slug;               // raiz
-    } else {
-      $path = $base . '/' . $slug; // /base/slug
-    }
+    $path = $base . '/' . $slug;
 
     return home_url(user_trailingslashit($path));
   }

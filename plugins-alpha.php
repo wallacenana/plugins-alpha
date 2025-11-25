@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Plugins Alpha
  * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Alpha Órion, Alpha Stories e muito mais.
- * Version: 1.1.3
+ * Version: 1.2.0
  * Author: Wallace Tavares
  * Author URI: https://pluginsalpha.com/
  * Text Domain: plugins-alpha
@@ -17,7 +17,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('PLUGINS_ALPHA_VERSION', '1.1.3');
+define('PLUGINS_ALPHA_VERSION', '1.2.0');
 
 // Constantes
 define('PGA_FILE', __FILE__);
@@ -124,8 +124,6 @@ add_action('plugins_loaded', function () {
     }
   }
 });
-
-
 
 // Ativação/Desativação
 register_activation_hook(PGA_FILE, function () {

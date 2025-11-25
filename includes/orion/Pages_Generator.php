@@ -2,6 +2,7 @@
 if (!defined('ABSPATH')) exit;
 
 if (!class_exists('PluginsAlpha_OpenAI')) require_once __DIR__ . '/OpenAI.php';
+if (!class_exists('PluginsAlpha_Images')) require_once __DIR__ . '/Images.php';
 
 class PluginsAlpha_Pages_Generator
 {
@@ -70,13 +71,25 @@ class PluginsAlpha_Pages_Generator
                 'orderby'          => 'name',
                 'hierarchical'     => true,
                 'value_field'      => 'term_id',
-                'selected'         => 0,
+                'selected'         => 1,
               ]);
               ?>
             </div>
             <div class="pga-field"><label>Quantidade total</label><input id="pga_total" type="number" min="1" step="1" value="6"></div>
             <div class="pga-field"><label>Posts por dia</label><input id="pga_per_day" type="number" min="1" step="1" value="3"></div>
-            <div class="pga-field"><label>Primeira publicação ≥</label><input id="pga_first_delay_hours" type="number" min="2" step="1" value="2"> horas</div>
+            <div class="pga-field">
+              <label for="pga_first_delay_hours">Inicio da programação</label>
+              <?php
+              // padrão: agora + 2 horas (igual ao valor 2 que já tinha)
+              $ts_default = current_time('timestamp') + 2 * HOUR_IN_SECONDS;
+              $val_default = date_i18n('Y-m-d\TH:i', $ts_default);
+              ?>
+              <input
+                id="pga_first_delay_hours"
+                type="datetime-local"
+                class="regular-text"
+                value="<?php echo esc_attr($val_default); ?>" />
+            </div>
             <div class="pga-field">
               <label for="pga_length">Extensão</label>
               <select id="pga_length">
@@ -212,6 +225,7 @@ class PluginsAlpha_Pages_Generator
     $locale    = $args['locale']       ?? 'pt_BR';
     $url       = $args['source_url']   ?? '';
 
+    // 🔹 AGORA: publish_ts só vem de publish_time se for enviado
     $publish_ts = 0;
 
     if ($keyword === '' && !empty($url)) {
@@ -228,6 +242,7 @@ class PluginsAlpha_Pages_Generator
       $keyword = 'Artigo baseado em ' . wp_parse_url($url, PHP_URL_HOST);
     }
 
+    // 🔹 SOMENTE LÊ publish_time; NÃO chama mais compute_publish_time()
     if (!empty($args['publish_time'])) {
       $raw = $args['publish_time'];
 
@@ -239,10 +254,6 @@ class PluginsAlpha_Pages_Generator
           $publish_ts = $t;
         }
       }
-    }
-
-    if (!$publish_ts) {
-      $publish_ts = self::compute_publish_time($args);
     }
 
     $category_id = intval($args['category_id'] ?? 0);
@@ -268,8 +279,10 @@ class PluginsAlpha_Pages_Generator
       return $draft_id;
     }
 
-    // salva o horário pra usar no finalize
-    update_post_meta($draft_id, '_pga_publish_ts', $publish_ts);
+    // salva o horário pra usar no finalize (só se realmente tiver)
+    if ($publish_ts > 0) {
+      update_post_meta($draft_id, '_pga_publish_ts', $publish_ts);
+    }
     update_post_meta($draft_id, '_pga_job_started', time());
 
     // category_id veio direto das categorias padrão do WP
@@ -280,7 +293,6 @@ class PluginsAlpha_Pages_Generator
       // guarda em meta pra usar depois, se precisar
       update_post_meta($draft_id, '_pga_orion_category_ids', [(int) $category_id]);
     }
-
 
     // 1) TÍTULO
     $titlePrompt = PluginsAlpha_Prompts::build_title_prompt(
@@ -312,7 +324,11 @@ class PluginsAlpha_Pages_Generator
     update_post_meta($draft_id, '_pga_outline_template', $template);
     update_post_meta($draft_id, '_pga_outline_url',      $url);
     update_post_meta($draft_id, '_pga_chosen_title',     $chosenTitle);
-    update_post_meta($draft_id, '_pga_publish_ts',       $publish_ts);
+
+    // se tiver publish_ts válido, garante que fique salvo
+    if ($publish_ts > 0) {
+      update_post_meta($draft_id, '_pga_publish_ts', $publish_ts);
+    }
 
     update_post_meta($draft_id, '_pga_job_status', 'outline_done');
 
@@ -407,7 +423,6 @@ class PluginsAlpha_Pages_Generator
 
     // Salva o outline normalizado
     update_post_meta($draft_id, '_pga_outline_sections', wp_json_encode($normalized));
-
     update_post_meta($draft_id, '_pga_job_status', 'outline_done');
 
     return [
@@ -809,151 +824,6 @@ class PluginsAlpha_Pages_Generator
     ];
   }
 
-  private static function generate_openai_thumbnail(
-    string $prompt,
-    int $post_id,
-    string $alt,
-    array $imgSettings = []
-  ) {
-    if ($prompt === '' || $post_id <= 0) {
-      return 0;
-    }
-
-    $opts = class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [];
-    $api  = $opts['apis']['openai'] ?? [];
-    $key  = trim((string) ($api['key'] ?? ''));
-
-    if ($key === '') {
-      return new \WP_Error('pga_openai_no_key', 'Chave da OpenAI não configurada.');
-    }
-
-    $model   = $imgSettings['model']   ?? 'dall-e-3';
-    $size    = $imgSettings['size']    ?? '1200x670';
-    $quality = $imgSettings['quality'] ?? 'standard';
-
-    $body = [
-      'model'   => $model,
-      'prompt'  => $prompt,
-      'n'       => 1,
-      'size'    => $size,
-      'quality' => $quality,
-    ];
-
-    $res = wp_remote_post(
-      'https://api.openai.com/v1/images/generations',
-      [
-        'timeout' => 60,
-        'headers' => [
-          'Authorization' => 'Bearer ' . $key,
-          'Content-Type'  => 'application/json',
-        ],
-        'body'    => wp_json_encode($body),
-      ]
-    );
-
-    if (is_wp_error($res)) {
-      return $res;
-    }
-
-    $code = wp_remote_retrieve_response_code($res);
-    $raw  = wp_remote_retrieve_body($res);
-
-    if ($code !== 200 || !$raw) {
-      return new \WP_Error(
-        'pga_openai_http',
-        'Erro ao gerar imagem na OpenAI (HTTP ' . $code . ').'
-      );
-    }
-
-    $json = json_decode($raw, true);
-    if (empty($json['data'][0]['url'])) {
-      return new \WP_Error(
-        'pga_openai_bad_response',
-        'Resposta inesperada da API de imagens.'
-      );
-    }
-
-    $img_url = $json['data'][0]['url'];
-
-    // baixa a imagem gerada
-    $img_res = wp_remote_get($img_url, ['timeout' => 60]);
-    if (is_wp_error($img_res)) {
-      return $img_res;
-    }
-
-    $img_body = wp_remote_retrieve_body($img_res);
-    if (!$img_body) {
-      return new \WP_Error(
-        'pga_openai_empty_image',
-        'Imagem vazia retornada pela OpenAI.'
-      );
-    }
-
-    // usa o mesmo helper que você já tem pra salvar binário como attachment
-    return self::create_attachment_from_binary(
-      $img_body,
-      $post_id,
-      $alt,
-      'openai'
-    );
-  }
-  private static function create_attachment_from_binary(
-    string $binary,
-    int $post_id,
-    string $alt,
-    string $prefix = 'img'
-  ) {
-    if ($binary === '' || $post_id <= 0) {
-      return 0;
-    }
-
-    $mime = 'image/jpeg';
-    if (function_exists('getimagesizefromstring')) {
-      $info = @getimagesizefromstring($binary);
-      if (!empty($info['mime'])) {
-        $mime = $info['mime'];
-      }
-    }
-
-    $ext = 'jpg';
-    if ($mime === 'image/png') {
-      $ext = 'png';
-    } elseif ($mime === 'image/webp') {
-      $ext = 'webp';
-    }
-
-    $filename = $prefix . '-' . $post_id . '-' . time() . '.' . $ext;
-
-    $upload = wp_upload_bits($filename, null, $binary);
-    if (!empty($upload['error'])) {
-      return new \WP_Error('pga_upload_failed', $upload['error']);
-    }
-
-    $filetype   = wp_check_filetype(basename($upload['file']), null);
-    $attachment = [
-      'guid'           => $upload['url'],
-      'post_mime_type' => $filetype['type'] ?: $mime,
-      'post_title'     => preg_replace('/\.[^.]+$/', '', basename($upload['file'])),
-      'post_content'   => '',
-      'post_status'    => 'inherit',
-    ];
-
-    $attach_id = wp_insert_attachment($attachment, $upload['file'], $post_id);
-    if (is_wp_error($attach_id) || !$attach_id) {
-      return $attach_id;
-    }
-
-    require_once ABSPATH . 'wp-admin/includes/image.php';
-    $attach_data = wp_generate_attachment_metadata($attach_id, $upload['file']);
-    wp_update_attachment_metadata($attach_id, $attach_data);
-
-    if ($alt) {
-      update_post_meta($attach_id, '_wp_attachment_image_alt', wp_strip_all_tags($alt));
-    }
-
-    return (int) $attach_id;
-  }
-
   /** Seleciona o melhor título (keyword + número + curto) */
   /** Escolhe o melhor título (contém keyword, tem número, é curto, evita “guia completo”). */
   private static function pick_best_title(array $cands, string $kw): string
@@ -978,86 +848,6 @@ class PluginsAlpha_Pages_Generator
   {
     // **não usado no novo fluxo** — mantido apenas por compatibilidade
     return new WP_Error('deprecated', 'Use /plan (que retorna jobs) + /generate para cada job.');
-  }
-
-  private static function generate_pollinations_thumbnail(string $prompt, int $post_id, string $alt = '')
-  {
-    if ($prompt === '' || $post_id <= 0) {
-      return 0;
-    }
-
-    $base_url = 'https://image.pollinations.ai/prompt/' . rawurlencode($prompt);
-
-    // 1200x675 é um bom padrão para thumbnail / OpenGraph
-    $url = add_query_arg([
-      'width'  => 1280,
-      'height' => 720,
-      'model'  => 'flux',
-      // se um dia você tiver conta, dá pra ligar: 'nologo' => 'true',
-    ], $base_url);
-    $res = wp_remote_get($url, [
-      'timeout'   => 60,
-      'headers'   => [
-        'Accept' => 'image/avif,image/webp,image/jpeg,image/png,*/*',
-      ],
-    ]);
-
-    if (is_wp_error($res)) {
-      return $res;
-    }
-
-    $code = wp_remote_retrieve_response_code($res);
-    if ($code !== 200) {
-      return new \WP_Error('pga_pollinations_http', 'Falha ao gerar imagem (HTTP ' . $code . ').');
-    }
-
-    $body = wp_remote_retrieve_body($res);
-    if (! $body) {
-      return new \WP_Error('pga_pollinations_empty', 'Resposta de imagem vazia.');
-    }
-
-    // tenta deduzir mime/ extensão
-    $mime = 'image/jpeg';
-    if (function_exists('getimagesizefromstring')) {
-      $info = @getimagesizefromstring($body);
-      if (! empty($info['mime'])) {
-        $mime = $info['mime'];
-      }
-    }
-
-    $ext = 'jpg';
-    if ($mime === 'image/png') {
-      $ext = 'png';
-    } elseif ($mime === 'image/webp') {
-      $ext = 'webp';
-    }
-
-    $filename = 'pollinations-' . $post_id . '-' . time() . '.' . $ext;
-
-    $upload = wp_upload_bits($filename, null, $body);
-    $filetype   = wp_check_filetype(basename($upload['file']), null);
-    $attachment = [
-      'guid'           => $upload['url'],
-      'post_mime_type' => $filetype['type'] ?: $mime,
-      'post_title'     => preg_replace('/\.[^.]+$/', '', basename($upload['file'])),
-      'post_content'   => '',
-      'post_status'    => 'inherit',
-    ];
-
-    $attach_id = wp_insert_attachment($attachment, $upload['file'], $post_id);
-    if (is_wp_error($attach_id) || ! $attach_id) {
-      return $attach_id;
-    }
-
-    require_once ABSPATH . 'wp-admin/includes/image.php';
-    $attach_data = wp_generate_attachment_metadata($attach_id, $upload['file']);
-    wp_update_attachment_metadata($attach_id, $attach_data);
-
-    if ($alt) {
-      update_post_meta($attach_id, '_wp_attachment_image_alt', wp_strip_all_tags($alt));
-    }
-
-    return (int) $attach_id;
   }
 
   private static function compute_publish_time(array $args): int
@@ -1229,23 +1019,27 @@ class PluginsAlpha_Pages_Generator
       }
 
       if ($img_prompt) {
-        $opts     = class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [];
-        $imgOpts  = $opts['apis']['images'] ?? [];
-        $provider = $imgOpts['provider'] ?? 'pollinations';
-
         $alt = $image_alt !== '' ? $image_alt : $title;
 
-        if ($provider === 'openai') {
-          $thumb_id = self::generate_openai_thumbnail($img_prompt, $post_id, $alt, $imgOpts);
-        } elseif ($provider === 'pollinations') {
-          $thumb_id = self::generate_pollinations_thumbnail($img_prompt, $post_id, $alt);
-        } else {
-          $thumb_id = 0;
-        }
+        // Usa settings globais para decidir provider/model/size
+        $thumb_id = PluginsAlpha_Images::generate_by_settings(
+          $img_prompt,
+          $post_id,
+          $alt
+        );
 
-        if (!is_wp_error($thumb_id) && $thumb_id) {
+        if (! is_wp_error($thumb_id) && $thumb_id) {
+          // define thumbnail do post
           set_post_thumbnail($post_id, $thumb_id);
-          update_post_meta($post_id, '_pga_image_prompt',   $img_prompt);
+
+          // guarda metadados pra referência
+          update_post_meta($post_id, '_pga_image_prompt', $img_prompt);
+
+          // se quiser registrar qual provider foi usado:
+          $opts     = class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [];
+          $img_opts = $opts['apis']['images'] ?? [];
+          $provider = $img_opts['provider'] ?? 'pollinations';
+
           update_post_meta($post_id, '_pga_image_provider', $provider);
         }
       }

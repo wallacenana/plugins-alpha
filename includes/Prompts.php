@@ -551,6 +551,123 @@ class PluginsAlpha_Prompts
      *  DEFAULTS – aqui você pode ir refinando com calma depois
      * ------------------------------------------------------------------ */
 
+    public static function story_default_template(): string
+    {
+        $s = "";
+        $s .= "Você é uma especialista em transformar posts de blog em Web Stories AMP envolventes, otimizadas para leitura rápida em dispositivos móveis." . "\n";
+
+        $s .= "Sua tarefa é:" . "\n";
+        $s .= "- Ler o título e o conteúdo do post." . "\n";
+        $s .= "- Extrair as ideias principais.";
+        $s .= "- Quebrar em PÁGINAS (slides) curtas e diretas." . "\n" . "\n";
+        $s .= "- A quebra de páginas em slides deve ser feito entre 7 a 10 slides." . "\n";
+        $s .= "- Criar um fluxo lógico de início, meio e fim." . "\n";
+        $s .= "- Criar uma página final com CTA para ler o conteudo (chamada para ação), mas crie também o prompt da imagem." . "\n";
+
+        $s .= "\n";
+        $s .= "Regras importantes:" . "\n";
+        $s .= "- Linguagem simples e envolvente." . "\n";
+        $s .= "- Evite parágrafos muito longos." . "\n";
+        $s .= "- Não invente informações; use apenas o que estiver no post/brief.";
+
+        $s .= "\n";
+        $s .= "Regras adicionais IMPORTANTES:\n";
+        $s .= "- O campo \"body\" de cada página deve ter entre 160 e 240 caracteres.\n";
+        $s .= "- Intercale o CTA dos slides o primeiro não deve ter e do segundo em diante vai um com cta, um sem: um slide sem CTA, o próximo com CTA, e assim por diante.\n";
+        $s .= "- O CTA deve ser um texto simples (saiba mais, veja mais, descubra como...).\n";
+        $s .= "- O último slide SEMPRE deve ter CTA para o artigo em questão.\n";
+        $s .= "- Não inclua comentários.\n";
+        $s .= "- Não inclua texto fora do JSON.\n";
+        $s .= "- Não inclua markdown, HTML, bullet points ou explicações.\n";
+        $s .= "- No campo \"prompt\", crie sempre um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
+
+        return $s;
+    }
+
+    /**
+     * Bloco fixo explicando o FORMATO JSON obrigatório
+     * (pode ser usado por outros lugares também)
+     */
+    public static function story_json_format_block(): string
+    {
+        $s  = "Responda APENAS em JSON UTF-8 válido, no seguinte formato exato:\n\n";
+        $s .= "{\n";
+        $s .= "  \"pages\": [\n";
+        $s .= "    {\n";
+        $s .= "      \"heading\": \"Título da página\",\n";
+        $s .= "      \"body\": \"Texto curto da página.\",\n";
+        $s .= "      \"cta_text\": \"Texto do botão ou chamada final (intercalados).\",\n";
+        $s .= "      \"cta_url\": \"\",\n";
+        $s .= "      \"prompt\": \"Crie um prompt de imagem em português sobre o conteudo do slide, levando em conta titulo e conteudo para gerar uma FOTO REALISTA VERTICAL do tema deste slide, estilo cinematográfico, luz natural, sem molduras, sem desenho, sem ilustração, sem texto, sem legendas, sem letras, sem logos.\"\n";
+        $s .= "    }\n";
+        $s .= "  ]\n";
+        $s .= "}\n\n";
+
+        $s .= "Regras adicionais sobre CTA:\n";
+        $s .= "- Deixe SEMPRE o campo \"cta_url\" como string vazia \"\". O sistema preencherá automaticamente com o link do artigo.\n";
+        $s .= "- No campo \"prompt\", crie sempre um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
+
+        return $s;
+    }
+
+
+    /**
+     * Cabeçalho que reforça para a IA que a resposta deve ser só JSON
+     */
+    public static function json_header_for_responses_api(): string
+    {
+        $s  = "IMPORTANTE: a resposta deve ser APENAS um JSON válido.\n";
+        $s .= "A palavra \"json\" aparece aqui apenas para atender requisitos internos da API.\n\n";
+        $s .= "- No campo \"prompt\", crie sempre um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
+
+        return $s;
+    }
+
+    /**
+     * Monta o prompt completo para gerar Web Stories
+     * a partir de um post.
+     *
+     * @param WP_Post $post
+     * @param string  $raw_html Conteúdo HTML do post
+     * @param string  $brief    Brief padrão (se existir)
+     * @return string           Texto final que será enviado à IA
+     */
+    public static function build_story_prompt_for_post(WP_Post $post, string $raw_html, string $brief = ''): string
+    {
+        // Opções específicas do módulo de stories
+        $o = PluginsAlpha_Helpers::alpha_storys_options();
+
+        // 1) Template vindo das opções (se existir)
+        $system_pt = '';
+        if (isset($o['ai_prompt_template']) && is_string($o['ai_prompt_template'])) {
+            $system_pt = trim((string) $o['ai_prompt_template']);
+        }
+
+        // 2) Se não houver nada nas opções, usa o padrão da classe
+        if ('' === $system_pt) {
+            $system_pt = self::story_default_template();
+        }
+
+        // 3) Bloco de formato JSON
+        $format_block = self::story_json_format_block();
+
+        // 4) Cabeçalho que reforça JSON-only
+        $json_header = self::json_header_for_responses_api();
+
+        // 5) Monta tudo
+        $title = get_the_title($post);
+
+        $input_text  = $json_header;
+        $input_text .= $system_pt . "\n\n";
+        $input_text .= "TÍTULO DO POST:\n" . $title . "\n\n";
+        $input_text .= "HTML DO POST (sem tags):\n" . wp_strip_all_tags($raw_html) . "\n\n";
+        $input_text .= "BRIEF PADRÃO:\n" . $brief . "\n\n";
+        $input_text .= $format_block . "\n";
+
+        return $input_text . "Para a imagem o importante é a foto: 'Foto realista, cinematográfica, em alta resolução, ilustrando a conclusão: %s. Luz natural, foco no elemento principal, estilo profissional, vertical.',
+";
+    }
+
     protected static function default_outline_modelar_prompt(): string
     {
         $s  = '';

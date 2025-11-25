@@ -17,9 +17,14 @@ add_action('init', 'alpha_register_cpt_storys', 0);
 
 function alpha_register_cpt_storys()
 {
-  require_once PGA_PATH . 'includes/stories/MetaBox.php';
-  PluginsAlpha_Stories_MetaBox::init();
+  require_once PGA_PATH . 'includes/stories/includes/MetaBox.php';
+  require_once PGA_PATH . 'includes/stories/includes/Generate.php';
+  require_once PGA_PATH . 'includes/stories/includes/Helpers.php';
+  require_once PGA_PATH . 'includes/stories/includes/StoriesRest.php';
+  add_action('rest_api_init', ['PluginsAlpha_StoriesRest', 'register_routes']);
 
+  PluginsAlpha_Stories_MetaBox::init();
+  PluginsAlpha_Generate::init();
   // base sempre com algo válido
   $base = alpha_storys_get_base_slug();
 

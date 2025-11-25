@@ -210,10 +210,12 @@
         category_id: parseInt($('#pga_category').val() || '0', 10),
         total: parseInt($('#pga_total').val() || '1', 10),
         per_day: parseInt($('#pga_per_day').val() || '1', 10),
-        first_delay_hours: parseInt($('#pga_first_delay_hours').val() || '2', 10),
+        // 🔹 AGORA: guarda string, pode ser "2" ou "2025-11-27T09:30"
+        first_delay_hours: ($('#pga_first_delay_hours').val() || '').trim(),
         mode: $('input[name="pga_mode"]:checked').val() || 'multi'
       };
     }
+
     function savePrefsToLocal() {
       try { localStorage.setItem(PREF_KEY, JSON.stringify(collectPrefs())); } catch (e) { }
     }
