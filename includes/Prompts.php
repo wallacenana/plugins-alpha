@@ -3,7 +3,7 @@
 /**
  * Central de Prompts do Órion / Plugins Alpha.
  *
- * - Todos os prompts (conteúdo, títulos, imagens) ficam concentrados aqui.
+ * - Todos os prompts (conteúdo, títulos, imagens, stories) ficam concentrados aqui.
  * - Admin pode editar cada prompt em uma tela única.
  * - Regra: se o prompt salvo estiver vazio, o plugin usa o padrão interno.
  */
@@ -56,25 +56,16 @@ class PluginsAlpha_Prompts
         }
 
         // DADOS
-        // pega o array bruto e remove as barras
         $raw = array();
-
         if (isset($_POST['pga_orion_prompts'])) {
             // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
             $raw = wp_unslash($_POST['pga_orion_prompts']);
         }
 
-        // sanitiza tudo que veio
-        $in = array();
-
-        if (is_array($raw)) {
-            $in = array_map('wp_kses_post', $raw); // ou sanitize_textarea_field, se preferir
-        }
-
-
         $in  = is_array($raw)
-            ? array_map('wp_kses_post', $raw) // ou outra sanitização que você preferir
+            ? array_map('wp_kses_post', $raw)
             : array();
+
         $out = array();
 
         if (is_array($in)) {
@@ -108,14 +99,14 @@ class PluginsAlpha_Prompts
 
         $raw = self::get_all_raw();
 
-        // função helper bem simples (sem closure) só para montar valor do textarea:
+        // helper simples pra pegar o valor do textarea:
+        // se não existir opção salva, mostra o default
         // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
         function pga_orion_prompt_value(array $raw, string $key): string
         {
             if (isset($raw[$key]) && is_string($raw[$key]) && trim($raw[$key]) !== '') {
                 return $raw[$key];
             }
-            // se não tiver salvo, mostra o default para o admin saber o que está sendo usado
             return PluginsAlpha_Prompts::default_prompt_for($key);
         }
         // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
@@ -123,13 +114,122 @@ class PluginsAlpha_Prompts
         settings_errors('plugins-alpha-orion-prompts');
 ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Prompts do Órion Posts', 'plugins-alpha'); ?></h1>
+            <style>
+                #pga-vars-btn {
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    z-index: 99999;
+                    padding: 10px 16px;
+                    border-radius: 6px;
+                    background: #2271b1;
+                    color: #fff;
+                    cursor: pointer;
+                    font-weight: 600;
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+                }
+
+                #pga-vars-panel {
+                    position: fixed;
+                    bottom: 70px;
+                    right: 20px;
+                    width: 340px;
+                    max-height: 70vh;
+                    overflow-y: auto;
+                    padding: 15px;
+                    background: #fff;
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+                    display: none;
+                    z-index: 99999;
+                }
+
+                #pga-vars-panel h3 {
+                    margin-top: 0;
+                    margin-bottom: 10px;
+                    font-size: 16px;
+                    font-weight: 600;
+                }
+
+                #pga-vars-panel code {
+                    background: #f1f1f1;
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                }
+
+                #pga-vars-panel ul {
+                    margin: 0;
+                    padding-left: 18px;
+                }
+            </style>
+            <h1><?php esc_html_e('Prompts Gerais', 'plugins-alpha'); ?></h1>
             <p><?php esc_html_e('Edite abaixo os prompts usados pelo Órion. Se um campo ficar vazio, o plugin usará o prompt padrão interno.', 'plugins-alpha'); ?></p>
+
+            <div id="pga-vars-btn">📌 Variáveis Disponíveis</div>
+
+            <div id="pga-vars-panel">
+                <h3>Variáveis para usar nos prompts</h3>
+                <p>Copie e cole os placeholders nos prompts. Sempre entre <code>{{ }}</code>.</p>
+
+                <ul>
+                    <li><code>{{keyword}}</code> – frase chave escolhida</li>
+                    <li><code>{{title}}</code> – título atual do artigo</li>
+                    <li><code>{{forced_title}}</code> – título forçado pelo usuário</li>
+                    <li><code>{{locale}}</code> – idioma (ex: pt_BR)</li>
+                    <li><code>{{template}}</code> – template atual (article, news, howto…)</li>
+                    <li><code>{{content}}</code> – conteúdo resumido do post</li>
+                    <li><code>{{url}}</code> – URL usada em reviews ou modelagem</li>
+                    <li><code>{{min_words}}</code> – mínimo de palavras</li>
+                    <li><code>{{max_words}}</code> – máximo de palavras</li>
+                    <li><code>{{min_sections}}</code> – mínimo de seções</li>
+                    <li><code>{{max_sections}}</code> – máximo de seções</li>
+                    <li><code>{{articleTitle}}</code> – título final do artigo</li>
+                    <li><code>{{extra}}</code> – campo adicional futuro</li>
+                </ul>
+
+                <p><strong>Dica:</strong> mantenha os nomes padronizados exatamente assim.</p>
+            </div>
+
+            <script>
+                document.getElementById('pga-vars-btn').addEventListener('click', function() {
+                    var panel = document.getElementById('pga-vars-panel');
+                    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                });
+            </script>
 
             <form method="post" action="">
                 <?php wp_nonce_field('pga_orion_prompts_save', 'pga_orion_prompts_nonce'); ?>
 
                 <table class="form-table" role="presentation">
+
+                    <!-- STORIES / WEB STORIES -->
+                    <tr>
+                        <th scope="row">
+                            <label for="pga_orion_prompt_story">
+                                <?php esc_html_e('Web Stories (estrutura das páginas)', 'plugins-alpha'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <textarea
+                                id="pga_orion_prompt_story"
+                                name="pga_orion_prompts[story]"
+                                rows="12"
+                                class="large-text code"><?php
+                                                        echo esc_textarea(pga_orion_prompt_value($raw, 'story'));
+                                                        ?></textarea>
+                            <p class="description">
+                                <?php
+                                esc_html_e(
+                                    'Prompt base usado para gerar as páginas (slides) do Web Story. Pode usar {{title}} (título do post), {{content}} (conteúdo já processado) e {{brief}} (brief padrão), além de {{locale}}.',
+                                    'plugins-alpha'
+                                );
+                                ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- ARTIGO PADRÃO -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_article"><?php esc_html_e('Artigo padrão', 'plugins-alpha'); ?></label>
@@ -140,11 +240,12 @@ class PluginsAlpha_Prompts
                                 rows="10"
                                 class="large-text code"><?php echo esc_textarea(pga_orion_prompt_value($raw, 'article')); ?></textarea>
                             <p class="description">
-                                <?php esc_html_e('Usado quando o template for o padrão (article). Saída em JSON com title, content, meta, etc.', 'plugins-alpha'); ?>
+                                <?php esc_html_e('Usado quando o template for o padrão (article). Saída em JSON com title, content, meta, etc. Pode usar {{keyword}}, {{title}}, {{locale}}, {{min_words}}, {{max_words}}.', 'plugins-alpha'); ?>
                             </p>
                         </td>
                     </tr>
 
+                    <!-- REVIEW ROUNDUP -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_review_roundup"><?php esc_html_e('Review Roundup (vários produtos)', 'plugins-alpha'); ?></label>
@@ -154,9 +255,13 @@ class PluginsAlpha_Prompts
                                 name="pga_orion_prompts[review_roundup]"
                                 rows="10"
                                 class="large-text code"><?php echo esc_textarea(pga_orion_prompt_value($raw, 'review_roundup')); ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Pode usar {{keyword}}, {{title}}, {{locale}} e {{url}} (quando houver página de referência).', 'plugins-alpha'); ?>
+                            </p>
                         </td>
                     </tr>
 
+                    <!-- REVIEW SINGLE -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_review_single"><?php esc_html_e('Review Single (1 produto)', 'plugins-alpha'); ?></label>
@@ -166,9 +271,13 @@ class PluginsAlpha_Prompts
                                 name="pga_orion_prompts[review_single]"
                                 rows="10"
                                 class="large-text code"><?php echo esc_textarea(pga_orion_prompt_value($raw, 'review_single')); ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Pode usar {{keyword}}, {{title}}, {{locale}} e {{url}} como fonte principal.', 'plugins-alpha'); ?>
+                            </p>
                         </td>
                     </tr>
 
+                    <!-- NEWS -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_news"><?php esc_html_e('Notícia / News', 'plugins-alpha'); ?></label>
@@ -178,9 +287,13 @@ class PluginsAlpha_Prompts
                                 name="pga_orion_prompts[news]"
                                 rows="10"
                                 class="large-text code"><?php echo esc_textarea(pga_orion_prompt_value($raw, 'news')); ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Pode usar {{keyword}}, {{title}}, {{locale}} e {{url}}.', 'plugins-alpha'); ?>
+                            </p>
                         </td>
                     </tr>
 
+                    <!-- HOW-TO -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_howto"><?php esc_html_e('Guia / How-to', 'plugins-alpha'); ?></label>
@@ -190,9 +303,13 @@ class PluginsAlpha_Prompts
                                 name="pga_orion_prompts[howto]"
                                 rows="10"
                                 class="large-text code"><?php echo esc_textarea(pga_orion_prompt_value($raw, 'howto')); ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Pode usar {{keyword}}, {{title}}, {{locale}}.', 'plugins-alpha'); ?>
+                            </p>
                         </td>
                     </tr>
 
+                    <!-- FAQ -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_faq"><?php esc_html_e('FAQ', 'plugins-alpha'); ?></label>
@@ -202,21 +319,29 @@ class PluginsAlpha_Prompts
                                 name="pga_orion_prompts[faq]"
                                 rows="10"
                                 class="large-text code"><?php echo esc_textarea(pga_orion_prompt_value($raw, 'faq')); ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Pode usar {{keyword}}, {{title}}, {{locale}}.', 'plugins-alpha'); ?>
+                            </p>
                         </td>
                     </tr>
 
+                    <!-- TÍTULOS -->
                     <tr>
                         <th scope="row">
-                            <label for="pga_orion_prompt_title"><?php esc_html_e('Títulos (CTR / Discover)', 'plugins-alpha'); ?></label>
+                            <label for="pga_orion_prompt_title"><?php esc_html_e('Títulos', 'plugins-alpha'); ?></label>
                         </th>
                         <td>
                             <textarea id="pga_orion_prompt_title"
                                 name="pga_orion_prompts[title]"
                                 rows="8"
                                 class="large-text code"><?php echo esc_textarea(pga_orion_prompt_value($raw, 'title')); ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Pode usar {{keyword}}, {{min}}, {{max}}, {{locale}} e {{url}}.', 'plugins-alpha'); ?>
+                            </p>
                         </td>
                     </tr>
 
+                    <!-- IMAGEM / THUMBNAIL -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_image"><?php esc_html_e('Imagem / Thumbnail', 'plugins-alpha'); ?></label>
@@ -231,6 +356,8 @@ class PluginsAlpha_Prompts
                             </p>
                         </td>
                     </tr>
+
+                    <!-- REGEN THUMB POR POST -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_post_thumbnail_regen">
@@ -254,10 +381,11 @@ class PluginsAlpha_Prompts
                         </td>
                     </tr>
 
+                    <!-- OUTLINE NORMAL -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_outline">
-                                <?php esc_html_e('Esboço (outline para posts longos)', 'plugins-alpha'); ?>
+                                <?php esc_html_e('Esboço', 'plugins-alpha'); ?>
                             </label>
                         </th>
                         <td>
@@ -267,14 +395,16 @@ class PluginsAlpha_Prompts
                                 class="large-text code"><?php
                                                         echo esc_textarea(pga_orion_prompt_value($raw, 'outline'));
                                                         ?></textarea>
-                            <?php esc_html_e(
-                                'Usado para gerar o esboço em JSON ("sections") dos artigos longos / extra longos.Se ficar vazio, o plugin usa o prompt padrão interno.',
-                                'plugins-alpha'
-                            ); ?>
-
+                            <p class="description">
+                                <?php esc_html_e(
+                                    'Usado para gerar o esboço em JSON ("sections") dos artigos longos / extra longos. Pode usar {{keyword}}, {{articleTitle}}, {{locale}}, {{min_words}}, {{max_words}}, {{min_sections}}, {{max_sections}}.',
+                                    'plugins-alpha'
+                                ); ?>
+                            </p>
                         </td>
                     </tr>
 
+                    <!-- OUTLINE MODELAR URL -->
                     <tr>
                         <th scope="row">
                             <label for="pga_orion_prompt_outline_modelar">
@@ -290,14 +420,12 @@ class PluginsAlpha_Prompts
                                                         ?></textarea>
                             <p class="description">
                                 <?php esc_html_e(
-                                    'Usado quando o modelo for "Modelar URL". Gera o esboço em JSON ("sections") a partir do conteúdo da URL informada.',
+                                    'Usado quando o modelo for "Modelar URL". Pode usar {{url}}, {{articleTitle}}, {{locale}}, {{min_words}}, {{max_words}}, {{min_sections}}, {{max_sections}}.',
                                     'plugins-alpha'
                                 ); ?>
                             </p>
                         </td>
                     </tr>
-
-
 
                 </table>
 
@@ -391,6 +519,9 @@ class PluginsAlpha_Prompts
             case 'post_thumbnail_regen':
                 return self::default_post_thumbnail_regen_prompt();
 
+            case 'story':
+                return self::story_default_template();
+
             case 'discover_article':
                 return self::default_article();
 
@@ -402,7 +533,9 @@ class PluginsAlpha_Prompts
 
     /**
      * Faz o replace dos placeholders padrão.
-     * Suporta: {{keyword}}, {{locale}}, {{forced_title}}, {{url}}, {{template}}, {{extra}}, {{min}}, {{max}}, {{title}}
+     * Exemplos suportados: {{keyword}}, {{locale}}, {{title}}, {{forced_title}},
+     * {{url}}, {{template}}, {{min}}, {{max}}, {{min_words}}, {{max_words}},
+     * {{min_sections}}, {{max_sections}}, {{articleTitle}}, {{content}}, {{brief}}.
      */
     private static function replace_vars(string $tpl, array $vars): string
     {
@@ -424,7 +557,7 @@ class PluginsAlpha_Prompts
      *
      * @param string $template  article|review_roundup|review_single|news|howto|faq
      * @param string $keyword
-     * @param array  $opts      Ex: ['locale' => 'pt_BR', 'forced_title' => '...', ...]
+     * @param array  $opts      Ex: ['locale' => 'pt_BR', 'title' => '...', ...]
      * @param string $url       Opcional, mais usado em review_single ou news.
      */
     public static function build_content_prompt(string $template, string $length, string $keyword, array $opts = array(), string $url = ''): string
@@ -432,7 +565,15 @@ class PluginsAlpha_Prompts
         $template = $template !== '' ? $template : 'discover_article';
 
         $locale = isset($opts['locale']) ? (string) $opts['locale'] : 'pt_BR';
-        $forced = isset($opts['forced_title']) ? trim((string) $opts['forced_title']) : '';
+
+        // NOVO PADRÃO: title (mantendo compat com forced_title)
+        $title = '';
+        if (isset($opts['title']) && is_string($opts['title'])) {
+            $title = trim($opts['title']);
+        } elseif (isset($opts['forced_title']) && is_string($opts['forced_title'])) {
+            // compat legado
+            $title = trim($opts['forced_title']);
+        }
 
         $key_map = array(
             'review_roundup' => 'review_roundup',
@@ -445,20 +586,21 @@ class PluginsAlpha_Prompts
 
         $key = isset($key_map[$template]) ? $key_map[$template] : 'article';
 
-
         $tpl = self::get_prompt_for($key);
 
         // usa range numérico, não mais a string "short/medium"
         [$minWords, $maxWords] = self::length_to_range($length);
 
         $vars = array(
-            'keyword'      => $keyword,
-            'locale'       => $locale,
-            'forced_title' => $forced,
-            'url'          => $url,
-            'template'     => $template,
-            'min_words'    => (string)$minWords,
-            'max_words'    => (string)$maxWords,
+            'keyword'       => $keyword,
+            'locale'        => $locale,
+            'title'         => $title,
+            // compat: ainda preenche forced_title, mas padrão agora é title
+            'forced_title'  => $title,
+            'url'           => $url,
+            'template'      => $template,
+            'min_words'     => (string)$minWords,
+            'max_words'     => (string)$maxWords,
         );
 
         $base = self::replace_vars($tpl, $vars);
@@ -474,7 +616,7 @@ class PluginsAlpha_Prompts
         string $keyword,
         int $min       = 3,
         int $max       = 5,
-        string $locale = 'pt_BR',
+        string $locale = 'pt_BR'
     ): string {
         $tpl = self::get_prompt_for('title');
 
@@ -487,7 +629,7 @@ class PluginsAlpha_Prompts
 
         $base = self::replace_vars($tpl, $vars);
 
-        // aqui entra o formato de JSON, sempre controlado pelo back
+        // formato de JSON controlado no back
         return $base . "\n\n" . self::title_json_suffix();
     }
 
@@ -570,6 +712,7 @@ class PluginsAlpha_Prompts
         $cfg                       = self::outline_config($length);
         $minSections               = $cfg['min_sections'];
         $maxSections               = $cfg['max_sections'];
+
         $vars = [
             'keyword'      => $keyword,
             'articleTitle' => $articleTitle,
@@ -589,43 +732,49 @@ class PluginsAlpha_Prompts
      *  DEFAULTS – aqui você pode ir refinando com calma depois
      * ------------------------------------------------------------------ */
 
+    /**
+     * Template padrão para Web Stories.
+     * Agora suporta placeholders: {{title}}, {{content}}, {{brief}}, {{locale}}.
+     */
     public static function story_default_template(): string
     {
         $s = "";
-        $s .= "Você é uma especialista em transformar posts de blog em Web Stories AMP envolventes, otimizadas para leitura rápida em dispositivos móveis." . "\n";
+        $s .= "Você é uma especialista em transformar posts de blog em Web Stories AMP envolventes, otimizadas para leitura rápida em dispositivos móveis.\n\n";
 
-        $s .= "Sua tarefa é:" . "\n";
-        $s .= "- Ler o título e o conteúdo do post." . "\n";
-        $s .= "- Extrair as ideias principais.";
-        $s .= "- Quebrar em PÁGINAS (slides) curtas e diretas." . "\n" . "\n";
-        $s .= "- A quebra de páginas em slides deve ser feito entre 7 a 10 slides." . "\n";
-        $s .= "- Criar um fluxo lógico de início, meio e fim." . "\n";
-        $s .= "- Criar uma página final com CTA para ler o conteudo (chamada para ação), mas crie também o prompt da imagem." . "\n";
+        $s .= "Você receberá:\n";
+        $s .= "- Título do post: {{title}}.\n";
+        $s .= "- Conteúdo já processado (sem tags HTML): {{content}}.\n";
+        $s .= "- Brief adicional (se existir): {{brief}}.\n";
+        $s .= "- Locale/idioma: {{locale}}.\n\n";
 
-        $s .= "\n";
-        $s .= "Regras importantes:" . "\n";
-        $s .= "- Linguagem simples e envolvente." . "\n";
-        $s .= "- Evite parágrafos muito longos." . "\n";
-        $s .= "- Não invente informações; use apenas o que estiver no post/brief.";
+        $s .= "Sua tarefa é:\n";
+        $s .= "- Ler o título e o conteúdo do post.\n";
+        $s .= "- Extrair as ideias principais.\n";
+        $s .= "- Quebrar em PÁGINAS (slides) curtas e diretas.\n";
+        $s .= "- A quebra de páginas em slides deve ser feito entre 7 a 10 slides.\n";
+        $s .= "- Criar um fluxo lógico de início, meio e fim.\n";
+        $s .= "- Criar uma página final com CTA para ler o conteúdo completo no artigo (chamada para ação), mas crie também o prompt da imagem.\n\n";
 
-        $s .= "\n";
+        $s .= "Regras importantes gerais:\n";
+        $s .= "- Linguagem simples, envolvente e natural, no mesmo idioma de {{locale}}.\n";
+        $s .= "- Evite parágrafos muito longos.\n";
+        $s .= "- Não invente informações; use apenas o que estiver no conteúdo e no brief.\n\n";
+
         $s .= "Regras adicionais IMPORTANTES:\n";
         $s .= "- O campo \"body\" de cada página deve ter entre 160 e 240 caracteres.\n";
-        $s .= "- Intercale o CTA dos slides o primeiro não deve ter e do segundo em diante vai um com cta, um sem: um slide sem CTA, o próximo com CTA, e assim por diante.\n";
-        $s .= "- O CTA deve ser um texto simples (saiba mais, veja mais, descubra como...).\n";
+        $s .= "- Intercale o CTA dos slides: o primeiro não deve ter CTA; do segundo em diante, alterne um slide sem CTA e o próximo com CTA.\n";
+        $s .= "- O CTA deve ser um texto simples (\"Saiba mais\", \"Veja mais\", \"Descubra como...\"), sempre em {{locale}}.\n";
         $s .= "- O último slide SEMPRE deve ter CTA para o artigo em questão.\n";
-        $s .= "- Não inclua comentários.\n";
-        $s .= "- Evite titulos como 'introdução', pois geralmente é o primeiro titulo e o ideal é ser o titulo mais chamativo de todos.\n";
-        $s .= "- Não inclua texto fora do JSON.\n";
-        $s .= "- Não inclua markdown, HTML, bullet points ou explicações.\n";
-        $s .= "- No campo \"prompt\", crie sempre um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
+        $s .= "- Evite títulos genéricos como \"Introdução\"; o primeiro título precisa ser o mais chamativo de todos.\n";
+        $s .= "- Não inclua comentários ou explicações fora do JSON.\n";
+        $s .= "- Não inclua markdown, HTML, bullet points ou explicações fora do JSON.\n";
+        $s .= "- No campo \"prompt\" de cada página, crie SEMPRE um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
 
         return $s;
     }
 
     /**
-     * Bloco fixo explicando o FORMATO JSON obrigatório
-     * (pode ser usado por outros lugares também)
+     * Bloco fixo explicando o FORMATO JSON obrigatório (stories).
      */
     public static function story_json_format_block(): string
     {
@@ -637,7 +786,7 @@ class PluginsAlpha_Prompts
         $s .= "      \"body\": \"Texto curto da página.\",\n";
         $s .= "      \"cta_text\": \"Texto do botão ou chamada final (intercalados).\",\n";
         $s .= "      \"cta_url\": \"\",\n";
-        $s .= "      \"prompt\": \"Crie um prompt de imagem em português sobre o conteudo do slide, levando em conta titulo e conteudo para gerar uma FOTO REALISTA VERTICAL do tema deste slide, estilo cinematográfico, luz natural, sem molduras, sem desenho, sem ilustração, sem texto, sem legendas, sem letras, sem logos.\"\n";
+        $s .= "      \"prompt\": \"Crie um prompt de imagem em português sobre o conteúdo do slide, levando em conta título e conteúdo para gerar uma FOTO REALISTA VERTICAL do tema deste slide, estilo cinematográfico, luz natural, sem molduras, sem desenho, sem ilustração, sem texto, sem legendas, sem letras, sem logos.\"\n";
         $s .= "    }\n";
         $s .= "  ]\n";
         $s .= "}\n\n";
@@ -649,9 +798,8 @@ class PluginsAlpha_Prompts
         return $s;
     }
 
-
     /**
-     * Cabeçalho que reforça para a IA que a resposta deve ser só JSON
+     * Cabeçalho que reforça para a IA que a resposta deve ser só JSON (stories).
      */
     public static function json_header_for_responses_api(): string
     {
@@ -673,39 +821,33 @@ class PluginsAlpha_Prompts
      */
     public static function build_story_prompt_for_post(WP_Post $post, string $raw_html, string $brief = ''): string
     {
-        // Opções específicas do módulo de stories
-        $o = PluginsAlpha_Helpers::alpha_storys_options();
+        // 1) Template vindo da central de prompts (chave: story)
+        $system_pt = self::get_prompt_for('story'); // já cai no default se vazio
 
-        // 1) Template vindo das opções (se existir)
-        $system_pt = '';
-        if (isset($o['ai_prompt_template']) && is_string($o['ai_prompt_template'])) {
-            $system_pt = trim((string) $o['ai_prompt_template']);
-        }
+        // 2) Prepara variáveis para replace
+        $title   = get_the_title($post);
+        $content = wp_strip_all_tags($raw_html);
+        $locale  = get_locale() ?: 'pt_BR';
 
-        // 2) Se não houver nada nas opções, usa o padrão da classe
-        if ('' === $system_pt) {
-            $system_pt = self::story_default_template();
-        }
+        $vars = [
+            'title'   => $title,
+            'content' => $content,
+            'brief'   => $brief,
+            'locale'  => $locale,
+        ];
 
-        // 3) Bloco de formato JSON
+        $system_pt = self::replace_vars($system_pt, $vars);
+
+        // 3) Blocos fixos (formato + header de JSON)
         $format_block = self::story_json_format_block();
+        $json_header  = self::json_header_for_responses_api();
 
-        // 4) Cabeçalho que reforça JSON-only
-        $json_header = self::json_header_for_responses_api();
-
-        // 5) Monta tudo
-        $title = get_the_title($post);
-
-        $input_text  = $json_header;
+        // 4) Monta tudo
+        $input_text  = $json_header . "\n";
         $input_text .= $system_pt . "\n\n";
-        $input_text .= "TÍTULO DO POST:\n" . $title . "\n\n";
-        $input_text .= "HTML DO POST (sem tags):\n" . wp_strip_all_tags($raw_html) . "\n\n";
-        $input_text .= "BRIEF PADRÃO:\n" . $brief . "\n\n";
         $input_text .= $format_block . "\n";
 
-        return $input_text . "Para a imagem o importante é a foto: 'Realista, cinematográfica, em alta resolução, 
-        ilustrando a conclusão: %s. Luz natural, foco no elemento principal, estilo profissional, vertical. Não 
-        ter marca d'agua, sem textos. Não use elementos entrelaçando um ao outro ou coisas muito complexas.'";
+        return $input_text;
     }
 
     public static function build_outline_prompt_modelar(
@@ -781,7 +923,6 @@ class PluginsAlpha_Prompts
             $heading = (string)$section['text'];
         }
 
-        // se ainda assim vier vazio, tenta pegar do primeiro filho
         if ($heading === '' && !empty($children)) {
             foreach ($children as $c) {
                 if (!empty($c['heading'])) {
@@ -795,7 +936,6 @@ class PluginsAlpha_Prompts
             }
         }
 
-        // fallback hardcore: pelo menos identifica a seção
         if ($heading === '') {
             $heading = 'Seção do artigo relacionada a ' . $keyword;
         }
@@ -835,9 +975,7 @@ class PluginsAlpha_Prompts
         $txt .= "  respeite essa estrutura no conjunto das seções (não crie um número diferente).\n";
         $txt .= "- Não mude o foco do artigo. Não contradiga o que o título promete.\n\n";
 
-        // === BRANCH: NORMAL x MODELAR (com URL) ===
         if ($url !== '') {
-            // MODO MODELAR: a linha original era uma URL, keyword foi derivada internamente
             $txt .= "Contexto de modelagem:\n";
             $txt .= "- Use como base principal o conteúdo da página em: {$url}\n";
             $txt .= "- Leia e entenda o conteúdo dessa página e então reescreva a seção com suas próprias palavras.\n";
@@ -849,14 +987,12 @@ class PluginsAlpha_Prompts
             $txt .= "- Se não conseguir ler a URL, passe informações de produtos reais, pois o foco deste artigo é ser apresentado como material principal.\n";
             $txt .= "- Evite frases que pareçam slogans ou trechos de marketing do site original (por exemplo, \"testamos todos eles\" ou frases muito similares).\n\n";
 
-
             if (trim($keyword) !== '') {
                 $txt .= "- Considere também a frase de foco interna \"{$keyword}\" apenas como guia semântico, mas sem tratá-la como referência externa.\n";
             }
 
             $txt .= "\n";
         } else {
-            // MODO NORMAL: a linha original era uma frase-chave/comando
             $txt .= "Frase chave de foco ou comando: \"{$keyword}\".\n";
             $txt .= "- Entenda se este item é uma frase chave ou um comando;\n";
             $txt .= "  se for um comando, siga o sentido do que ele quer dizer.\n\n";
@@ -883,7 +1019,6 @@ class PluginsAlpha_Prompts
         $txt .= "- Esta seção deve conter ao menos uma vez a frase chave de foco.\n";
         $txt .= "- Se esta for a seção de introdução ou conclusão, então a frase chave deve estar na primeira frase de maneira fluida.\n\n";
 
-        // Regras extras de modelagem (valem especialmente para URL, mas são seguras sempre)
         $txt .= "- Nunca copie frases de abertura ou slogans do site de origem (por exemplo: \"testamos todos eles\" ou frases similares).\n";
         $txt .= "- Nunca mencione o nome do site, domínio ou marca da página original.\n";
         $txt .= "- Não faça referências ao fato de estar modelando outro texto; escreva como um artigo original.\n\n";
@@ -928,10 +1063,8 @@ class PluginsAlpha_Prompts
         string $content,
         string $locale = 'pt_BR'
     ): string {
-        // carrega o template (permite edição futura pela UI se você guardar em options)
         $tpl = self::get_prompt_for('post_thumbnail_regen');
 
-        // se por algum motivo vier vazio, usa o default hardcoded
         if (!$tpl) {
             $tpl = self::default_post_thumbnail_regen_prompt();
         }
@@ -1058,9 +1191,7 @@ class PluginsAlpha_Prompts
         $articleTitle = trim($articleTitle);
         $locale       = $locale ?: 'pt_BR';
 
-        // dá uma resumida no conteúdo pra não mandar 10km de texto
         if ($content !== '') {
-            // remove tags e limita o contexto pra ~1500 caracteres
             $plain = wp_strip_all_tags($content);
             $plain = html_entity_decode($plain, ENT_QUOTES, 'UTF-8');
             if (mb_strlen($plain) > 1500) {
@@ -1102,15 +1233,16 @@ class PluginsAlpha_Prompts
     {
         $s  = '';
         $s .= 'Estamos em 2025. Você é um redator sênior especializado em SEO, GEO e conteúdo de blog em {{locale}}.' . "\n\n";
-        $s .= 'O titulo do post é: "{{forced_title}}".' . "\n\n";
-        $s .= 'Escreva um ARTIGO completo, natural e humanizado, com no mínimo {{lenght}} palavras, sobre: "{{keyword}}".' . "\n\n";
-        $s .= 'Se {{forced_title}} não estiver vazio, use exatamente esse texto como título principal. Caso contrário, escolha o melhor título possível.' . "\n\n";
+        $s .= 'O título do post é: "{{title}}".' . "\n\n";
+        $s .= 'Escreva um ARTIGO completo, natural e humanizado sobre: "{{keyword}}".' . "\n\n";
+        $s .= 'Use o título exatamente como está em {{title}} quando ele não estiver vazio; caso contrário, escolha o melhor título possível e preencha no JSON.' . "\n\n";
         $s .= "Regras editoriais (não cite estas regras no texto):\n";
         $s .= "- Introdução com a frase-chave {{keyword}} na primeira frase, de forma fluida.\n";
         $s .= "- Corpo em HTML SEM <h1>, organizado em <h2>/<h3> com parágrafos curtos.\n";
         $s .= "- Linguagem clara, prática, com exemplos quando fizer sentido.\n";
         $s .= "- Conclusão retomando os principais pontos e um CTA leve.\n";
         $s .= "- Gere internamente meta_title, meta_description e image_alt coerentes com a keyword.\n";
+        $s .= "- O artigo final deve ter entre {{min_words}} e {{max_words}} palavras.\n";
 
         return $s;
     }
@@ -1121,13 +1253,14 @@ class PluginsAlpha_Prompts
         $s  = '';
         $s .= 'Você é um redator especializado em reviews comparativos, escrevendo em {{locale}}.' . "\n";
         $s .= 'Crie um ARTIGO REVIEW do tipo "roundup" (vários produtos) sobre: "{{keyword}}".' . "\n";
-        $s .= 'Se {{forced_title}} não estiver vazio, use como título principal no JSON.' . "\n\n";
+        $s .= 'Se {{title}} não estiver vazio, use como título principal no JSON.' . "\n\n";
         $s .= "Regras principais:\n";
         $s .= "- Estruture em seções por produto e seções comparativas (prós, contras, para quem é indicado).\n";
         $s .= "- Nunca afirme que existe um \"melhor absoluto\"; mostre cenários.\n";
         $s .= "- Use HTML no campo \"content\" (sem <h1>), focando em <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>.\n";
         $s .= "- Inclua CTAs leves para o leitor visitar a página oficial ou site de compra.\n\n";
-        $s .= "- O conteudo deve ser real e buscar de fato produtos que resolvam o problema em questão.\n\n";
+        $s .= "- O conteúdo deve ser real e buscar de fato produtos que resolvam o problema em questão.\n";
+        $s .= "- Gere internamente meta_title, meta_description e image_alt coerentes com a keyword.\n";
 
         return $s;
     }
@@ -1137,7 +1270,7 @@ class PluginsAlpha_Prompts
         $s  = '';
         $s .= 'Você é um redator especializado em reviews detalhados de um único produto, em {{locale}}.' . "\n";
         $s .= 'Crie um REVIEW completo sobre o produto relacionado à palavra-chave: "{{keyword}}". Se {{url}} não estiver vazio, use a página como principal fonte de informações (sem copiar trechos literalmente).' . "\n";
-        $s .= 'Se {{forced_title}} não estiver vazio, use como título principal no JSON.' . "\n\n";
+        $s .= 'Se {{title}} não estiver vazio, use como título principal no JSON.' . "\n\n";
         $s .= "Estrutura sugerida:\n";
         $s .= "- Introdução com contexto e promessa.\n";
         $s .= "- Seções: o que é, como funciona, benefícios, pontos de atenção, para quem é indicado, como comprar.\n";
@@ -1153,7 +1286,7 @@ class PluginsAlpha_Prompts
         $s  = '';
         $s .= 'Você é um jornalista escrevendo notícias em {{locale}}.' . "\n";
         $s .= 'Escreva uma NOTÍCIA factual sobre: "{{keyword}}", com lide claro e objetivo.' . "\n";
-        $s .= 'Se {{forced_title}} não estiver vazio, use como título principal no JSON.' . "\n\n";
+        $s .= 'Se {{title}} não estiver vazio, use como título principal no JSON.' . "\n\n";
         $s .= "Regras:\n";
         $s .= "- Estrutura jornalística básica: lide (quem, o quê, quando, onde, por quê), desenvolvimento, contexto, próximos passos.\n";
         $s .= "- Linguagem neutra, informativa, sem sensacionalismo barato.\n";
@@ -1167,7 +1300,7 @@ class PluginsAlpha_Prompts
     {
         $s  = '';
         $s .= 'Você é um redator instrucional escrevendo em {{locale}}.' . "\n";
-        $s .= 'Escreva um GUIA / HOW-TO com no mínimo 600 palavras sobre: "{{keyword}}".' . "\n";
+        $s .= 'Escreva um GUIA / HOW-TO sobre: "{{keyword}}".' . "\n";
         $s .= 'O conteúdo deve ser passo a passo, escaneável, com listas e dicas práticas.' . "\n";
         $s .= 'A PRIMEIRA frase da introdução deve conter a palavra-chave principal.' . "\n\n";
         $s .= "Regras:\n";
@@ -1209,7 +1342,7 @@ class PluginsAlpha_Prompts
         $s .= "- Considere o contexto de Discover: urgência, novidade e interesse atual do público.\n";
         $s .= "- No máximo 60 caracteres.\n";
         $s .= "- Deve ser sempre diferente de anteriores que você já escreveu a pedido meu.\n";
-        $s .= "- Nunca gere numeros absurdos como mais de 20, ou seja, nunca gere nomes como '30 dicas para xxxx'.\n";
+        $s .= "- Nunca gere números absurdos como mais de 20, ou seja, nunca gere nomes como '30 dicas para xxxx'.\n";
 
         return $s;
     }
@@ -1226,8 +1359,8 @@ class PluginsAlpha_Prompts
         $s .= "- Não cite palavras como \"thumbnail\", \"blog\", \"post\", \"imagem\" no prompt.\n";
         $s .= "- Foque em uma única cena marcante, em proporção 16:9.\n";
         $s .= "- Tamanho do prompt: pelo menos 200 caracteres.\n";
-        $s .= "- não escreva palavras como 'Descubra', 'veja como' ou palavras desse tipo, de preferencia por inserir uma dor com uma solução dessa dor, então fale de possiveis beneficios'.\n";
-        $s .= "- peça para não ter textos ou marca d'agua";
+        $s .= "- Não escreva palavras como 'Descubra', 'veja como' ou palavras desse tipo; prefira inserir uma dor com uma solução dessa dor, falando de possíveis benefícios.\n";
+        $s .= "- Peça para não ter textos ou marca d'água.\n";
 
         return $s;
     }
