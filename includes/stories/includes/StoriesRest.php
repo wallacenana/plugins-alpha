@@ -119,53 +119,89 @@ class PluginsAlpha_StoriesRest
             return new \WP_Error('pga_story_page_index', 'Página de story inexistente para este índice.');
         }
 
-        // se já tem imagem, só devolve e não faz nada pesado
+        // Se já existe imagem, retorna sem gerar novamente
         if (!empty($pages[$index]['image_id'])) {
+            $img_url = '';
+            $img_id  = (int) $pages[$index]['image_id'];
+
+            $img_url = wp_get_attachment_image_url($img_id, 'alpha_storys_slide');
+            if (!$img_url) {
+                $img_url = wp_get_attachment_image_url($img_id, 'full');
+            }
+
+            // garante que 'image' também exista no meta
+            if ($img_url) {
+                $pages[$index]['image'] = $img_url;
+                update_post_meta($post_id, '_alpha_storys_pages', $pages);
+
+                // re-renderiza blocos com as imagens
+                if (class_exists('PluginsAlpha_Helpers')) {
+                    $blocks = PluginsAlpha_Helpers::alpha_render_storys_pages_to_blocks($pages);
+                    wp_update_post([
+                        'ID'           => $post_id,
+                        'post_content' => $blocks,
+                    ]);
+                }
+            }
+
             return [
                 'ok'       => true,
                 'skipped'  => true,
                 'index'    => $index,
-                'image_id' => (int) $pages[$index]['image_id'],
+                'image_id' => $img_id,
+                'image'    => $img_url,
             ];
         }
 
-        $p      = $pages[$index];
-        $prompt = isset($p['prompt']) ? trim((string) $p['prompt']) : '';
+        $page   = $pages[$index];
+        $prompt = isset($page['prompt']) ? trim((string)$page['prompt']) : '';
 
         if ($prompt === '') {
             return new \WP_Error('pga_story_no_prompt', 'Esta página não possui prompt de imagem.');
         }
 
-        $alt = !empty($p['heading']) ? $p['heading'] : $prompt;
+        $alt = !empty($page['heading']) ? $page['heading'] : $prompt;
 
-        // usa o helper que você já tem, mas no tamanho de story
-        $att_id = PluginsAlpha_Images::generate_pollinations_story_image(
+        // Usa o sistema global (decide OpenAI/Pollinations etc.)
+        $att_id = PluginsAlpha_Images::generate_story_by_settings(
             $prompt,
             $post_id,
             $alt
         );
 
-        if (is_wp_error($att_id) || !$att_id) {
-            return $att_id instanceof \WP_Error
-                ? $att_id
-                : new \WP_Error('pga_story_image', 'Falha ao gerar a imagem.');
+        if (is_wp_error($att_id)) {
+            return $att_id;
         }
 
-        $pages[$index]['image_id'] = (int) $att_id;
+        $att_id = (int) $att_id;
+
+        // resolve URL e salva no array de páginas
+        $img_url = wp_get_attachment_image_url($att_id, 'alpha_storys_slide');
+        if (!$img_url) {
+            $img_url = wp_get_attachment_image_url($att_id, 'full');
+        }
+
+        $pages[$index]['image_id'] = $att_id;
+        if ($img_url) {
+            $pages[$index]['image'] = $img_url;
+        }
 
         update_post_meta($post_id, '_alpha_storys_pages', $pages);
 
-        // opcional: regenerar blocos para já aparecer a imagem no editor
-        $blocks = PluginsAlpha_Helpers::alpha_render_storys_pages_to_blocks($pages);
-        wp_update_post([
-            'ID'           => $post_id,
-            'post_content' => $blocks,
-        ]);
+        // RE-RENDERIZA o post_content com os blocos incluindo a imagem
+        if (class_exists('PluginsAlpha_Helpers')) {
+            $blocks = PluginsAlpha_Helpers::alpha_render_storys_pages_to_blocks($pages);
+            wp_update_post([
+                'ID'           => $post_id,
+                'post_content' => $blocks,
+            ]);
+        }
 
         return [
             'ok'       => true,
             'index'    => $index,
-            'image_id' => (int) $att_id,
+            'image_id' => $att_id,
+            'image'    => $img_url,
         ];
     }
 }

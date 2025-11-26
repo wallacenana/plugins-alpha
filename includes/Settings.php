@@ -71,15 +71,15 @@ class PluginsAlpha_Settings
         $model = 'dall-e-3';
       }
 
-      $size = isset($img['size']) ? sanitize_text_field($img['size']) : '1024x576';
-      $allowed_sizes = ['1024x576', '1024x1024', '1792x1024', '1024x1792'];
+      $size = isset($img['size']) ? sanitize_text_field($img['size']) : '1792x1024';
+      $allowed_sizes = ['1024x1792', '1024x1024', '1792x1024'];
       if (!in_array($size, $allowed_sizes, true)) {
-        $size = '1024x576';
+        $size = '1792x1024';
       }
 
       $quality = isset($img['quality']) ? sanitize_text_field($img['quality']) : 'standard';
-      if (!in_array($quality, ['standard', 'hd'], true)) {
-        $quality = 'standard';
+      if (!in_array($quality, ['standard', 'hd', 'auto'], true)) {
+        $quality = 'auto';
       }
 
       $out['apis']['images'] = [
@@ -110,13 +110,39 @@ class PluginsAlpha_Settings
       $allowed_styles = ['clean', 'dark-left', 'card', 'split', 'top'];
       $allowed_fonts  = ['system', 'inter', 'poppins', 'merriweather', 'plusjakarta'];
 
+      // provider específico dos stories
+      $prov = isset($st['images_provider'])
+        ? sanitize_text_field($st['images_provider'])
+        : 'inherit';
+
+      $allowed_providers = ['inherit', 'pollinations', 'openai', 'none'];
+      if (!in_array($prov, $allowed_providers, true)) {
+        $prov = 'inherit';
+      }
+
+      // cores com fallback
+      $accent = isset($st['accent_color']) ? trim((string)$st['accent_color']) : '';
+      $accent = preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $accent) ? $accent : '#ffffff';
+
+      $bg = isset($st['background_color']) ? trim((string)$st['background_color']) : '';
+      $bg = preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $bg) ? $bg : '#000000';
+
+      $txt = isset($st['text_color']) ? trim((string)$st['text_color']) : '';
+      $txt = preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $txt) ? $txt : '#ffffff';
+
       $out['stories'] = [
         'publisher_name'    => sanitize_text_field($st['publisher_name'] ?? get_bloginfo('name')),
         'publisher_logo_id' => (int)($st['publisher_logo_id'] ?? 0),
 
         'default_style'     => in_array(($st['default_style'] ?? 'clean'), $allowed_styles, true) ? $st['default_style'] : 'clean',
         'default_font'      => in_array(($st['default_font'] ?? 'plusjakarta'), $allowed_fonts, true) ? $st['default_font'] : 'plusjakarta',
-        'accent_color'      => preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', ($st['accent_color'] ?? '')) ? $st['accent_color'] : '#ffffff',
+
+        // cores
+        'accent_color'      => $accent,
+        'background_color'  => $bg,
+        'text_color'        => $txt,
+
+        // autoplay/duração padrão para stories
         'autoplay'          => !empty($st['autoplay']) ? 1 : 0,
         'duration'          => in_array(($st['duration'] ?? '7'), ['5', '7', '10', '12'], true) ? $st['duration'] : '7',
 
@@ -127,8 +153,11 @@ class PluginsAlpha_Settings
         })($st['ga_manual_id'] ?? ''),
 
         'ai_brief_default'  => wp_kses_post($st['ai_brief_default'] ?? ''),
+
+        'images_provider'   => $prov,
       ];
     }
+
 
     return $out;
   }
@@ -205,7 +234,7 @@ class PluginsAlpha_Settings
     $prov    = $img['provider'] ?? 'pollinations';
     $img_model   = $img['model'] ?? 'dall-e-3';
     $img_size    = $img['size'] ?? '1024x576';
-    $img_quality = $img['quality'] ?? 'standard';
+    $img_quality = $img['quality'] ?? 'auto';
   ?>
     <h2 class="title">OpenAI (global)</h2>
     <table class="form-table" role="presentation">
@@ -266,9 +295,9 @@ class PluginsAlpha_Settings
             <option value="dall-e-3" <?php selected($img_model, 'dall-e-3'); ?>>
               dall-e-3
             </option>
-            <option value="gpt-image-1" <?php selected($img_model, 'gpt-image-1'); ?>>
+            <!-- <option value="gpt-image-1" <?php selected($img_model, 'gpt-image-1'); ?>>
               gpt-image-1
-            </option>
+            </option> -->
           </select>
           <p class="description">
             <?php esc_html_e('Escolha o modelo de imagem da OpenAI compatível com a sua conta.', 'plugins-alpha'); ?>
@@ -283,10 +312,9 @@ class PluginsAlpha_Settings
         <td>
           <select name="pga_settings[apis][images][size]"
             id="pga_img_size">
-            <option value="1024x576" <?php selected($img_size, '1024x576'); ?>>1024x576 (16:9)</option>
             <option value="1024x1024" <?php selected($img_size, '1024x1024'); ?>>1024x1024 (quadrado)</option>
+            <option value="1024x1792" <?php selected($img_size, '1024x1792'); ?>>1024x1792 (Vertical)</option>
             <option value="1792x1024" <?php selected($img_size, '1792x1024'); ?>>1792x1024 (wide)</option>
-            <option value="1024x1792" <?php selected($img_size, '1024x1792'); ?>>1024x1792 (vertical)</option>
           </select>
           <p class="description">
             <?php esc_html_e('Use 16:9 para thumbnails de posts e 1024x1024 para usos genéricos.', 'plugins-alpha'); ?>
@@ -359,6 +387,10 @@ class PluginsAlpha_Settings
     $st = $o['stories'] ?? [];
     $logo_id = (int)($st['publisher_logo_id'] ?? 0);
     $logo_url = $logo_id ? wp_get_attachment_image_url($logo_id, 'full') : '';
+    $images_provider = $st['images_provider'] ?? 'inherit';
+    $bg_color   = $st['background_color'] ?? '#000000';
+    $text_color = $st['text_color'] ?? '#ffffff';
+
   ?>
     <h2 class="title">Publisher</h2>
     <table class="form-table" role="presentation">
@@ -403,13 +435,62 @@ class PluginsAlpha_Settings
       </tr>
       <tr>
         <th scope="row"><label for="pga_st_accent">Cor de destaque</label></th>
-        <td><input name="pga_settings[stories][accent_color]" id="pga_st_accent" type="text" class="regular-text pga-color" value="<?php echo esc_attr($st['accent_color'] ?? '#ffffff'); ?>"></td>
+        <td><input name="pga_settings[stories][accent_color]" id="pga_st_accent" type="color" class="regular-text pga-color" value="<?php echo esc_attr($st['accent_color'] ?? '#ffffff'); ?>"></td>
       </tr>
+      <tr>
+        <th scope="row">
+          <label for="pga_st_background_color">
+            <?php esc_html_e('Cor de fundo padrão', 'plugins-alpha'); ?>
+          </label>
+        </th>
+        <td>
+          <input
+            type="color"
+            id="pga_st_background_color"
+            name="pga_settings[stories][background_color]"
+            value="<?php echo esc_attr($bg_color); ?>"
+            class="regular-text pga-color-field"
+            data-default-color="#000000" />
+          <p class="description">
+            <?php esc_html_e('Cor de fundo usada por padrão nas Web Stories (caso o post não tenha uma cor própria).', 'plugins-alpha'); ?>
+          </p>
+        </td>
+      </tr>
+
+      <tr>
+        <th scope="row">
+          <label for="pga_st_text_color">
+            <?php esc_html_e('Cor do texto padrão', 'plugins-alpha'); ?>
+          </label>
+        </th>
+        <td>
+          <input
+            type="color"
+            id="pga_st_text_color"
+            name="pga_settings[stories][text_color]"
+            value="<?php echo esc_attr($text_color); ?>"
+            class="regular-text pga-color-field"
+            data-default-color="#ffffff" />
+          <p class="description">
+            <?php esc_html_e('Cor do texto usada por padrão nas Web Stories (caso o post não tenha uma cor própria).', 'plugins-alpha'); ?>
+          </p>
+        </td>
+      </tr>
+
       <tr>
         <th scope="row">Autoplay</th>
         <td>
-          <label><input type="checkbox" name="pga_settings[stories][autoplay]" value="1" <?php checked(!empty($st['autoplay'])); ?>> Ativar</label>
-          &nbsp;&nbsp;
+          <?php
+          $st = $opts['stories'] ?? [];
+          $autoplay = isset($st['autoplay']) ? (int)$st['autoplay'] : 1; // default 1
+          ?>
+          <label>
+            <input type="checkbox"
+              name="pga_settings[stories][autoplay]"
+              value="1"
+              <?php checked($autoplay, 1); ?>>
+            <?php esc_html_e('Ativar autoplay por padrão', 'plugins-alpha'); ?>
+          </label>
           <label for="pga_st_duration">Tempo por página (s)</label>
           <select name="pga_settings[stories][duration]" id="pga_st_duration">
             <?php foreach (['5', '7', '10', '12'] as $d): ?>
@@ -436,6 +517,41 @@ class PluginsAlpha_Settings
         <td>
           <input name="pga_settings[stories][ga_manual_id]" id="pga_ga_manual_id" type="text" class="regular-text" placeholder="G-XXXXXXXXXX" value="<?php echo esc_attr($st['ga_manual_id'] ?? ''); ?>">
           <p class="description">Usado apenas se “Manual” estiver selecionado.</p>
+        </td>
+      </tr>
+    </table>
+
+    <h2 class="title">Imagens / IA para Stories</h2>
+    <table class="form-table" role="presentation">
+      <tr>
+        <th scope="row">
+          <label for="pga_st_img_provider">
+            <?php esc_html_e('Provedor de imagens para Stories', 'plugins-alpha'); ?>
+          </label>
+        </th>
+        <td>
+          <select
+            id="pga_st_img_provider"
+            name="pga_settings[stories][images_provider]">
+            <option value="inherit" <?php selected($images_provider, 'inherit'); ?>>
+              <?php esc_html_e('Usar provedor global (Imagens)', 'plugins-alpha'); ?>
+            </option>
+            <option value="pollinations" <?php selected($images_provider, 'pollinations'); ?>>
+              <?php esc_html_e('Pollinations (grátis, qualidade variável)', 'plugins-alpha'); ?>
+            </option>
+            <option value="openai" <?php selected($images_provider, 'openai'); ?>>
+              <?php esc_html_e('OpenAI / DALL·E (pago, melhor qualidade)', 'plugins-alpha'); ?>
+            </option>
+            <option value="none" <?php selected($images_provider, 'none'); ?>>
+              <?php esc_html_e('Não gerar imagens automaticamente para Stories', 'plugins-alpha'); ?>
+            </option>
+          </select>
+          <p class="description">
+            <?php esc_html_e(
+              'Se escolher "Usar provedor global", os Stories usam o mesmo provedor configurado em Geral › Imagens. Caso contrário, essa escolha vale só para as imagens de Web Stories.',
+              'plugins-alpha'
+            ); ?>
+          </p>
         </td>
       </tr>
     </table>

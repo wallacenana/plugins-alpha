@@ -25,6 +25,11 @@ function alpha_register_cpt_storys()
 
   PluginsAlpha_Stories_MetaBox::init();
   PluginsAlpha_Generate::init();
+
+  if (empty($p['image']) && !empty($p['image_id'])) {
+    $p['image'] = wp_get_attachment_image_url((int)$p['image_id'], 'alpha_storys_slide')
+      ?: wp_get_attachment_image_url((int)$p['image_id'], 'full');
+  }
   // base sempre com algo válido
   $base = alpha_storys_get_base_slug();
 

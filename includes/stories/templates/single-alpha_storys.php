@@ -48,15 +48,31 @@ $alpha_logo_src   = $alpha_logo_id ? wp_get_attachment_image_url($alpha_logo_id,
 $alpha_ga_id      = PluginsAlpha_Helpers::alpha_get_ga4_id();
 $alpha_ga_enable  = !empty($alpha_ga_id);
 
-// Playback (sem amp-bind): valor fixo por página, agora só via meta (sem ACF)
+// Playback: meta do post > default das configurações > fallback hardcoded
 $alpha_meta_autoplay = get_post_meta($post->ID, '_alpha_storys_autoplay', true);
-// se meta estiver vazia, fallback = true
-$autoplay = ($alpha_meta_autoplay === '' || $alpha_meta_autoplay === null)
-  ? true
-  : (bool) $alpha_meta_autoplay;
 
-$seconds = (int) get_post_meta($post->ID, '_alpha_storys_duration', true);
-if ($seconds <= 0) $seconds = 7;
+// default global das configs de stories (1 = ligado)
+$opt_autoplay = (int) PluginsAlpha_Helpers::alpha_opt('autoplay', 1);
+
+if ($alpha_meta_autoplay === '' || $alpha_meta_autoplay === null) {
+  // se o post não tiver meta, usa o global
+  $autoplay = !empty($opt_autoplay);
+} else {
+  // se tiver meta, respeita o que está salvo no post
+  $autoplay = (bool) $alpha_meta_autoplay;
+}
+
+// duração: meta > config stories > fallback
+$meta_seconds = (int) get_post_meta($post->ID, '_alpha_storys_duration', true);
+$opt_seconds  = (int) PluginsAlpha_Helpers::alpha_opt('duration', 7);
+
+if ($meta_seconds > 0) {
+  $seconds = $meta_seconds;
+} elseif ($opt_seconds > 0) {
+  $seconds = $opt_seconds;
+} else {
+  $seconds = 7;
+}
 
 $poster_id  = get_post_thumbnail_id($post->ID); // Poster obrigatório
 $poster     = $poster_id ? wp_get_attachment_image_url($poster_id, 'alpha_storys_poster') : '';
@@ -101,21 +117,31 @@ if (count($pages) === 0) {
   ];
 }
 
-// Estilo, fonte e acento – tudo via meta / opções (sem ACF)
+// cores e estilo: meta do post > configs stories > fallback
 $bg_color = get_post_meta($post->ID, '_alpha_storys_background_color', true);
-if (!$bg_color) $bg_color = '#ffffff';
+if (!$bg_color) {
+  $bg_color = PluginsAlpha_Helpers::alpha_opt('background_color', '#000000');
+}
 
 $txt_color = get_post_meta($post->ID, '_alpha_storys_text_color', true);
-if (!$txt_color) $txt_color = '#000000';
+if (!$txt_color) {
+  $txt_color = PluginsAlpha_Helpers::alpha_opt('text_color', '#ffffff');
+}
 
 $style = get_post_meta($post->ID, '_alpha_storys_style', true);
-if (!$style) $style = 'clean';
+if (!$style) {
+  $style = PluginsAlpha_Helpers::alpha_opt('default_style', 'clean');
+}
 
 $font = get_post_meta($post->ID, '_alpha_storys_font', true);
-if (!$font) $font = PluginsAlpha_Helpers::alpha_opt('default_font', 'inter');
+if (!$font) {
+  $font = PluginsAlpha_Helpers::alpha_opt('default_font', 'inter');
+}
 
 $accent = get_post_meta($post->ID, '_alpha_storys_accent_color', true);
-if (!$accent) $accent = PluginsAlpha_Helpers::alpha_opt('accent_color', '#ffffff');
+if (!$accent) {
+  $accent = PluginsAlpha_Helpers::alpha_opt('accent_color', '#ffffff');
+}
 
 // Mapeia Google Fonts
 function alpha_font_href($font)

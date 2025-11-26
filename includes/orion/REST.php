@@ -275,7 +275,7 @@ class PluginsAlpha_REST
     }
     /**
      * POST /wp-json/pga/v1/orion/outline
-     * Body: { keywords: [...], length, template, locale, source_url, publish_time, category_id, post_type }
+     * Body: { keywords: [...], length, template, locale, publish_time, category_id, post_type }
      */
     public static function handle_outline(WP_REST_Request $req)
     {
@@ -425,45 +425,63 @@ class PluginsAlpha_REST
             $p     = $req->get_json_params();
             $mode  = (isset($p['mode']) && $p['mode'] === 'single') ? 'single' : 'multi';
 
-            // keywords em linhas → array
+            // textarea (um por linha) – pode ser frase OU URL, depende do template
             $kw_in = self::lines_to_array($p['keywords'] ?? '');
-            $url   = esc_url_raw($p['source_url'] ?? '');
 
-            // template / length / locale
             $locale = self::clean($p['locale'] ?? 'pt_BR');
             $tpl    = self::clean($p['template_key'] ?? 'article');
             $length = self::clean($p['length'] ?? 'short');
 
             $isModelar = ($tpl === 'modelar');
 
+            if ($tpl === 'modelar') {
+                $kw_in = array_map(function ($u) {
+                    $u = trim($u);
+
+                    // remove espaços invisíveis / caracteres ruins
+                    $u = preg_replace('/[\x00-\x1F\x7F]/u', '', $u);
+
+                    // evita prefixos quebrados tipo "/-xxxxx"
+                    if (str_starts_with($u, '/-')) {
+                        $u = ltrim($u, '/-');
+                    }
+
+                    // se não começa com http, tenta consertar
+                    if (!preg_match('~^https?://~i', $u)) {
+                        $u = 'https://' . ltrim($u, '/');
+                    }
+
+                    return esc_url_raw($u);
+                }, $kw_in);
+            }
+
+
             /**
              * VALIDAÇÃO
-             *  - modo normal: exige keywords (multi) ou keyword+url (single)
-             *  - modo "modelar": aceita só URL, ou URL + keywords; se os dois vazios → erro
+             *  - templates normais: exige keywords (multi ou single)
+             *  - template "modelar": exige ao menos 1 linha (URL)
              */
             if (!$isModelar) {
-                if (empty($url)) {
-                    if ($mode === 'multi' && empty($kw_in)) {
-                        return new WP_Error(
-                            'pga_kw',
-                            'Informe palavras-chave (modo múltiplo).',
-                            ['status' => 400]
-                        );
-                    }
-                    if ($mode === 'single' && empty($kw_in) && empty($url)) {
-                        return new WP_Error(
-                            'pga_kw',
-                            'Informe ao menos 1 palavra ou uma URL (modo único).',
-                            ['status' => 400]
-                        );
-                    }
-                }
-            } else {
-                // modelar: precisa de URL OU de pelo menos 1 palavra-chave
-                if (empty($url) && empty($kw_in)) {
+                if ($mode === 'multi' && empty($kw_in)) {
                     return new WP_Error(
                         'pga_kw',
-                        'Para modelar, informe uma URL ou pelo menos 1 palavra-chave.',
+                        'Informe palavras-chave (modo múltiplo).',
+                        ['status' => 400]
+                    );
+                }
+                if ($mode === 'single' && empty($kw_in)) {
+                    return new WP_Error(
+                        'pga_kw',
+                        'Informe ao menos 1 palavra (modo único).',
+                        ['status' => 400]
+                    );
+                }
+            } else {
+                // modelar → cada linha do textarea é uma URL
+                if (empty($kw_in)) {
+                    return new WP_Error(
+                        'pga_kw',
+                        'Para modelar, informe pelo menos 1 URL (uma por linha).',
                         ['status' => 400]
                     );
                 }
@@ -472,53 +490,30 @@ class PluginsAlpha_REST
             $total  = max(1, intval($p['total'] ?? ($mode === 'single' ? 1 : count($kw_in))));
             $perDay = max(1, intval($p['per_day'] ?? 3));
 
-            // ------------------ NOVO BLOCO: trata first_delay_hours ------------------
-            $firstRaw           = $p['first_delay_hours'] ?? 2;
-            $explicitStartTs    = 0;   // se for datetime válido, cai aqui
-            $useExplicitStartTs = false;
-            $firstH             = 2;   // fallback antigo
+            // first_delay_hours agora é DATETIME-LOCAL (string)
+            $first_raw = trim((string)($p['first_delay_hours'] ?? ''));
+            $now       = time();
+            $firstH    = 2; // fallback padrão
 
-            if (is_numeric($firstRaw)) {
-                // Fluxo ANTIGO: valor em horas
-                $firstH = max(2, intval($firstRaw));
-            } else {
-                // Tenta interpretar como datetime string (ex: 2025-11-27T09:30)
-                $raw = trim((string)$firstRaw);
-                if ($raw !== '') {
-                    $ts = strtotime($raw);
-                    if ($ts !== false) {
-                        $explicitStartTs    = $ts;
-                        $useExplicitStartTs = true;
-                    }
+            if ($first_raw !== '') {
+                $ts = strtotime($first_raw);
+                if ($ts !== false && $ts > $now) {
+                    $diffSec = $ts - $now;
+                    $firstH  = max(2, (int)ceil($diffSec / HOUR_IN_SECONDS));
                 }
             }
 
-            // ------------------ Transitions (igual antes) ------------------
             $transition = [
-                'strict'    => !empty($p['transition']['strict']),
+                'strict'    => !empty($p['transition']['strict'] ?? false),
                 'min_ratio' => floatval($p['transition']['min_ratio'] ?? 0.3),
                 'words'     => is_array($p['transition']['words'] ?? null)
                     ? array_values(array_filter(array_map('trim', $p['transition']['words'])))
                     : [],
             ];
 
-            // ------------------ Monta agenda leve ------------------
-            $jobs = [];
-
-            // base "agora" no fuso do WP
-            $now = current_time('timestamp');
-
-            // Se o usuário escolheu data/hora explícita, usamos ela como dia base
-            if ($useExplicitStartTs) {
-                // se ele mandar algo no passado, jogamos pra agora
-                if ($explicitStartTs < $now) {
-                    $explicitStartTs = $now + 2 * HOUR_IN_SECONDS;
-                }
-                $now   = $explicitStartTs;
-                $firstH = 0; // não vamos mais trabalhar com "horas de atraso" nesse modo
-            }
-
-            $days   = (int)ceil($total / max(1, $perDay));
+            // monta agenda leve
+            $jobs   = [];
+            $days   = (int) ceil($total / max(1, $perDay));
             $i      = 0;
             $cat_id = max(0, intval($p['category_id'] ?? 0));
 
@@ -529,41 +524,36 @@ class PluginsAlpha_REST
                 for ($s = 0; $s < $slotsToday; $s++) {
                     $baseIdx = min($s, count($base) - 1);
                     $offset  = wp_rand(-40 * MINUTE_IN_SECONDS, 40 * MINUTE_IN_SECONDS);
-
-                    // baseia o dia em $now (que pode ser "agora" OU a data escolhida)
-                    $t = strtotime('+' . $d . ' day', $now) + $base[$baseIdx] + $offset;
+                    $t       = strtotime('+' . $d . ' day', $now) + $base[$baseIdx] + $offset;
 
                     if ($i === 0) {
-                        if ($useExplicitStartTs) {
-                            // modo data fixa: garante que não publique ANTES da data selecionada
-                            if ($t < $now) {
-                                $t = $now + wp_rand(300, 2400);
-                            }
-                        } else {
-                            // modo antigo (horas de atraso)
-                            $min = $now + $firstH * HOUR_IN_SECONDS;
-                            if ($t < $min) {
-                                $t = $min + wp_rand(300, 2400);
-                            }
+                        $min = $now + $firstH * HOUR_IN_SECONDS;
+                        if ($t < $min) {
+                            $t = $min + wp_rand(300, 2400);
                         }
                     }
 
-                    // escolhe keyword para este job
-                    $keywordValue = '';
+                    // escolhe LINHA (keyword OU URL) para este job
+                    $lineValue = '';
                     if ($mode === 'single') {
-                        $keywordValue = $kw_in[0] ?? '';
+                        $lineValue = $kw_in[0] ?? '';
                     } else {
-                        $keywordValue = $kw_in[$i] ?? '';
+                        $lineValue = $kw_in[$i] ?? '';
                     }
 
-                    // no template "modelar", é permitido keyword vazia;
-                    // o create_draft_and_outline depois deriva da URL se necessário.
+                    // acabou as linhas
+                    if ($lineValue === '') {
+                        continue;
+                    }
+
+                    // SEM source_url aqui. Um campo só:
+                    // - templates normais: lineValue = keyword
+                    // - modelar: lineValue = URL
                     $jobs[] = [
-                        'keyword'      => $keywordValue,
+                        'keyword'      => $lineValue,
                         'locale'       => $locale,
                         'length'       => $length,
                         'template_key' => $tpl,
-                        'source_url'   => $url,
                         'publish_time' => $t,
                         'transition'   => $transition,
                         'category_id'  => $cat_id,
@@ -576,10 +566,8 @@ class PluginsAlpha_REST
                 }
             }
 
-            // CORTE DE JOBS QUANDO FALTAM KEYWORDS
-            // - fluxo antigo: se pediu 10 posts mas só mandou 3 keywords, reduzia para 3
-            // - EXCETO no template "modelar" sem keywords, onde queremos manter os jobs
-            if ($mode === 'multi' && count($kw_in) < $total && !$isModelar) {
+            // multi: no máx. 1 job por linha
+            if ($mode === 'multi' && count($kw_in) < $total) {
                 $jobs = array_slice($jobs, 0, count($kw_in));
             }
 
@@ -592,8 +580,6 @@ class PluginsAlpha_REST
             ];
         });
     }
-
-
 
     public static function status()
     {

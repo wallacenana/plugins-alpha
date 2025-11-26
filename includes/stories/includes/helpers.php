@@ -207,7 +207,7 @@ class PluginsAlpha_Helpers
         $blocks .= "<h2>" . esc_html($heading) . "</h2>\n";
         $blocks .= "<!-- /wp:heading -->\n";
       }
-      
+
       // IMAGEM DO SLIDE (Pollinations) – se existir
       if ($image_id) {
         $src = wp_get_attachment_image_url($image_id, 'full');
@@ -278,10 +278,10 @@ class PluginsAlpha_Helpers
     // 3) Sanitiza páginas vindas da IA
     $pages = [];
     foreach ($result['pages'] as $p) {
-      // Se vier tudo vazio, nem conta como página
       $heading = isset($p['heading']) ? wp_strip_all_tags($p['heading']) : '';
       $body    = isset($p['body'])    ? wp_strip_all_tags($p['body'])    : '';
 
+      // Se vier tudo vazio, ignora
       if ($heading === '' && $body === '') {
         continue;
       }
@@ -293,14 +293,13 @@ class PluginsAlpha_Helpers
         // vamos controlar cta_url no PHP
         'cta_url'  => '',
         'prompt'   => isset($p['prompt']) ? sanitize_text_field($p['prompt']) : '',
+        // IMPORTANTE: não mexemos aqui em image_id/image ainda
       ];
     }
 
-    // se por algum motivo não sobrou página nenhuma, aborta
     if (empty($pages)) {
       return new WP_Error('alpha_ai_empty', 'A IA não retornou páginas válidas.');
     }
-
 
     // Descobre o post de origem (artigo) para o CTA
     $source_id = (int) $post_id;
@@ -320,7 +319,6 @@ class PluginsAlpha_Helpers
       foreach ($pages as $i => &$pg) {
         $hasCTA = !empty($pg['cta_text']);
 
-        // se este slide tem texto de CTA, força a URL do artigo
         if ($hasCTA) {
           $pg['cta_url'] = $default_link;
         } else {
@@ -338,8 +336,6 @@ class PluginsAlpha_Helpers
       }
     }
 
-
-
     // 4) Descobre o CPT de destino (alpha_storys)
     $target_id = ('alpha_storys' === get_post_type($post_id))
       ? (int) $post_id
@@ -349,11 +345,24 @@ class PluginsAlpha_Helpers
       return new WP_Error('alpha_storys_target', 'Não foi possível criar ou localizar o Web Story.');
     }
 
-    // 5) Salva meta com as páginas (sem imagens)
+    // 4.1) PRESERVAR IMAGENS EXISTENTES (image_id / image)
+    $existing = get_post_meta($target_id, '_alpha_storys_pages', true);
+    if (is_array($existing)) {
+      foreach ($pages as $i => &$pg) {
+        if (!empty($existing[$i]['image_id'])) {
+          $pg['image_id'] = (int) $existing[$i]['image_id'];
+        }
+        if (!empty($existing[$i]['image'])) {
+          $pg['image'] = $existing[$i]['image'];
+        }
+      }
+      unset($pg);
+    }
+
+    // 5) Salva meta com as páginas (agora possivelmente já contendo image_id/image)
     update_post_meta($target_id, '_alpha_storys_pages', $pages);
 
-    // 6) Renderiza blocos só com texto/CTA (sem Pollinations)
-    // 👇 AQUI É IMPORTANTE: APENAS 1 PARÂMETRO
+    // 6) Renderiza blocos (se já tiver image_id, as imagens vão pros blocos também)
     $blocks = self::alpha_render_storys_pages_to_blocks($pages);
 
     wp_update_post([
@@ -364,6 +373,7 @@ class PluginsAlpha_Helpers
 
     $edit_url = get_edit_post_link($target_id, '');
     $view_url = get_permalink($target_id);
+
     return [
       'ok'        => true,
       'count'     => count($pages),

@@ -8,73 +8,163 @@ if (! defined('ABSPATH')) {
  */
 class PluginsAlpha_Images
 {
-
     /**
-     * Gera uma imagem de acordo com as configurações globais do plugin
-     * (provider + opções) e retorna o ID do attachment.
-     *
-     * $imgSettings é opcional. Se estiver vazio, pega de PluginsAlpha_Settings.
+     * Gera uma imagem usando o provider configurado (thumb por padrão).
      *
      * @param string $prompt
      * @param int    $post_id
      * @param string $alt
-     * @param array  $imgSettings
+     * @param mixed  $imgSettings   (array ou vazio; se vazio, pega das settings globais)
+     * @param string $context       'thumb' | 'story'
      *
-     * @return int|\WP_Error Attachment ID ou erro.
+     * @return int|\WP_Error
      */
     public static function generate_by_settings(
         string $prompt,
         int $post_id,
         string $alt = '',
-        array $imgSettings = []
+        $imgSettings = [],
+        string $context = 'thumb' // thumb|story|outros
     ) {
-        if ('' === $prompt || $post_id <= 0) {
+        if ($prompt === '' || $post_id <= 0) {
             return 0;
         }
 
-        // Carrega settings globais se não veio override
-        if (empty($imgSettings) && class_exists('PluginsAlpha_Settings')) {
-            $opts       = PluginsAlpha_Settings::get();
-            $imgSettings = isset($opts['apis']['images']) && is_array($opts['apis']['images'])
-                ? $opts['apis']['images']
-                : [];
+        if (!is_array($imgSettings)) {
+            $imgSettings = [];
         }
 
-        $provider = isset($imgSettings['provider']) ? (string) $imgSettings['provider'] : 'pollinations';
+        // Carrega settings globais se não veio override
+        // Carrega settings globais se não veio override
+        if (empty($imgSettings) && class_exists('PluginsAlpha_Settings')) {
+            $opts = PluginsAlpha_Settings::get();
 
-        if ('' === $alt) {
+            // base: provedor global de imagens (Geral › Imagens)
+            $globalImg = (isset($opts['apis']['images']) && is_array($opts['apis']['images']))
+                ? $opts['apis']['images']
+                : [];
+
+            $imgSettings = $globalImg;
+
+            // se for story, olha o provider específico dos stories
+            if ($context === 'story') {
+                $st = isset($opts['stories']) && is_array($opts['stories'])
+                    ? $opts['stories']
+                    : [];
+
+                $storyProv = isset($st['images_provider'])
+                    ? (string)$st['images_provider']
+                    : 'inherit';
+
+                // se NÃO for inherit, sobrescreve o provider
+                if ($storyProv && $storyProv !== 'inherit') {
+                    $imgSettings['provider'] = $storyProv;
+                }
+                // se for inherit, simplesmente usa o global mesmo
+            }
+        }
+
+
+        $provider = isset($imgSettings['provider']) && $imgSettings['provider'] !== ''
+            ? (string)$imgSettings['provider']
+            : 'pollinations';
+
+
+        if ($alt === '') {
             $alt = get_the_title($post_id) ?: '';
         }
 
-        if ('openai' === $provider) {
-            return self::generate_openai_thumbnail($prompt, $post_id, $alt, $imgSettings);
+        // Desliga geração
+        if ($provider === 'none') {
+            return 0;
         }
 
-        // Default / fallback
-        return self::generate_pollinations_thumbnail($prompt, $post_id, $alt);
+        switch ($provider) {
+            case 'openai':
+                // OpenAI (DALL·E / gpt-image-1)
+                // tamanho é decidido DENTRO de generate_openai_image
+                return self::generate_openai_image(
+                    $prompt,
+                    $post_id,
+                    $alt,
+                    $imgSettings,
+                    $context
+                );
+
+            case 'pollinations':
+            default:
+                // Pollinations – aqui só escolhemos tamanho conforme o contexto
+                $opts = [];
+
+                if ($context === 'story') {
+                    // não pode ser maior que ~640x900 (mobile vertical leve)
+                    $opts = [
+                        'width'  => 640,
+                        'height' => 900,
+                        'nologo' => true,
+                        'model'  => 'flux',
+                    ];
+                } else {
+                    // thumbnail de post – pode ser maior
+                    $opts = [
+                        'width'  => 1200,
+                        'height' => 675,
+                        'nologo' => true,
+                        'model'  => 'flux',
+                    ];
+                }
+
+                return self::generate_pollinations_image(
+                    $prompt,
+                    $post_id,
+                    $opts,
+                    $alt
+                );
+        }
+    }
+
+
+    /**
+     * Atalho específico para STORIES usando o mesmo esquema de settings.
+     *
+     * @param string $prompt
+     * @param int    $post_id
+     * @param string $alt
+     * @param mixed  $imgSettings
+     *
+     * @return int|\WP_Error
+     */
+    public static function generate_story_by_settings(
+        string $prompt,
+        int $post_id,
+        string $alt = '',
+        $imgSettings = []
+    ) {
+        return self::generate_by_settings($prompt, $post_id, $alt, $imgSettings, 'story');
     }
 
     /**
-     * Gera thumbnail com OpenAI (DALL·E, etc) e salva como attachment.
+     * Núcleo de geração via OpenAI (usado tanto pra thumb quanto pra story).
      *
      * @param string $prompt
      * @param int    $post_id
      * @param string $alt
      * @param array  $imgSettings
+     * @param string $context    'thumb' | 'story'
      *
      * @return int|\WP_Error
      */
-    public static function generate_openai_thumbnail(
+    public static function generate_openai_image(
         string $prompt,
         int $post_id,
         string $alt,
-        array $imgSettings = []
+        array $imgSettings = [],
+        string $context = 'thumb'
     ) {
-        if ('' === $prompt || $post_id <= 0) {
+        if ($prompt === '' || $post_id <= 0) {
             return 0;
         }
 
-        // Pega chave da OpenAI das settings globais, se existir
         $opts = class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [];
         $api  = $opts['apis']['openai'] ?? [];
         $key  = trim((string) ($api['key'] ?? ''));
@@ -84,8 +174,20 @@ class PluginsAlpha_Images
         }
 
         $model   = $imgSettings['model']   ?? 'dall-e-3';
-        $size    = $imgSettings['size']    ?? '1792x1024'; // para Stories você pode passar 1080x1920
         $quality = $imgSettings['quality'] ?? 'standard';
+
+        // Se não veio size explícito nas configs, decide pelo contexto
+        if (!empty($imgSettings['size'])) {
+            $size = $imgSettings['size'];
+        } else {
+            if ($context === 'story') {
+                // vertical pra stories
+                $size = '1024x1792';
+            } else {
+                // thumbnail wide
+                $size = '1024x576';
+            }
+        }
 
         $body = [
             'model'   => $model,
@@ -94,6 +196,11 @@ class PluginsAlpha_Images
             'size'    => $size,
             'quality' => $quality,
         ];
+
+        // Só por segurança, se alguém enfiar response_format nas settings:
+        if (isset($body['response_format'])) {
+            unset($body['response_format']);
+        }
 
         $res = wp_remote_post(
             'https://api.openai.com/v1/images/generations',
@@ -114,16 +221,23 @@ class PluginsAlpha_Images
         $code = wp_remote_retrieve_response_code($res);
         $raw  = wp_remote_retrieve_body($res);
 
+        if ($code >= 500 && $code < 600) {
+            return new \WP_Error(
+                'pga_openai_5xx',
+                __('OpenAI está com instabilidade no momento ao gerar imagens. Tente novamente em instantes.', 'plugins-alpha')
+            );
+        }
+
         if (200 !== $code || ! $raw) {
             return new \WP_Error(
                 'pga_openai_http',
                 sprintf(
-                    /* translators: %d = HTTP code */
                     __('Erro ao gerar imagem na OpenAI (HTTP %d).', 'plugins-alpha'),
                     (int) $code
                 )
             );
         }
+
 
         $json = json_decode($raw, true);
         if (empty($json['data'][0]['url'])) {
@@ -147,7 +261,7 @@ class PluginsAlpha_Images
         }
 
         $img_body = wp_remote_retrieve_body($img_res);
-        if (! $img_body) {
+        if (!$img_body) {
             return new \WP_Error(
                 'pga_openai_empty_image',
                 __('Imagem vazia retornada pela OpenAI.', 'plugins-alpha')
@@ -164,18 +278,32 @@ class PluginsAlpha_Images
     }
 
     /**
-     * Gera thumbnail via Pollinations e salva como attachment.
-     *
-     * @param string $prompt
-     * @param int    $post_id
-     * @param string $alt
+     * Wrapper de compat: se em algum lugar antigo ainda chamarem generate_openai_thumbnail,
+     * ele só delega pro núcleo com contexto 'thumb'.
+     */
+    public static function generate_openai_thumbnail(
+        string $prompt,
+        int $post_id,
+        string $alt,
+        array $imgSettings = []
+    ) {
+        return self::generate_openai_image($prompt, $post_id, $alt, $imgSettings, 'thumb');
+    }
+
+    /**
+     * Gera imagem via Pollinations (tamanho configurável) e salva como attachment.
      *
      * @return int|\WP_Error
      */
     public static function generate_pollinations_image(
         string $prompt,
         int $post_id,
-        array $opts = [],
+        array $opts = [
+            'width'  => 1200,
+            'height' => 630,
+            'nologo' => true,
+            'model'  => 'flux',
+        ],
         string $alt = ''
     ) {
         if ('' === $prompt || $post_id <= 0) {
@@ -184,23 +312,17 @@ class PluginsAlpha_Images
 
         $base_url = 'https://image.pollinations.ai/prompt/' . rawurlencode($prompt);
 
-        // monta query seguindo o espírito do exemplo oficial
         $query = [];
-
-        // se ainda quiser mandar width/height, beleza (mesmo que eles limitem)
         if (!empty($opts['width'])) {
             $query['width'] = (int) $opts['width'];
         }
         if (!empty($opts['height'])) {
             $query['height'] = (int) $opts['height'];
         }
-
-        // modelo (flux, turbo, etc.)
         if (!empty($opts['model'])) {
             $query['model'] = (string) $opts['model'];
         }
 
-        // SEED – igual ao exemplo deles
         $query['seed'] = !empty($opts['seed'])
             ? (int) $opts['seed']
             : wp_rand(1, 1000000);
@@ -223,7 +345,9 @@ class PluginsAlpha_Images
 
         $code = wp_remote_retrieve_response_code($res);
 
-        if (200 !== $code) {
+        if ($code < 200 || $code >= 300) {
+            $body_err = wp_remote_retrieve_body($res);
+
             return new \WP_Error(
                 'pga_pollinations_http',
                 sprintf(__('Falha ao gerar imagem (HTTP %d).', 'plugins-alpha'), (int) $code),
@@ -299,10 +423,8 @@ class PluginsAlpha_Images
         return (int) $attach_id;
     }
 
-
     /**
-     * Mantém a assinatura atual (thumb 1280x720)
-     * – retrocompatível
+     * Helper thumbnail padrão (landscape).
      */
     public static function generate_pollinations_thumbnail(
         string $prompt,
@@ -323,8 +445,7 @@ class PluginsAlpha_Images
     }
 
     /**
-     * Novo helper: imagem para Web Stories (portrait)
-     * – 1080x1920
+     * Helper: imagem para Web Stories (portrait).
      */
     public static function generate_pollinations_story_image(
         string $prompt,
@@ -344,14 +465,8 @@ class PluginsAlpha_Images
         );
     }
 
-
     /**
-     * Helper para salvar binário de imagem como attachment.
-     *
-     * @param string $binary
-     * @param int    $post_id
-     * @param string $alt
-     * @param string $prefix
+     * Salva binário de imagem como attachment.
      *
      * @return int|\WP_Error
      */

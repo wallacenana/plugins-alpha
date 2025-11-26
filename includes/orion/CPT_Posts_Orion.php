@@ -39,8 +39,204 @@ class PluginsAlpha_CPT_Posts_Orion
 
     add_action('transition_post_status', [self::class, 'block_publish_if_no_license'], 10, 3);
 
-    // 🔹 NOVO: inclui posts_orion nos arquivos de categoria / tag
     add_action('pre_get_posts', [self::class, 'include_in_term_archives']);
+
+    add_action('add_meta_boxes', function () {
+      add_meta_box(
+        'pga_regen_thumb',
+        'Thumbnail',
+        [self::class, 'pga_render_regen_thumb_box'],
+        'posts_orion',
+        'side',
+        'low'
+      );
+    });
+    add_action('wp_ajax_pga_regen_thumb', function () {
+      if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'pga_regen_thumb')) {
+        wp_send_json_error('Nonce inválido.');
+      }
+
+      $post_id = intval($_POST['post_id'] ?? 0);
+      if ($post_id <= 0) {
+        wp_send_json_error('ID de post inválido.');
+      }
+
+      $post = get_post($post_id);
+      if (!$post) {
+        wp_send_json_error('Post inexistente.');
+      }
+
+      // prompt vindo do textarea (opcional)
+      $raw_prompt = isset($_POST['prompt']) ? trim((string) wp_unslash($_POST['prompt'])) : '';
+
+      // Se estiver vazio, monta um prompt padrão baseado no conteúdo do post
+      if ($raw_prompt === '') {
+        if (!class_exists('PluginsAlpha_Prompts')) {
+          wp_send_json_error('Classe de prompts ausente.');
+        }
+
+        $title   = get_the_title($post_id) ?: '';
+        $content = get_post_field('post_content', $post_id) ?: '';
+
+        // limpa HTML e limita um pouco o tamanho para o meta-prompt
+        $content = wp_strip_all_tags($content);
+        // corta para ~800 caracteres só pro contexto
+        if (function_exists('wp_html_excerpt')) {
+          $content = wp_html_excerpt($content, 800, '...');
+        } else {
+          if (mb_strlen($content) > 800) {
+            $content = mb_substr($content, 0, 800) . '...';
+          }
+        }
+
+        // locale padrão (pode ser fixo 'pt_BR' ou algo vindo das settings)
+        $locale = get_locale() ?: 'pt_BR';
+
+        $prompt = PluginsAlpha_Prompts::build_post_thumbnail_regen_prompt(
+          $title,
+          $content,
+          $locale
+        );
+      } else {
+        // usuário digitou algo → usa direto
+        $prompt = $raw_prompt;
+      }
+      if (!class_exists('PluginsAlpha_Images')) {
+        wp_send_json_error('Classe de imagem ausente.');
+      }
+
+      // Gera usando provider configurado (OpenAI, Pollinations, etc.)
+      $thumb_id = PluginsAlpha_Images::generate_by_settings($prompt, $post_id);
+
+      if (is_wp_error($thumb_id)) {
+        wp_send_json_error($thumb_id->get_error_message());
+      }
+
+      $thumb_id = (int) $thumb_id;
+      if ($thumb_id <= 0) {
+        wp_send_json_error('Falha ao gerar a miniatura (ID inválido).');
+      }
+
+      // Define como thumbnail do post
+      set_post_thumbnail($post_id, $thumb_id);
+
+      // guarda prompt e provider pra referência
+      update_post_meta($post_id, '_pga_image_prompt', $prompt);
+
+      // se quiser salvar o provider real:
+      if (class_exists('PluginsAlpha_Settings')) {
+        $opts       = PluginsAlpha_Settings::get();
+        $imgSettings = $opts['apis']['images'] ?? [];
+        $provider   = isset($imgSettings['provider']) ? (string)$imgSettings['provider'] : 'pollinations';
+        update_post_meta($post_id, '_pga_image_provider', $provider);
+      }
+
+      // HTML atualizado do box de imagem destacada
+      if (!function_exists('_wp_post_thumbnail_html')) {
+        require_once ABSPATH . 'wp-admin/includes/post.php';
+      }
+
+      $thumb_html = _wp_post_thumbnail_html($thumb_id, $post_id);
+
+      wp_send_json_success([
+        'thumb_id'   => $thumb_id,
+        'thumb_html' => $thumb_html,
+        'prompt'     => $prompt,
+      ]);
+    });
+  }
+
+  public static function pga_render_regen_thumb_box($post)
+  {
+    wp_nonce_field('pga_regen_thumb', 'pga_regen_thumb_nonce');
+
+    echo '<p>Use IA para gerar ou substituir a imagem destacada deste Órion Post.</p>';
+
+    echo '<p><label for="pga_regen_thumb_prompt"><strong>Prompt da imagem</strong></label><br />';
+    echo '<textarea id="pga_regen_thumb_prompt" rows="3" style="width:100%;" placeholder="Ex.: Ilustração realista de um gato usando coleira com rastreador, fundo claro, estilo fotográfico, 16:9."></textarea></p>';
+
+    echo '<button 
+        type="button" 
+        class="button button-primary" 
+        id="pga_regen_thumb_btn"
+        data-post="' . esc_attr($post->ID) . '">
+        Gerar nova imagem com IA
+    </button>';
+
+    echo '<div id="pga_regen_thumb_status" style="margin-top:8px;font-size:12px;color:#555;"></div>';
+
+?>
+    <script>
+      jQuery(function($) {
+        const $btn = $('#pga_regen_thumb_btn');
+        const $status = $('#pga_regen_thumb_status');
+        const $prompt = $('#pga_regen_thumb_prompt');
+
+        function showAlert(type, title, text) {
+          if (window.Swal) {
+            Swal.fire({
+              icon: type,
+              title: title,
+              html: text,
+            });
+          } else {
+            alert(title + "\n\n" + $(text).text());
+          }
+        }
+
+        $btn.on('click', function() {
+          const postId = $(this).data('post');
+          const nonce = $('#pga_regen_thumb_nonce').val();
+          let prompt = ($prompt.val() || '').trim();
+
+          if (!postId) {
+            showAlert('error', 'Erro', 'ID de post inválido.');
+            return;
+          }
+
+
+          $status.text('Gerando imagem... isso pode levar alguns segundos.');
+
+          $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            dataType: 'json',
+            data: {
+              action: 'pga_regen_thumb',
+              post_id: postId,
+              prompt: prompt,
+              _wpnonce: nonce
+            },
+            success: function(r) {
+              if (!r || !r.success) {
+                const msg = (r && r.data) ? r.data : 'Falha desconhecida.';
+                $status.text('Erro: ' + msg);
+                showAlert('error', 'Erro ao gerar imagem', '<p>' + msg + '</p>');
+                return;
+              }
+
+              const data = r.data || {};
+              $status.text('Thumbnail atualizada com sucesso!');
+
+              // Atualiza o box de imagem destacada, se veio HTML
+              if (data.thumb_html) {
+                $('#postimagediv .inside').html(data.thumb_html);
+              }
+
+
+              showAlert('success', 'Imagem gerada!',
+                '<p>A nova thumbnail foi criada e aplicada ao post.</p>'
+              );
+            },
+            error: function(xhr) {
+              $status.text('Erro de comunicação com o servidor.');
+              showAlert('error', 'Erro de comunicação', '<p>Falha ao contatar o servidor (AJAX).</p>');
+            }
+          });
+        });
+      });
+    </script>
+<?php
   }
 
   /**

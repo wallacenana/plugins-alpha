@@ -27,10 +27,6 @@ class PluginsAlpha_Pages_Generator
 
         <div class="pga-card">
           <div class="pga-row">
-            <div class="pga-field" style="width: 100%; flex: 1 1 100%; display: none;">
-              <label>URL (opcional)</label>
-              <input id="pga_source_url" type="url" placeholder="https://...">
-            </div>
             <div class="pga-field">
               <label>Locale</label>
               <select id="pga_locale">
@@ -208,48 +204,29 @@ class PluginsAlpha_Pages_Generator
 
   public static function create_draft_and_outline(array $args)
   {
-    // KEYWORD pode vir como array OU como string "\n"
+    // keyword pode vir como array ou string com \n (mas no fim usamos só a primeira linha)
     $kwSrc = $args['keyword'] ?? $args['keywords'] ?? '';
 
     if (is_array($kwSrc)) {
-      $keyword = trim((string)($kwSrc[0] ?? ''));
+      $keywordRaw = trim((string)($kwSrc[0] ?? ''));
     } else {
-      // string: pode ser só uma keyword ou várias linhas
-      $lines   = preg_split('/\r\n|\r|\n/', (string)$kwSrc);
-      $keyword = trim($lines[0] ?? '');
+      $lines      = preg_split('/\r\n|\r|\n/', (string)$kwSrc);
+      $keywordRaw = trim($lines[0] ?? '');
     }
 
     // template pode vir como 'template' ou 'template_key'
-    $template  = $args['template']     ?? $args['template_key'] ?? 'discover_article';
-    $length    = $args['length']       ?? 'short';
-    $locale    = $args['locale']       ?? 'pt_BR';
-    $url       = $args['source_url']   ?? '';
+    $template = $args['template']     ?? $args['template_key'] ?? 'discover_article';
+    $length   = $args['length']       ?? 'short';
+    $locale   = $args['locale']       ?? 'pt_BR';
 
-    // 🔹 AGORA: publish_ts só vem de publish_time se for enviado
+    // publish_time vem pronto do plan
     $publish_ts = 0;
-
-    if ($keyword === '' && !empty($url)) {
-      $keyword = self::derive_keyword_from_url($url);
-    }
-
-    // 🔹 se ainda assim não tiver nada, aí sim erro
-    if ($keyword === '' && $url === '') {
-      return new WP_Error('pga_no_kw', 'Keyword vazia e URL ausente.');
-    }
-
-    // se ainda não conseguiu keyword mas tem URL, usa algo genérico
-    if ($keyword === '' && $url !== '') {
-      $keyword = 'Artigo baseado em ' . wp_parse_url($url, PHP_URL_HOST);
-    }
-
-    // 🔹 SOMENTE LÊ publish_time; NÃO chama mais compute_publish_time()
     if (!empty($args['publish_time'])) {
       $raw = $args['publish_time'];
-
       if (is_numeric($raw)) {
-        $publish_ts = (int) $raw;
+        $publish_ts = (int)$raw;
       } else {
-        $t = strtotime((string) $raw);
+        $t = strtotime((string)$raw);
         if ($t !== false) {
           $publish_ts = $t;
         }
@@ -259,8 +236,32 @@ class PluginsAlpha_Pages_Generator
     $category_id = intval($args['category_id'] ?? 0);
     $post_type   = !empty($args['post_type']) ? sanitize_key($args['post_type']) : 'posts_orion';
 
-    if ($keyword === '') {
-      return new WP_Error('pga_no_kw', 'Keyword vazia.');
+    // 🔹 Aqui a diferença: em MODELAR, keywordRaw é a URL
+    $url     = '';
+    $keyword = '';
+
+    if ($template === 'modelar') {
+      $url = $keywordRaw;
+
+      if ($url === '') {
+        return new WP_Error('pga_no_kw', 'URL vazia.');
+      }
+
+      // tenta derivar um “tema” a partir da URL (só pra título/slug/SEO)
+      $derived = self::derive_keyword_from_url($url);
+      if ($derived !== '') {
+        $keyword = $derived;
+      } else {
+        $host = wp_parse_url($url, PHP_URL_HOST);
+        $host = $host ?: $url;
+        $keyword = 'Artigo baseado em ' . $host;
+      }
+    } else {
+      // templates normais → keyword normal
+      $keyword = $keywordRaw;
+      if ($keyword === '') {
+        return new WP_Error('pga_no_kw', 'Keyword vazia.');
+      }
     }
 
     $slug = sanitize_title($keyword);
@@ -279,27 +280,23 @@ class PluginsAlpha_Pages_Generator
       return $draft_id;
     }
 
-    // salva o horário pra usar no finalize (só se realmente tiver)
     if ($publish_ts > 0) {
       update_post_meta($draft_id, '_pga_publish_ts', $publish_ts);
     }
     update_post_meta($draft_id, '_pga_job_started', time());
 
-    // category_id veio direto das categorias padrão do WP
     if ($category_id > 0) {
-      // seta a categoria padrão "category" nesse post (se $draft_id já for um post normal)
-      wp_set_post_terms($draft_id, [(int) $category_id], 'category', false);
-
-      // guarda em meta pra usar depois, se precisar
-      update_post_meta($draft_id, '_pga_orion_category_ids', [(int) $category_id]);
+      wp_set_post_terms($draft_id, [(int)$category_id], 'category', false);
+      update_post_meta($draft_id, '_pga_orion_category_ids', [(int)$category_id]);
     }
 
-    // 1) TÍTULO
+    // 1) TÍTULO — aqui já usamos o keyword DERIVADO e, no modelar, passamos a URL pro prompt
     $titlePrompt = PluginsAlpha_Prompts::build_title_prompt(
       $keyword,
       3,
       5,
-      $locale
+      $locale,
+      $url // vazio nos templates normais; preenchido no modelar
     );
 
     $titles = PluginsAlpha_OpenAI::titles($titlePrompt);
@@ -317,7 +314,7 @@ class PluginsAlpha_Pages_Generator
       $chosenTitle = ucfirst($keyword);
     }
 
-    // Salva tudo como base pra próximas chamadas
+    // Salva base pra próximas chamadas
     update_post_meta($draft_id, '_pga_outline_length',   $length);
     update_post_meta($draft_id, '_pga_outline_locale',   $locale);
     update_post_meta($draft_id, '_pga_outline_keyword',  $keyword);
@@ -325,37 +322,34 @@ class PluginsAlpha_Pages_Generator
     update_post_meta($draft_id, '_pga_outline_url',      $url);
     update_post_meta($draft_id, '_pga_chosen_title',     $chosenTitle);
 
-    // se tiver publish_ts válido, garante que fique salvo
     if ($publish_ts > 0) {
       update_post_meta($draft_id, '_pga_publish_ts', $publish_ts);
     }
 
     update_post_meta($draft_id, '_pga_job_status', 'outline_done');
 
-    // lista completa de keywords, se veio como array
+    // lista completa de "keywords" só se vier como array – aqui tanto faz, não vamos usar extra pra modelar
     $allKeywords = [];
     if (is_array($kwSrc)) {
       $allKeywords = array_values(array_filter(array_map('trim', $kwSrc)));
     }
 
-    // escolher QUAL prompt de outline usar
-    if ($template === 'modelar') {
+    // 2) OUTLINE – se for modelar, passa SÓ a URL
+    if ($template === 'modelar')
       $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt_modelar(
-        $keyword,
+        $url,
         $chosenTitle,
         $length,
-        $locale,
-        $url,
-        $allKeywords
+        $locale
       );
-    } else {
+    else
       $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt(
         $keyword,
         $chosenTitle,
         $length,
         $locale
       );
-    }
+
 
     $outline = PluginsAlpha_OpenAI::outline($outlinePrompt);
 
@@ -364,7 +358,7 @@ class PluginsAlpha_Pages_Generator
       return $outline;
     }
 
-    // Se o retorno vier como { "sections": [...] }, pega só o array interno
+    // Se vier { "sections": [...] }, pega só o array interno
     $sections = $outline['sections'] ?? $outline;
     if (!is_array($sections)) {
       $sections = [];
@@ -375,7 +369,6 @@ class PluginsAlpha_Pages_Generator
     $h2Index    = 1;
 
     foreach ($sections as $sec) {
-      // Se vier string, transforma em array básico
       if (!is_array($sec)) {
         $sec = [
           'heading' => (string)$sec,
@@ -383,17 +376,14 @@ class PluginsAlpha_Pages_Generator
         ];
       }
 
-      // level padrão
       if (empty($sec['level'])) {
         $sec['level'] = 'h2';
       }
 
-      // id da H2
       if (empty($sec['id'])) {
         $sec['id'] = (string)$h2Index;
       }
 
-      // children (H3) – também ganham id se não tiver
       if (!empty($sec['children']) && is_array($sec['children'])) {
         $childIndex = 1;
         foreach ($sec['children'] as $ci => $child) {
@@ -421,7 +411,6 @@ class PluginsAlpha_Pages_Generator
       $h2Index++;
     }
 
-    // Salva o outline normalizado
     update_post_meta($draft_id, '_pga_outline_sections', wp_json_encode($normalized));
     update_post_meta($draft_id, '_pga_job_status', 'outline_done');
 
@@ -561,6 +550,7 @@ class PluginsAlpha_Pages_Generator
     $locale  = get_post_meta($post_id, '_pga_outline_locale',   true) ?: 'pt_BR';
     $keyword = get_post_meta($post_id, '_pga_outline_keyword',  true) ?: '';
     $title   = get_post_meta($post_id, '_pga_chosen_title',     true) ?: $keyword;
+    $url     = get_post_meta($post_id, '_pga_outline_url',      true) ?: '';
 
     if ($keyword === '') {
       return new WP_Error('pga_no_kw', 'Keyword vazia no outline.');
@@ -591,7 +581,6 @@ class PluginsAlpha_Pages_Generator
       ];
     }
     $sectionsCount = count($sections);
-
     // monta prompt da seção
     $sectionPrompt = PluginsAlpha_Prompts::build_section_prompt(
       $keyword,
@@ -599,7 +588,8 @@ class PluginsAlpha_Pages_Generator
       $section,
       $length,
       $locale,
-      $sectionsCount
+      $sectionsCount,
+      $url
     );
 
     // aumenta timeout só pra essa chamada
@@ -740,87 +730,6 @@ class PluginsAlpha_Pages_Generator
       'edit'      => get_edit_post_link($post_id, ''),
       'view_link' => get_permalink($post_id),
       'keyword'   => $keyword, // <- devolve pro REST poder mexer nas listas
-    ];
-  }
-
-
-  protected static function generate_content_from_outline(
-    string $keyword,
-    string $articleTitle,
-    array $sections,
-    string $length,
-    string $locale,
-
-  ) {
-    if (empty($sections)) {
-      return new WP_Error('pga_outline_empty', 'Esboço vazio.');
-    }
-
-    $htmlParts  = [];
-    $meta_title = '';
-    $meta_desc  = '';
-    $image_alt  = '';
-
-    $tmpTimeout = function ($t) {
-      return max((int)$t, 120);
-    };
-    add_filter('http_request_timeout', $tmpTimeout, 9999, 1);
-    $sectionsCount = count($sections);
-
-    foreach ($sections as $section) {
-      $sectionPrompt = PluginsAlpha_Prompts::build_section_prompt(
-        $keyword,
-        $articleTitle,
-        $section,
-        $length,
-        $locale,
-        $sectionsCount
-      );
-
-      $resp = PluginsAlpha_OpenAI::complete($sectionPrompt);
-
-      if (is_wp_error($resp)) {
-        remove_filter('http_request_timeout', $tmpTimeout, 9999);
-        return $resp;
-      }
-
-      $html = trim((string)($resp['content'] ?? ''));
-      if ($html !== '') {
-        $htmlParts[] = $html;
-      }
-
-      if (!$meta_title && !empty($resp['meta_title'])) {
-        $meta_title = (string)$resp['meta_title'];
-      }
-      if (!$meta_desc && !empty($resp['meta_description'])) {
-        $meta_desc = (string)$resp['meta_description'];
-      }
-      if (!$image_alt && !empty($resp['image_alt'])) {
-        $image_alt = (string)$resp['image_alt'];
-      }
-    }
-
-    remove_filter('http_request_timeout', $tmpTimeout, 9999);
-
-    $content_html = trim(implode("\n\n", $htmlParts));
-    if ($content_html === '') {
-      return new WP_Error('pga_outline_content_empty', 'Nenhum conteúdo gerado a partir do esboço.');
-    }
-
-    if ($meta_desc === '') {
-      $meta_desc = self::generate_meta_description_ai(
-        $keyword,
-        $articleTitle,
-        $locale,
-        $content_html
-      );
-    }
-
-    return [
-      'content'           => $content_html,
-      'meta_title'        => $meta_title,
-      'meta_description'  => $meta_desc,
-      'image_alt'         => $image_alt,
     ];
   }
 

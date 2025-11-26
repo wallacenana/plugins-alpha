@@ -194,7 +194,6 @@
         if (p.category_id) $('#pga_category').val(String(p.category_id));
         if (p.template_key) $('#pga_template_key').val(p.template_key);
         if (p.length) $('#pga_length').val(p.length);
-        if (p.source_url) $('#pga_source_url').val(p.source_url);
         if (p.total) $('#pga_total').val(String(p.total));
         if (p.per_day) $('#pga_per_day').val(String(p.per_day));
         if (p.first_delay_hours) $('#pga_first_delay_hours').val(String(p.first_delay_hours));
@@ -206,15 +205,15 @@
         locale: $('#pga_locale').val(),
         length: $('#pga_length').val(),
         template_key: $('#pga_template_key').val(),
-        source_url: ($('#pga_source_url').val() || '').trim(),
+        source_url: '', // morreu mesmo
         category_id: parseInt($('#pga_category').val() || '0', 10),
         total: parseInt($('#pga_total').val() || '1', 10),
         per_day: parseInt($('#pga_per_day').val() || '1', 10),
-        // 🔹 AGORA: guarda string, pode ser "2" ou "2025-11-27T09:30"
         first_delay_hours: ($('#pga_first_delay_hours').val() || '').trim(),
         mode: $('input[name="pga_mode"]:checked').val() || 'multi'
       };
     }
+
 
     function savePrefsToLocal() {
       try { localStorage.setItem(PREF_KEY, JSON.stringify(collectPrefs())); } catch (e) { }
@@ -340,14 +339,6 @@
       await refreshKeywords();
     });
 
-    $('#pga_template_key').on('change', function () {
-      const val = $(this).val();
-      if (val === 'modelar') {
-        $('#pga_source_url').closest('.pga-field').show();
-      } else {
-        $('#pga_source_url').closest('.pga-field').hide(); // ou esconder se quiser
-      }
-    });
     // ---------- Planejar -> gerar sequencial ----------
     $('#pga_plan').off('click').on('click', async () => {
       const prefs = collectPrefs();
@@ -433,7 +424,6 @@
             locale: prefs.locale,
             length: prefs.length,
             template_key: prefs.template_key,
-            source_url: prefs.source_url,
             total: prefs.total,
             per_day: prefs.per_day,
             first_delay_hours: prefs.first_delay_hours,
@@ -494,7 +484,6 @@
             locale: job.locale,
             template: job.template_key,
             template_key: job.template_key,
-            source_url: job.source_url,
             publish_time: job.publish_time,
             category_id: job.category_id,
             post_type: 'posts_orion',

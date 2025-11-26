@@ -231,6 +231,28 @@ class PluginsAlpha_Prompts
                             </p>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="pga_orion_prompt_post_thumbnail_regen">
+                                <?php esc_html_e('Regenerar thumbnail por post', 'plugins-alpha'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <textarea
+                                id="pga_orion_prompt_post_thumbnail_regen"
+                                name="pga_orion_prompts[post_thumbnail_regen]"
+                                rows="8"
+                                class="large-text code"><?php
+                                                        echo esc_textarea(pga_orion_prompt_value($raw, 'post_thumbnail_regen'));
+                                                        ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e(
+                                    'Usado quando você clica para gerar uma nova thumbnail diretamente no post. Pode usar {{title}}, {{content}} (resumo), {{locale}}.',
+                                    'plugins-alpha'
+                                ); ?>
+                            </p>
+                        </td>
+                    </tr>
 
                     <tr>
                         <th scope="row">
@@ -341,22 +363,37 @@ class PluginsAlpha_Prompts
         switch ($key) {
             case 'review_roundup':
                 return self::default_review_roundup();
+
             case 'review_single':
                 return self::default_review_single();
+
             case 'news':
                 return self::default_news();
+
             case 'howto':
                 return self::default_howto();
+
             case 'faq':
                 return self::default_faq();
+
             case 'title':
                 return self::default_title_prompt();
+
             case 'image':
                 return self::default_image_prompt();
+
             case 'outline':
                 return self::default_outline_prompt();
+
             case 'outline_modelar':
                 return self::default_outline_modelar_prompt();
+
+            case 'post_thumbnail_regen':
+                return self::default_post_thumbnail_regen_prompt();
+
+            case 'discover_article':
+                return self::default_article();
+
             case 'article':
             default:
                 return self::default_article();
@@ -403,10 +440,11 @@ class PluginsAlpha_Prompts
             'news'           => 'news',
             'howto'          => 'howto',
             'faq'            => 'faq',
-            'article'        => 'discover_article',
+            'article'        => 'article',
         );
 
-        $key = isset($key_map[$template]) ? $key_map[$template] : 'discover_article';
+        $key = isset($key_map[$template]) ? $key_map[$template] : 'article';
+
 
         $tpl = self::get_prompt_for($key);
 
@@ -436,7 +474,7 @@ class PluginsAlpha_Prompts
         string $keyword,
         int $min       = 3,
         int $max       = 5,
-        string $locale = 'pt_BR'
+        string $locale = 'pt_BR',
     ): string {
         $tpl = self::get_prompt_for('title');
 
@@ -544,7 +582,7 @@ class PluginsAlpha_Prompts
 
         $base = self::replace_vars($tpl, $vars);
 
-        return $base; // template já descreve o JSON
+        return $base;
     }
 
     /* ---------------------------------------------------------------------
@@ -577,6 +615,7 @@ class PluginsAlpha_Prompts
         $s .= "- O CTA deve ser um texto simples (saiba mais, veja mais, descubra como...).\n";
         $s .= "- O último slide SEMPRE deve ter CTA para o artigo em questão.\n";
         $s .= "- Não inclua comentários.\n";
+        $s .= "- Evite titulos como 'introdução', pois geralmente é o primeiro titulo e o ideal é ser o titulo mais chamativo de todos.\n";
         $s .= "- Não inclua texto fora do JSON.\n";
         $s .= "- Não inclua markdown, HTML, bullet points ou explicações.\n";
         $s .= "- No campo \"prompt\", crie sempre um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
@@ -664,119 +703,55 @@ class PluginsAlpha_Prompts
         $input_text .= "BRIEF PADRÃO:\n" . $brief . "\n\n";
         $input_text .= $format_block . "\n";
 
-        return $input_text . "Para a imagem o importante é a foto: 'Foto realista, cinematográfica, em alta resolução, ilustrando a conclusão: %s. Luz natural, foco no elemento principal, estilo profissional, vertical.',
-";
+        return $input_text . "Para a imagem o importante é a foto: 'Realista, cinematográfica, em alta resolução, 
+        ilustrando a conclusão: %s. Luz natural, foco no elemento principal, estilo profissional, vertical. Não 
+        ter marca d'agua, sem textos. Não use elementos entrelaçando um ao outro ou coisas muito complexas.'";
     }
-
-    protected static function default_outline_modelar_prompt(): string
-    {
-        $s  = '';
-        $s .= 'Atue como um especialista em SEO escrevendo em {{locale}}.' . "\n\n";
-
-        $s .= 'Você deve criar APENAS UM ESBOÇO (outline) COMPLETO para um artigo de blog ' .
-            'MODELADO a partir do conteúdo da seguinte URL, sem copiar trechos literalmente:' . "\n\n";
-
-        $s .= 'URL base para modelagem:' . "\n";
-        $s .= '{{url}}' . "\n\n";
-
-        $s .= 'Frase chave ou comando principal:' . "\n";
-        $s .= '"{{keyword}}"' . "\n\n";
-
-        $s .= 'Itens adicionais (produtos, variações, termos complementares), se existirem:' . "\n";
-        $s .= '{{extra}}' . "\n\n";
-
-        $s .= 'O título do artigo já está definido e NÃO PODE ser alterado:' . "\n";
-        $s .= '"{{articleTitle}}"' . "\n\n";
-
-        $s .= 'Regras de estrutura:' . "\n";
-        $s .= '- O artigo final terá entre {{min_words}} e {{max_words}} palavras.' . "\n";
-        $s .= '- Crie entre {{min_sections}} e {{max_sections}} seções principais (H2).' . "\n";
-        $s .= '- Cada H2 pode ter 1 a 3 subseções (H3).' . "\n";
-        $s .= '- A estrutura deve refletir a lógica da página de origem, porém com melhorias: ' .
-            'mais clareza, organização superior e foco em Discover.' . "\n";
-        $s .= '- Se {{extra}} listar vários produtos, pensar como review comparativo / roundup.' . "\n\n";
-
-        $s .= 'Para cada seção (H2):' . "\n";
-        $s .= '- Defina "heading".' . "\n";
-        $s .= '- Defina "word_goal" com min/max de palavras.' . "\n";
-        $s .= '- Liste "bullets" com ideias que serão desenvolvidas.' . "\n";
-        $s .= '- Em "children", inclua eventuais H3 com seus próprios bullets.' . "\n\n";
-
-        $s .= 'FORMATO DA RESPOSTA (OBRIGATÓRIO) — JSON UTF-8 válido, sem markdown:' . "\n\n";
-
-        $s .= '{' . "\n";
-        $s .= '  "sections": [' . "\n";
-        $s .= '    {' . "\n";
-        $s .= '      "id": "1",' . "\n";
-        $s .= '      "level": "h2",' . "\n";
-        $s .= '      "heading": "Título da seção...",' . "\n";
-        $s .= '      "word_goal": { "min": 300, "max": 500 },' . "\n";
-        $s .= '      "bullets": ["...", "..."],' . "\n";
-        $s .= '      "children": [' . "\n";
-        $s .= '        {' . "\n";
-        $s .= '          "id": "1.1",' . "\n";
-        $s .= '          "level": "h3",' . "\n";
-        $s .= '          "heading": "Subtítulo...",' . "\n";
-        $s .= '          "bullets": ["...", "..."]' . "\n";
-        $s .= '        }' . "\n";
-        $s .= '      ]' . "\n";
-        $s .= '    }' . "\n";
-        $s .= '  ]' . "\n";
-        $s .= '}' . "\n\n";
-
-        $s .= 'Não escreva nada fora desse JSON.' . "\n";
-
-        return $s;
-    }
-
 
     public static function build_outline_prompt_modelar(
-        string $keyword,
+        string $url,
         string $articleTitle,
         string $length,
-        string $locale,
-        string $url,
-        array $allKeywords = []
+        string $locale
     ): string {
-        $tpl       = self::get_prompt_for('outline_modelar');
-        $locale    = $locale ?: 'pt_BR';
-        $url       = trim($url);
+        $tpl    = self::get_prompt_for('outline_modelar');
+        $locale = $locale ?: 'pt_BR';
 
-        // range de palavras e nº de seções igual ao outline normal
         [$minWords, $maxWords] = self::length_to_range($length);
-        $cfg                   = self::outline_config($length);
-        $minSections           = $cfg['min_sections'];
-        $maxSections           = $cfg['max_sections'];
-
-        // monta string com keywords extras (se existirem)
-        $extra = '';
-        if (!empty($allKeywords)) {
-            $clean = array_values(array_filter(array_map('trim', $allKeywords)));
-            if ($clean) {
-                $extra = implode("\n", array_map(function ($k) {
-                    return '- ' . $k;
-                }, $clean));
-            }
-        }
+        $cfg         = self::outline_config($length);
+        $minSections = $cfg['min_sections'];
+        $maxSections = $cfg['max_sections'];
 
         $vars = [
-            'keyword'      => $keyword,
+            'url'          => $url,
             'articleTitle' => $articleTitle,
             'locale'       => $locale,
             'min_words'    => (string)$minWords,
             'max_words'    => (string)$maxWords,
             'min_sections' => (string)$minSections,
             'max_sections' => (string)$maxSections,
-            'url'          => $url,
-            'extra'        => $extra,
         ];
 
         $base = self::replace_vars($tpl, $vars);
 
-        // o template já descreve o JSON; não precisa sufixo extra
+        // INSTRUÇÃO DE JSON fora do prompt editável
+        $base .= "\n\n";
+        $base .= "Responda APENAS com um JSON UTF-8 válido no formato:\n";
+        $base .= "{\n";
+        $base .= '  "sections": [' . "\n";
+        $base .= '    {' . "\n";
+        $base .= '      "id": "1",' . "\n";
+        $base .= '      "heading": "Título da seção H2",' . "\n";
+        $base .= '      "level": "h2",' . "\n";
+        $base .= '      "children": [' . "\n";
+        $base .= '        {"id": "1.1", "heading": "Subtópico H3", "level": "h3"}' . "\n";
+        $base .= '      ]' . "\n";
+        $base .= '    }' . "\n";
+        $base .= '  ]' . "\n";
+        $base .= "}\n";
+
         return $base;
     }
-
 
     public static function build_section_prompt(
         string $keyword,
@@ -784,7 +759,8 @@ class PluginsAlpha_Prompts
         array $section,
         string $length = 'short',
         string $locale = 'pt_BR',
-        int $sectionsCount = 1
+        int $sectionsCount = 1,
+        string $url = ''
     ): string {
         [$globalMin, $globalMax] = self::length_to_range($length);
 
@@ -796,7 +772,6 @@ class PluginsAlpha_Prompts
         $children = (array)($section['children'] ?? []);
         $bullets  = (array)($section['bullets']  ?? []);
 
-        // 🔧 heading robusto: aceita vários formatos e faz fallback
         $heading = '';
         if (!empty($section['heading'])) {
             $heading = (string)$section['heading'];
@@ -845,9 +820,9 @@ class PluginsAlpha_Prompts
             }
         }
 
-
+        $locale = $locale ?: 'pt_BR';
         $txt  = '';
-        $txt .= "Atue como um especialista em SEO e GEO escrevendo em {$locale}.\n";
+        $txt .= "Atue como um especialista em SEO escrevendo em {$locale}.\n";
         $txt .= "O foco deste artigo é Google Discover, então o conteúdo deve ser fluido e despertar cada vez mais interesse em ler.\n\n";
 
         $txt .= "Você deve escrever APENAS o conteúdo (HTML) da seção \"{$heading}\" ({$level})\n";
@@ -860,19 +835,43 @@ class PluginsAlpha_Prompts
         $txt .= "  respeite essa estrutura no conjunto das seções (não crie um número diferente).\n";
         $txt .= "- Não mude o foco do artigo. Não contradiga o que o título promete.\n\n";
 
-        $txt .= "Frase chave de foco ou comando: \"{$keyword}\". Entenda se este item é uma frase chave ou um comando; se for um comando, siga o sentido do que o conteúdo quer dizer e, se tiver uma URL, acesse para modelar o conteúdo, mas não insira um link como referência.\n\n";
+        // === BRANCH: NORMAL x MODELAR (com URL) ===
+        if ($url !== '') {
+            // MODO MODELAR: a linha original era uma URL, keyword foi derivada internamente
+            $txt .= "Contexto de modelagem:\n";
+            $txt .= "- Use como base principal o conteúdo da página em: {$url}\n";
+            $txt .= "- Leia e entenda o conteúdo dessa página e então reescreva a seção com suas próprias palavras.\n";
+            $txt .= "- NUNCA copie frases inteiras ou parágrafos do texto original.\n";
+            $txt .= "- NUNCA mencione o nome do site, domínio, marca ou autores da página original.\n";
+            $txt .= "- NUNCA use placeholders como \"[Nome do Produto]\"; escreva o texto final completo.\n";
+            $txt .= "- Se a página original listar produtos com nomes específicos, use esses nomes reais no texto.\n";
+            $txt .= "- NUNCA invente nomes genéricos como \"Rastreador A\", \"Rastreador B\" ou similares.\n";
+            $txt .= "- Se não conseguir ler a URL, passe informações de produtos reais, pois o foco deste artigo é ser apresentado como material principal.\n";
+            $txt .= "- Evite frases que pareçam slogans ou trechos de marketing do site original (por exemplo, \"testamos todos eles\" ou frases muito similares).\n\n";
+
+
+            if (trim($keyword) !== '') {
+                $txt .= "- Considere também a frase de foco interna \"{$keyword}\" apenas como guia semântico, mas sem tratá-la como referência externa.\n";
+            }
+
+            $txt .= "\n";
+        } else {
+            // MODO NORMAL: a linha original era uma frase-chave/comando
+            $txt .= "Frase chave de foco ou comando: \"{$keyword}\".\n";
+            $txt .= "- Entenda se este item é uma frase chave ou um comando;\n";
+            $txt .= "  se for um comando, siga o sentido do que ele quer dizer.\n\n";
+        }
 
         $txt .= "Regras de tamanho:\n";
         $txt .= "- O texto desta seção deve ter aproximadamente entre {$approxMin} e {$approxMax} palavras.\n";
+        $txt .= "- É OBRIGATÓRIO não ultrapassar {$approxMax} palavras.\n";
+        $txt .= "- Se estiver chegando perto de {$approxMax} palavras, termine a ideia e finalize a seção.\n";
         $txt .= "- Desenvolva bem as ideias, com explicações e exemplos práticos, mas evite enrolação.\n";
-        $txt .= "- Cada parágrafo deve ter no máximo 4 linhas, ou seja, abaixo de 300 palavras. Cada tópico também deve conter no máximo 300 palavras; entre títulos e subtítulos, respeite esse limite.\n\n";
+        $txt .= "- Cada parágrafo deve ser curto, para leitura fácil em telas de celular.\n\n";
 
         $txt .= "Regras de HTML:\n";
         $txt .= "- Não inclua <h1>.\n";
         $txt .= "- Comece o conteúdo já com a tag {$level} principal desta seção.\n";
-        $txt .= "- A frase chave de foco deve ser distribuída pelo conteúdo levando em conta a performance de SEO.\n";
-        $txt .= "- A frase chave de foco deve estar principalmente na primeira frase de maneira fluida.\n";
-        $txt .= "- A frase chave de foco deve estar presente no último parágrafo.\n";
         $txt .= "- Use parágrafos (<p>) claros e escaneáveis.\n";
         $txt .= "- Use <strong> para negrito, nunca ** **.\n";
         $txt .= "- Use listas não ordenadas (<ul><li>) quando fizer sentido (passo a passo, checklist, dicas etc).\n";
@@ -880,17 +879,105 @@ class PluginsAlpha_Prompts
         $txt .= "- Trechos importantes do texto devem estar em negrito.\n";
         $txt .= "- No mínimo 40% do conteúdo deve ter palavras de transição, como: mas, por isso, entretanto, isso, quando, em resumo e outras similares, sem perder a voz ativa.\n\n";
 
-        $txt .= "Regras críticas sobre a frase chave:\n";
+        $txt .= "Regras críticas sobre a frase chave (quando existir):\n";
         $txt .= "- Esta seção deve conter ao menos uma vez a frase chave de foco.\n";
         $txt .= "- Se esta for a seção de introdução ou conclusão, então a frase chave deve estar na primeira frase de maneira fluida.\n\n";
 
-        $txt .= "Contexto do esboço:\n";
+        // Regras extras de modelagem (valem especialmente para URL, mas são seguras sempre)
+        $txt .= "- Nunca copie frases de abertura ou slogans do site de origem (por exemplo: \"testamos todos eles\" ou frases similares).\n";
+        $txt .= "- Nunca mencione o nome do site, domínio ou marca da página original.\n";
+        $txt .= "- Não faça referências ao fato de estar modelando outro texto; escreva como um artigo original.\n\n";
+
+        $txt .= "Contexto do esboço desta seção:\n";
         $txt .= $bulletsText . "\n";
 
+        $txt .= "IMPORTANTE:\n";
+        $txt .= "- Responda APENAS com o HTML desta seção.\n";
+        $txt .= "- Não explique o que está fazendo, não inclua comentários fora do HTML.\n";
 
         return $txt;
     }
 
+    /**
+     * Prompt padrão para gerar um prompt de IMAGEM
+     * baseado no título + conteúdo de um post.
+     */
+    private static function default_post_thumbnail_regen_prompt(): string
+    {
+        $s  = "";
+        $s .= "Ultra-realistic natural photo, 16:9 aspect ratio, smartphone camera style.\n";
+        $s .= "Soft daylight from a window, simple and authentic visual.\n";
+        $s .= "Main subject based on the title and context.\n\n";
+
+        $s .= "title (pt-BR): \"{{title}}\".\n";
+        $s .= "context: {{content}}.\n\n";
+
+        $s .= "Show only ONE clear subject. Avoid text, hands, people, watermarks, filters, or clutter.\n";
+        $s .= "Background must be real and lightly blurred (kitchen, living room, bedroom, bathroom, or generic indoor environment).\n";
+        $s .= "Make it look natural, casual and photographic, not artistic.\n";
+
+        return $s;
+    }
+
+    /**
+     * Monta o prompt de thumbnail para um post específico,
+     * usando título + conteúdo como base.
+     */
+    public static function build_post_thumbnail_regen_prompt(
+        string $title,
+        string $content,
+        string $locale = 'pt_BR'
+    ): string {
+        // carrega o template (permite edição futura pela UI se você guardar em options)
+        $tpl = self::get_prompt_for('post_thumbnail_regen');
+
+        // se por algum motivo vier vazio, usa o default hardcoded
+        if (!$tpl) {
+            $tpl = self::default_post_thumbnail_regen_prompt();
+        }
+
+        $vars = [
+            'title'   => $title,
+            'content' => $content,
+            'locale'  => $locale,
+        ];
+
+        return self::replace_vars($tpl, $vars);
+    }
+
+
+    private static function default_outline_modelar_prompt(): string
+    {
+        $s  = '';
+        $s .= 'Você está em 2025 e é um redator sênior especializado em SEO e Google Discover em {{locale}}.' . "\n\n";
+        $s .= 'Sua tarefa é criar o ESBOÇO COMPLETO de um artigo com o título:' . "\n";
+        $s .= '"{{articleTitle}}".' . "\n\n";
+
+        $s .= "Contexto e referência:\n";
+        $s .= "- Acesse e analise o conteúdo da seguinte URL:\n";
+        $s .= "  {{url}}\n";
+        $s .= "- Use essa página apenas como referência de ideias, estrutura e principais pontos do tema.\n";
+        $s .= "- Reescreva tudo com suas próprias palavras, sem copiar trechos literalmente.\n\n";
+
+        $s .= "Regras importantes:\n";
+        $s .= "- Nunca mencione a URL, o site ou que está modelando outro conteúdo.\n";
+        $s .= "- Não escreva nada sobre \"fonte\", \"referência\" ou créditos.\n";
+        $s .= "- O leitor não deve perceber que existe uma página de origem.\n\n";
+        $s .= "- Nunca copie frases de abertura ou slogans do site de origem (por exemplo: \"testamos todos eles\" ou similares).\n";
+        $s .= "- Nunca mencione o nome do site, domínio ou marca da página original.\n";
+
+        $s .= "Especificações do esboço:\n";
+        $s .= "- O artigo final deve ter entre {{min_words}} e {{max_words}} palavras.\n";
+        $s .= "- Crie entre {{min_sections}} e {{max_sections}} seções principais de nível H2.\n";
+        $s .= "- Quando fizer sentido, crie subtópicos H3 dentro das seções principais.\n";
+        $s .= "- Cada título de seção deve ser claro, direto e alinhado com o tema central do artigo.\n\n";
+
+        $s .= "O que entregar agora:\n";
+        $s .= "- Apenas o esboço hierárquico (H2 e H3).\n";
+        $s .= "- Não escreva o conteúdo completo das seções, apenas os títulos.\n";
+
+        return $s;
+    }
 
     protected static function default_outline_prompt(): string
     {
@@ -1116,6 +1203,7 @@ class PluginsAlpha_Prompts
         $s .= 'Estamos em 2025 e você é um redator sênior especializado em SEO, Google Discover e títulos de alto CTR em {{locale}}.' . "\n\n";
         $s .= 'Gere entre {{min}} e {{max}} TÍTULOS criativos, naturais e de alto clique para um conteúdo com a frase chave: "{{keyword}}".' . "\n\n";
         $s .= "Diretrizes:\n";
+        $s .= "Se aqui tiver uma url entre aspas, então você deve acessar o conteudo e modelar o titulo: '{{url}}':\n";
         $s .= "- Títulos curtos e específicos, evitando clickbait vazio.\n";
         $s .= "- Use emoção, curiosidade, autoridade e relevância de notícia quando fizer sentido.\n";
         $s .= "- Considere o contexto de Discover: urgência, novidade e interesse atual do público.\n";
