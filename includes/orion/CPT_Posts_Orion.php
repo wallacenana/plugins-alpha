@@ -26,9 +26,9 @@ class PluginsAlpha_CPT_Posts_Orion
   {
     // já existentes
     add_action('init', [self::class, 'register']);
-    add_action('init', [self::class, 'add_rewrite_rules'], 20);
-    add_filter('query_vars', [self::class, 'register_query_var']);
-    add_action('parse_request', [self::class, 'parse_request']);
+    // add_action('init', [self::class, 'add_rewrite_rules'], 20);
+    // add_filter('query_vars', [self::class, 'register_query_var']);
+    // add_action('parse_request', [self::class, 'parse_request']);
     add_filter('post_type_link', [self::class, 'filter_permalink'], 10, 4);
 
     if (is_admin()) {
@@ -378,6 +378,8 @@ class PluginsAlpha_CPT_Posts_Orion
       'post-formats',
     ];
 
+    $base = self::get_base_slug();
+
     register_post_type('posts_orion', [
       'public'             => true,
       'show_ui'            => true,
@@ -389,9 +391,12 @@ class PluginsAlpha_CPT_Posts_Orion
       'taxonomies'         => ['category', 'post_tag'],
       'capability_type'    => 'post',
       'publicly_queryable' => true,
-      'rewrite'            => false,  // usamos rewrite custom
-      'has_archive'        => false,
-      'query_var'          => false,  // usamos QUERY_VAR custom
+      'rewrite'            => [
+        'slug'       => $base,
+        'with_front' => false,
+      ],
+      'has_archive'        => $base,
+      'query_var'          => true,
     ]);
   }
 
@@ -455,12 +460,35 @@ class PluginsAlpha_CPT_Posts_Orion
       return $permalink;
     }
 
-    $base = self::get_base_slug();  // nunca vazio
-    $slug = $post->post_name;
+    $base = self::get_base_slug(); // ex: "blog"
+
+    /**
+     * Caso especial: SAMPLE LINK (usado no editor quando você mexe na slug)
+     *
+     * Nesse momento o WP quer manter o marcador %postname%
+     * ou o slug que ainda nem foi salvo. Se a gente sempre
+     * usar $post->post_name, quebra a edição da slug.
+     */
+    if ($sample) {
+      // Se o permalink original tem %postname%, mantemos ele
+      if (strpos($permalink, '%postname%') !== false) {
+        $slug_part = '%postname%';
+      } else {
+        // fallback: usa o marcador mesmo assim
+        $slug_part = '%postname%';
+      }
+
+      $path = $base . '/' . $slug_part;
+      return home_url(user_trailingslashit($path));
+    }
+
+    // Caso normal (front, links reais)
+    $slug = $post->post_name ?: sanitize_title($post->post_title);
     $path = $base . '/' . $slug;
 
     return home_url(user_trailingslashit($path));
   }
+
 
   /**
    * Remove ações (Editar, Edição rápida, Ver) para posts_orion

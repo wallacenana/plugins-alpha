@@ -1029,6 +1029,7 @@ class PluginsAlpha_Prompts
         $txt .= "IMPORTANTE:\n";
         $txt .= "- Responda APENAS com o HTML desta seção.\n";
         $txt .= "- Não explique o que está fazendo, não inclua comentários fora do HTML.\n";
+        $txt .= "- Dê uma solução real para a questão, não crie coisas como 'marca a', 'produto a', coisas ficticias assim. Use seus dados para trazer uma solução real em resposta a keyword.\n";
 
         return $txt;
     }

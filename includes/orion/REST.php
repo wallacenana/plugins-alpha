@@ -293,7 +293,6 @@ class PluginsAlpha_REST
         if (is_wp_error($res)) {
             return $res;
         }
-
         return rest_ensure_response($res);
     }
 

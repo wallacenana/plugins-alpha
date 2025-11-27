@@ -264,21 +264,40 @@ class PluginsAlpha_Pages_Generator
       }
     }
 
+    // slug seguro
     $slug = sanitize_title($keyword);
+    if ($slug === '') {
+      $slug = sanitize_title(uniqid('orion_', true));
+    }
 
-    // 0) Cria rascunho
-    $draft_id = wp_insert_post([
+    if (!post_type_exists($post_type)) {
+      if (post_type_exists('posts_orion')) {
+        $post_type = 'posts_orion';
+      } elseif (post_type_exists('post_orion')) {
+        $post_type = 'post_orion';
+      } else {
+        // último fallback só pra não quebrar o fluxo
+        $post_type = 'post';
+      }
+    }
+
+    $postarr = [
       'post_type'    => $post_type,
-      'post_status'  => 'future',
+      'post_status'  => 'draft',
       'post_title'   => '(Gerando) ' . $keyword,
       'post_name'    => $slug,
       'post_content' => '',
       'post_author'  => get_current_user_id(),
-    ], true);
+    ];
 
-    if (is_wp_error($draft_id)) {
-      return $draft_id;
+    if ($publish_ts > 0) {
+      $postarr['post_date']     = date('Y-m-d H:i:s', $publish_ts);
+      $postarr['post_date_gmt'] = gmdate('Y-m-d H:i:s', $publish_ts);
     }
+
+    $draft_id = wp_insert_post($postarr, true);
+
+    $draft_id = (int)$draft_id;
 
     if ($publish_ts > 0) {
       update_post_meta($draft_id, '_pga_publish_ts', $publish_ts);
@@ -289,7 +308,6 @@ class PluginsAlpha_Pages_Generator
       wp_set_post_terms($draft_id, [(int)$category_id], 'category', false);
       update_post_meta($draft_id, '_pga_orion_category_ids', [(int)$category_id]);
     }
-
     // 1) TÍTULO — aqui já usamos o keyword DERIVADO e, no modelar, passamos a URL pro prompt
     $titlePrompt = PluginsAlpha_Prompts::build_title_prompt(
       $keyword,
@@ -298,7 +316,6 @@ class PluginsAlpha_Pages_Generator
       $locale,
       $url // vazio nos templates normais; preenchido no modelar
     );
-
     $titles = PluginsAlpha_OpenAI::titles($titlePrompt);
     if (is_wp_error($titles)) {
       update_post_meta($draft_id, '_pga_job_status', 'error');
@@ -308,7 +325,6 @@ class PluginsAlpha_Pages_Generator
         ['status' => 504, 'post_id' => $draft_id]
       );
     }
-
     $chosenTitle = self::pick_best_title($titles, $keyword);
     if (!$chosenTitle) {
       $chosenTitle = ucfirst($keyword);
@@ -355,7 +371,9 @@ class PluginsAlpha_Pages_Generator
 
     if (is_wp_error($outline)) {
       update_post_meta($draft_id, '_pga_job_status', 'error');
-      return $outline;
+      if (is_wp_error($outline)) {
+        return self::fail_job($draft_id, $outline);
+      }
     }
 
     // Se vier { "sections": [...] }, pega só o array interno
@@ -591,7 +609,6 @@ class PluginsAlpha_Pages_Generator
       $sectionsCount,
       $url
     );
-
     // aumenta timeout só pra essa chamada
     $tmpTimeout = function ($t) {
       return max((int)$t, 120);
@@ -599,6 +616,9 @@ class PluginsAlpha_Pages_Generator
     add_filter('http_request_timeout', $tmpTimeout, 9999, 1);
 
     $resp = PluginsAlpha_OpenAI::complete($sectionPrompt);
+    if (is_wp_error($resp)) {
+      return self::fail_job($post_id, $resp);
+    }
 
     remove_filter('http_request_timeout', $tmpTimeout, 9999);
 
@@ -963,6 +983,23 @@ class PluginsAlpha_Pages_Generator
       'post_id'   => $post_id,
       'view_link' => get_permalink($post_id),
     ];
+  }
+
+  private static function fail_job($post_id, WP_Error $err)
+  {
+    wp_update_post([
+      'ID'          => $post_id,
+      'post_status' => 'draft',
+      'post_title'  => '(Falhou) ' . get_the_title($post_id),
+    ]);
+
+    update_post_meta($post_id, '_pga_last_error', [
+      'code'    => $err->get_error_code(),
+      'message' => $err->get_error_message(),
+      'time'    => time(),
+    ]);
+
+    return $err;
   }
 
   /**
