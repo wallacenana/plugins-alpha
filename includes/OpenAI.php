@@ -131,16 +131,38 @@ class PluginsAlpha_OpenAI
         $raw  = wp_remote_retrieve_body($res);
         if ($code !== 200) {
             $msg = 'HTTP ' . $code;
-            $j = json_decode($raw, true);
-            if (isset($j['error']['message'])) $msg = $j['error']['message'];
-            return new WP_Error('pga_openai_http', $msg, ['http_code' => $code]);
+            $j   = json_decode($raw, true);
+            if (isset($j['error']['message'])) {
+                $msg = $j['error']['message'];
+            }
+
+            $err = new WP_Error(
+                'pga_openai_http',
+                $msg,
+                [
+                    'http_code'    => $code,
+                    'body_snippet' => substr((string)$raw, 0, 800),
+                ]
+            );
+
+            error_log('[PGA_OPENAI_HTTP] code=' . $code . ' msg=' . $msg . ' body=' . substr((string)$raw, 0, 300));
+
+            return $err;
         }
 
         $json = json_decode($raw, true);
         $txt  = (string)($json['choices'][0]['message']['content'] ?? '');
 
         $parsed = self::extract_json($txt);
-        if (!$parsed) return new WP_Error('pga_parse', 'Falha ao decodificar JSON do modelo.');
+        if (!$parsed) {
+            $err = new WP_Error(
+                'pga_parse',
+                'Falha ao decodificar JSON do modelo.',
+                ['snippet' => substr($txt, 0, 800)]
+            );
+            error_log('[PGA_OPENAI_PARSE] ' . substr($txt, 0, 300));
+            return $err;
+        }
 
         return [
             'title'              => trim((string)($parsed['title'] ?? '')),

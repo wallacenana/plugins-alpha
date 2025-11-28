@@ -725,7 +725,7 @@ class PluginsAlpha_Prompts
 
         $base = self::replace_vars($tpl, $vars);
 
-        return $base;
+        return $base . "\n\n" . self::outline_json_suffix();
     }
 
     /* ---------------------------------------------------------------------
@@ -1031,9 +1031,21 @@ class PluginsAlpha_Prompts
         $txt .= "- Não explique o que está fazendo, não inclua comentários fora do HTML.\n";
         $txt .= "- Dê uma solução real para a questão, não crie coisas como 'marca a', 'produto a', coisas ficticias assim. Use seus dados para trazer uma solução real em resposta a keyword.\n";
 
+        $txt .= "IMPORTANTE:\n";
+        $txt .= "- Responda APENAS em JSON UTF-8 válido, seguindo exatamente o formato abaixo.\n";
+        $txt .= "- O campo \"content\" deve conter SOMENTE o HTML desta seção, começando pela tag {$level}.\n\n";
+        $txt .= "{\n";
+        $txt .= "  \"title\": \"\",\n";
+        $txt .= "  \"titles_suggestions\": [],\n";
+        $txt .= "  \"content\": \"<{$level}>...</{$level}>...\",\n";
+        $txt .= "  \"meta_title\": \"\",\n";
+        $txt .= "  \"meta_description\": \"\",\n";
+        $txt .= "  \"image_alt\": \"\",\n";
+        $txt .= "  \"links\": {\"internal\": [], \"external\": []}\n";
+        $txt .= "}\n";
+
         return $txt;
     }
-
     /**
      * Prompt padrão para gerar um prompt de IMAGEM
      * baseado no título + conteúdo de um post.
@@ -1223,7 +1235,7 @@ class PluginsAlpha_Prompts
 
         $s .= "{$ctx}\n";
 
-        $s .= "Retorne APENAS a meta descrição final, nada mais.\n";
+        $s .= "Responda APENAS em JSON UTF-8 válido, no formato {\"description\": \"...\"}.\n";
 
         return $s;
     }

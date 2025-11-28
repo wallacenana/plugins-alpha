@@ -318,13 +318,9 @@ class PluginsAlpha_Pages_Generator
     );
     $titles = PluginsAlpha_OpenAI::titles($titlePrompt);
     if (is_wp_error($titles)) {
-      update_post_meta($draft_id, '_pga_job_status', 'error');
-      return new WP_Error(
-        $titles->get_error_code() ?: 'pga_ai_titles',
-        $titles->get_error_message(),
-        ['status' => 504, 'post_id' => $draft_id]
-      );
+      return self::fail_job($draft_id, $titles, 'titles');
     }
+
     $chosenTitle = self::pick_best_title($titles, $keyword);
     if (!$chosenTitle) {
       $chosenTitle = ucfirst($keyword);
@@ -370,11 +366,9 @@ class PluginsAlpha_Pages_Generator
     $outline = PluginsAlpha_OpenAI::outline($outlinePrompt);
 
     if (is_wp_error($outline)) {
-      update_post_meta($draft_id, '_pga_job_status', 'error');
-      if (is_wp_error($outline)) {
-        return self::fail_job($draft_id, $outline);
-      }
+      return self::fail_job($draft_id, $outline, 'outline');
     }
+
 
     // Se vier { "sections": [...] }, pega só o array interno
     $sections = $outline['sections'] ?? $outline;
@@ -616,14 +610,36 @@ class PluginsAlpha_Pages_Generator
     add_filter('http_request_timeout', $tmpTimeout, 9999, 1);
 
     $resp = PluginsAlpha_OpenAI::complete($sectionPrompt);
-    if (is_wp_error($resp)) {
-      return self::fail_job($post_id, $resp);
-    }
 
     remove_filter('http_request_timeout', $tmpTimeout, 9999);
 
     if (is_wp_error($resp)) {
-      return $resp;
+      if ($resp->get_error_code() === 'pga_parse') {
+        $data    = (array) $resp->get_error_data();
+        $snippet = isset($data['snippet']) ? (string) $data['snippet'] : '';
+
+        // se parece HTML de seção, trata como sucesso
+        if ($snippet !== '' && preg_match('/<(h2|h3|p|ul|ol|li)[^>]*>/i', $snippet)) {
+          $resp = [
+            'title'             => '',
+            'titles_suggestions' => [],
+            'content'           => $snippet,
+            'meta_title'        => '',
+            'meta_description'  => '',
+            'image_alt'         => '',
+            'links'             => [
+              'internal' => [],
+              'external' => [],
+            ],
+          ];
+        } else {
+          // não deu pra aproveitar → falha normal
+          return self::fail_job($post_id, $resp, 'section_' . $section_id);
+        }
+      } else {
+        // qualquer outro erro (HTTP, timeout, etc.)
+        return self::fail_job($post_id, $resp, 'section_' . $section_id);
+      }
     }
 
     $content_html = trim((string)($resp['content'] ?? ''));
@@ -740,10 +756,9 @@ class PluginsAlpha_Pages_Generator
     ]);
 
     if (is_wp_error($res)) {
-      return $res;
+      return self::fail_job($post_id, $res, 'finalize');
     }
 
-    // ❗ AQUI: Generator só devolve os dados. Nada de kw_get_* aqui.
     return [
       'ok'        => true,
       'post_id'   => $post_id,
@@ -901,7 +916,12 @@ class PluginsAlpha_Pages_Generator
       return new WP_Error(
         $updated_id->get_error_code() ?: 'pga_wp_update',
         $updated_id->get_error_message(),
-        ['status' => 500, 'post_id' => $post_id]
+        [
+          'status'   => 500,
+          'post_id'  => $post_id,
+          'step'     => 'wp_update_post',
+          'payload'  => $upd,
+        ]
       );
     }
 
@@ -985,22 +1005,49 @@ class PluginsAlpha_Pages_Generator
     ];
   }
 
-  private static function fail_job($post_id, WP_Error $err)
+  private static function fail_job($post_id, WP_Error $err, string $step = '')
   {
+    $post_id = (int) $post_id;
+    $step    = $step ?: 'desconhecido';
+
+    $code    = $err->get_error_code();
+    $message = $err->get_error_message();
+    $data    = $err->get_error_data();
+
+    // tenta não destruir totalmente o título original
+    $old_title = get_the_title($post_id);
+    if (!$old_title) {
+      $old_title = '(sem título)';
+    }
+
+    // deixa como rascunho e marca como falhou, mas mantendo algo legível
     wp_update_post([
       'ID'          => $post_id,
       'post_status' => 'draft',
-      'post_title'  => '(Falhou) ' . get_the_title($post_id),
+      'post_title'  => sprintf('[Falhou em %s] %s', $step, $old_title),
     ]);
 
-    update_post_meta($post_id, '_pga_last_error', [
-      'code'    => $err->get_error_code(),
-      'message' => $err->get_error_message(),
+    $payload = [
+      'code'    => $code,
+      'message' => $message,
+      'step'    => $step,
       'time'    => time(),
-    ]);
+      'data'    => $data,
+    ];
+
+    update_post_meta($post_id, '_pga_last_error', $payload);
+    update_post_meta($post_id, '_pga_job_status', 'error');
+
+    // loga no error_log também
+    error_log('[PGA_ORION_FAIL] post_id=' . $post_id
+      . ' step=' . $step
+      . ' code=' . $code
+      . ' msg=' . $message
+      . ' data=' . print_r($data, true));
 
     return $err;
   }
+
 
   /**
    * Transforma um META-PROMPT de imagem (tipo "Você é um gerador de prompts...")
