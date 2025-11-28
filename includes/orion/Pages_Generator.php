@@ -1005,48 +1005,31 @@ class PluginsAlpha_Pages_Generator
     ];
   }
 
-  private static function fail_job($post_id, WP_Error $err, string $step = '')
+  private static function fail_job($post_id, WP_Error $err)
   {
-    $post_id = (int) $post_id;
-    $step    = $step ?: 'desconhecido';
+    $data = $err->get_error_data() ?: [];
+    $snippet = is_array($data) && !empty($data['snippet']) ? $data['snippet'] : '';
 
-    $code    = $err->get_error_code();
-    $message = $err->get_error_message();
-    $data    = $err->get_error_data();
-
-    // tenta não destruir totalmente o título original
-    $old_title = get_the_title($post_id);
-    if (!$old_title) {
-      $old_title = '(sem título)';
+    if ($snippet) {
+      error_log('[PGA_OPENAI_OUTLINE_PARSE] ' . $snippet);
     }
 
-    // deixa como rascunho e marca como falhou, mas mantendo algo legível
     wp_update_post([
       'ID'          => $post_id,
       'post_status' => 'draft',
-      'post_title'  => sprintf('[Falhou em %s] %s', $step, $old_title),
+      'post_title'  => '(Falhou) ' . get_the_title($post_id),
     ]);
 
-    $payload = [
-      'code'    => $code,
-      'message' => $message,
-      'step'    => $step,
-      'time'    => time(),
+    update_post_meta($post_id, '_pga_last_error', [
+      'code'    => $err->get_error_code(),
+      'message' => $err->get_error_message(),
       'data'    => $data,
-    ];
-
-    update_post_meta($post_id, '_pga_last_error', $payload);
-    update_post_meta($post_id, '_pga_job_status', 'error');
-
-    // loga no error_log também
-    error_log('[PGA_ORION_FAIL] post_id=' . $post_id
-      . ' step=' . $step
-      . ' code=' . $code
-      . ' msg=' . $message
-      . ' data=' . print_r($data, true));
+      'time'    => time(),
+    ]);
 
     return $err;
   }
+
 
 
   /**

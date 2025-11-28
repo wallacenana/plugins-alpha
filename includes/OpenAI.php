@@ -77,9 +77,17 @@ class PluginsAlpha_OpenAI
         $json = json_decode($raw, true);
         $txt  = (string)($json['choices'][0]['message']['content'] ?? '');
 
-        $parsed = self::extract_json($txt); // já existe nessa classe
+        $parsed = self::extract_json($txt);
         if (!is_array($parsed) || empty($parsed['sections']) || !is_array($parsed['sections'])) {
-            return new WP_Error('pga_outline_parse', 'Falha ao decodificar ESBOÇO.');
+
+            // manda um pedacinho da resposta pro data, igual fizemos nas seções
+            return new WP_Error(
+                'pga_outline_parse',
+                'Falha ao decodificar ESBOÇO.',
+                [
+                    'snippet' => mb_substr($txt, 0, 800), // primeiros 800 chars
+                ]
+            );
         }
 
         return $parsed['sections'];
