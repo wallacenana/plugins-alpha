@@ -26,6 +26,7 @@ class PluginsAlpha_CPT_Posts_Orion
   {
     // já existentes
     add_action('init', [self::class, 'register']);
+    add_action('update_option_' . self::OPTION_BASE, [self::class, 'on_change_base'], 10, 2);
     // add_action('init', [self::class, 'add_rewrite_rules'], 20);
     // add_filter('query_vars', [self::class, 'register_query_var']);
     // add_action('parse_request', [self::class, 'parse_request']);
@@ -144,6 +145,22 @@ class PluginsAlpha_CPT_Posts_Orion
         'prompt'     => $prompt,
       ]);
     });
+  }
+
+  public static function on_change_base($old_value, $value): void
+  {
+    // Evita flush desnecessário
+    $old = trim((string)$old_value);
+    $new = trim((string)$value);
+
+    if ($old === $new) {
+      return;
+    }
+
+    // Garante que o CPT esteja registrado antes de flushear
+    self::register();
+
+    flush_rewrite_rules(false);
   }
 
   public static function pga_render_regen_thumb_box($post)
