@@ -1044,8 +1044,29 @@ class PluginsAlpha_Prompts
         $txt .= "  \"links\": {\"internal\": [], \"external\": []}\n";
         $txt .= "}\n";
 
-        return $txt;
+        return $txt . "\n\n" . self::section_json_suffix($level);
     }
+
+    private static function section_json_suffix(string $level): string
+    {
+        $s  = '';
+        $s .= "IMPORTANTE:\n";
+        $s .= "- Responda APENAS em JSON UTF-8 válido, seguindo exatamente o formato abaixo.\n";
+        $s .= "- O campo \"content\" deve conter SOMENTE o HTML desta seção, começando pela tag {$level}.\n\n";
+        $s .= "{\n";
+        $s .= "  \"title\": \"\",\n";
+        $s .= "  \"titles_suggestions\": [],\n";
+        $s .= "  \"content\": \"<{$level}>...</{$level}>...\",\n";
+        $s .= "  \"meta_title\": \"\",\n";
+        $s .= "  \"meta_description\": \"\",\n";
+        $s .= "  \"image_alt\": \"\",\n";
+        $s .= "  \"links\": {\"internal\": [], \"external\": []}\n";
+        $s .= "}\n";
+
+        return $s;
+    }
+
+
     /**
      * Prompt padrão para gerar um prompt de IMAGEM
      * baseado no título + conteúdo de um post.
