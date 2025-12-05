@@ -974,10 +974,12 @@ class PluginsAlpha_Prompts
         $txt .= "- Se o título promete um certo número de passos, dicas, motivos etc,\n";
         $txt .= "  respeite essa estrutura no conjunto das seções (não crie um número diferente).\n";
         $txt .= "- Não mude o foco do artigo. Não contradiga o que o título promete.\n\n";
+        $txt .= "- Não insira numeração se o título não for especifico sobre quantidades, exemplo 'x motivos para [...]', 'x itens sobre [...] etc'.\n\n";
 
         if ($url !== '') {
             $txt .= "Contexto de modelagem:\n";
             $txt .= "- Use como base principal o conteúdo da página em: {$url}\n";
+            $txt .= "- Caso não consiga modelar acessar esse site ou for algo relacionado a bot, então deve ser retornado imediatamente um formato incompativel para o formato pedido abaixo, para terminar em erro\n";
             $txt .= "- Leia e entenda o conteúdo dessa página e então reescreva a seção com suas próprias palavras.\n";
             $txt .= "- NUNCA copie frases inteiras ou parágrafos do texto original.\n";
             $txt .= "- NUNCA mencione o nome do site, domínio, marca ou autores da página original.\n";
@@ -1030,19 +1032,6 @@ class PluginsAlpha_Prompts
         $txt .= "- Responda APENAS com o HTML desta seção.\n";
         $txt .= "- Não explique o que está fazendo, não inclua comentários fora do HTML.\n";
         $txt .= "- Dê uma solução real para a questão, não crie coisas como 'marca a', 'produto a', coisas ficticias assim. Use seus dados para trazer uma solução real em resposta a keyword.\n";
-
-        $txt .= "IMPORTANTE:\n";
-        $txt .= "- Responda APENAS em JSON UTF-8 válido, seguindo exatamente o formato abaixo.\n";
-        $txt .= "- O campo \"content\" deve conter SOMENTE o HTML desta seção, começando pela tag {$level}.\n\n";
-        $txt .= "{\n";
-        $txt .= "  \"title\": \"\",\n";
-        $txt .= "  \"titles_suggestions\": [],\n";
-        $txt .= "  \"content\": \"<{$level}>...</{$level}>...\",\n";
-        $txt .= "  \"meta_title\": \"\",\n";
-        $txt .= "  \"meta_description\": \"\",\n";
-        $txt .= "  \"image_alt\": \"\",\n";
-        $txt .= "  \"links\": {\"internal\": [], \"external\": []}\n";
-        $txt .= "}\n";
 
         return $txt . "\n\n" . self::section_json_suffix($level);
     }
@@ -1165,6 +1154,7 @@ class PluginsAlpha_Prompts
         $s .= "  o esboço DEVE refletir exatamente esse número de itens principais.\n";
         $s .= "- Não invente mais nem menos passos do que o prometido no título.\n";
         $s .= "- A intenção do título (promessa principal) deve ser claramente atendida nas seções.\n\n";
+        $s .= "- Só deve ser inserido numerações se o título tiver alguma quantidade de algo.\n\n";
 
         $s .= "Regras de tamanho:\n";
         $s .= "- O artigo final terá entre {{min_words}} e {{max_words}} palavras.\n";
@@ -1174,11 +1164,11 @@ class PluginsAlpha_Prompts
         $s .= "Estrutura:\n";
         $s .= "- \"sections\" é um array de seções de nível H2.\n";
         $s .= "- Cada H2 pode conter um array \"children\" com H3 relacionados.\n";
-        $s .= "- Com exceção da introdução, ao menos 1 H2 deve ter subseções.\n";
+        $s .= "- Com exceção da introdução e finalização, ao menos 1 H2 deve ter subseções.\n";
         $s .= "- Inclua \"bullets\" com ideias que serão desenvolvidas em cada seção.\n\n";
 
         $s .= "Finalização:\n";
-        $s .= "- Finalize sempre com a conclusão.\n\n";
+        $s .= "- Finalize sempre com a conclusão, mas jamais coloque o título como 'conclusão'.\n\n";
 
         $s .= "A frase chave \"{{keyword}}\" deve ser considerada em toda a estrutura.\n";
 
