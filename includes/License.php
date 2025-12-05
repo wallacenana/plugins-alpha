@@ -599,8 +599,8 @@ class PluginsAlpha_License
     public static function module_labels(): array
     {
         return [
-            'stories'   => __('Alpha Stories', 'plugins-alpha'),
-            'orion' => __('Alpha Órion', 'plugins-alpha'),
+            'alpha_stories'   => __('Alpha Stories', 'plugins-alpha'),
+            'alpha_orion' => __('Alpha Órion', 'plugins-alpha'),
         ];
     }
 

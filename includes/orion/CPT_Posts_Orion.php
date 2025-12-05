@@ -307,7 +307,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return;
     }
 
-    $chk = PluginsAlpha_License::check('orion');
+    $chk = PluginsAlpha_License::check('alpha_orion');
 
     // 1) Aviso geral: licença/módulo não ativo
     if (empty($chk['ok'])) {
@@ -525,7 +525,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return $actions;
     }
 
-    $chk = PluginsAlpha_License::check('orion');
+    $chk = PluginsAlpha_License::check('alpha_orion');
 
     // Se licença ok OU post já publicado → deixa tudo normal
     if (!empty($chk['ok']) || $post->post_status === 'publish') {
@@ -555,7 +555,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return $link;
     }
 
-    $chk = PluginsAlpha_License::check('orion');
+    $chk = PluginsAlpha_License::check('alpha_orion');
 
     // Licença ok ou post publicado → mantém link
     if (!empty($chk['ok']) || $post->post_status === 'publish') {
@@ -597,7 +597,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return;
     }
 
-    $chk = PluginsAlpha_License::check('orion');
+    $chk = PluginsAlpha_License::check('alpha_orion');
 
     // Se licença OK, deixa publicar normal
     if (!empty($chk['ok'])) {

@@ -29,7 +29,7 @@ class PluginsAlpha_Generate
 
     // checa licença do módulo Stories
     $chk = class_exists('PluginsAlpha_License')
-      ? PluginsAlpha_License::check('stories')
+      ? PluginsAlpha_License::check('alpha_stories')
       : ['ok' => true, 'message' => ''];
 
     $disabled = empty($chk['ok']);
@@ -99,7 +99,7 @@ class PluginsAlpha_Generate
 
     // (Opcional, mas bem útil) – passa dados pro JS
     $chk = class_exists('PluginsAlpha_License')
-      ? PluginsAlpha_License::check('stories')
+      ? PluginsAlpha_License::check('alpha_stories')
       : ['ok' => true, 'message' => ''];
 
     wp_localize_script('plugins-alpha-generate', 'PGA_Generate', [

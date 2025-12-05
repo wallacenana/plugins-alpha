@@ -106,7 +106,7 @@ class PluginsAlpha_Pages_Generator
           </div>
 
           <?php
-          $chk = PluginsAlpha_License::check('orion');
+          $chk = PluginsAlpha_License::check('alpha_orion');
 
           if (!$chk['ok']) {
             $url = admin_url('admin.php?page=plugins-alpha-dashboard');
