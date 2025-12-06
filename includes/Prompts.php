@@ -1003,8 +1003,8 @@ class PluginsAlpha_Prompts
         $txt .= "Regras de tamanho:\n";
         $txt .= "- O texto desta seção deve ter aproximadamente entre {$approxMin} e {$approxMax} palavras.\n";
         $txt .= "- É OBRIGATÓRIO não ultrapassar {$approxMax} palavras.\n";
-        $txt .= "- Se estiver chegando perto de {$approxMax} palavras, termine a ideia e finalize a seção.\n";
         $txt .= "- Desenvolva bem as ideias, com explicações e exemplos práticos, mas evite enrolação.\n";
+        $txt .= "- Traga soluções reais e práticas para o problema apresentado, se a frase for de nivel transacional ou comercial, traga soluções reais de produto, não crie soluções fictícias com nomes de produtos ficticios.\n";
         $txt .= "- Cada parágrafo deve ser curto, para leitura fácil em telas de celular.\n\n";
 
         $txt .= "Regras de HTML:\n";

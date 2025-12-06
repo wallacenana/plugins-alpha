@@ -912,24 +912,29 @@ class PluginsAlpha_Pages_Generator
 
     $content_html = trim(implode("\n\n", $htmlParts));
 
-    // remove QUALQUER h1 do conteúdo (WP já usa o título como H1)
+    // remove QUALQUER H1 gerado pela IA
     $content_html = preg_replace('#</?h1[^>]*>#i', '', $content_html);
 
     if ($content_html === '') {
       return new WP_Error('pga_final_empty', 'Nenhum conteúdo de seção encontrado para juntar.');
     }
 
-    // --- 3.1) Remove SOMENTE o primeiro H2 (introdução) ---
-    $content_html = self::drop_first_intro_h2($content_html);
+    // --- 3.1) Remove APENAS o primeiro H2 (introdução)
+    $content_html = self::remove_first_h2($content_html);
 
-    // --- 3.2) Aplica links internos (se configurado) ---
-    $internal_cfg = [];
+    // --- 3.2) Aplica links internos, se houver configuração ---
+    $internal = [];
     if (!empty($args['internal_links']) && is_array($args['internal_links'])) {
-      $internal_cfg = $args['internal_links'];
+      $internal = $args['internal_links'];
     }
 
-    if (!empty($internal_cfg)) {
-      $content_html = self::inject_internal_links($content_html, $post_id, $internal_cfg);
+    if (!empty($internal)) {
+      $content_html = self::apply_internal_links_to_content(
+        $content_html,
+        $internal,
+        $keyword,
+        $post_id
+      );
     }
 
     // --- 4) Meta dados ---
@@ -966,6 +971,333 @@ class PluginsAlpha_Pages_Generator
       'keyword'   => $keyword,
     ];
   }
+
+  /**
+   * Define limite "saudável" de links internos por tamanho de texto.
+   */
+  protected static function max_links_for_length(int $wordCount): int
+  {
+    if ($wordCount < 600)  return 2;
+    if ($wordCount < 1200) return 4;
+    if ($wordCount < 2000) return 5;
+    return 6;
+  }
+
+  /**
+   * Monta e injeta links internos no HTML final.
+   * - Respeita modo (none/manual/auto/pillar)
+   * - NUNCA passa do limite configurado e nem do limite por tamanho
+   * - Distribui de baixo pra cima (final + meio).
+   */
+  protected static function apply_internal_links_to_content(
+    string $html,
+    array $opts,
+    string $keyword,
+    int $post_id
+  ): string {
+    $mode = isset($opts['mode']) ? trim((string)$opts['mode']) : 'none';
+    if ($mode === 'none') {
+      return $html;
+    }
+
+    $maxUser = max(0, intval($opts['max'] ?? 0));
+
+    // conta palavras do conteúdo para limitar quantidade
+    $plain      = wp_strip_all_tags($html);
+    $wordCount  = max(0, str_word_count($plain));
+    $maxBySize  = self::max_links_for_length($wordCount);
+
+    // se usuário não pôs nada, usa limite natural
+    if ($maxUser <= 0) {
+      $maxUser = $maxBySize;
+    }
+
+    // limite final = não passar nem do tamanho nem do configurado
+    $maxFinal = min($maxUser, $maxBySize);
+    if ($maxFinal <= 0) {
+      return $html;
+    }
+
+    // --- MONTA LISTA DE POSTS ALVO ---
+    $targets = [];
+
+    if ($mode === 'manual') {
+      $idsRaw = isset($opts['manual_ids']) ? (string)$opts['manual_ids'] : '';
+      $ids    = array_filter(array_map('intval', preg_split('/[,\s]+/', $idsRaw)));
+
+      if (!$ids) {
+        return $html;
+      }
+
+      $q = new \WP_Query([
+        'post_type'      => 'posts_orion',
+        'post__in'       => $ids,
+        'posts_per_page' => count($ids),
+        'orderby'        => 'post__in',
+      ]);
+
+      if ($q->have_posts()) {
+        foreach ($q->posts as $p) {
+          if ((int)$p->ID === (int)$post_id) {
+            continue; // não linkar para si mesmo
+          }
+          $targets[] = [
+            'url'   => get_permalink($p),
+            'title' => get_the_title($p),
+          ];
+        }
+      }
+      wp_reset_postdata();
+    } elseif ($mode === 'auto' || $mode === 'pillar') {
+
+      // mesmo post_type do post atual
+      $post_type = get_post_type($post_id) ?: 'posts_orion';
+
+      // categorias do post atual
+      $cat_ids = wp_get_post_terms($post_id, 'category', ['fields' => 'ids']);
+      if (is_wp_error($cat_ids)) {
+        $cat_ids = [];
+      }
+
+      // base: mesma categoria (quando existir)
+      $base_args = [
+        'post_type'      => $post_type,
+        'post_status'    => 'publish',
+        'post__not_in'   => [$post_id],
+        'posts_per_page' => $maxFinal * 2,
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+      ];
+
+      if (!empty($cat_ids)) {
+        $base_args['category__in'] = $cat_ids;
+      }
+
+      $q = null;
+
+      if ($mode === 'pillar') {
+        // 1) TENTA PRIMEIRO: posts PILAR (Yoast, Rank Math, AIOSEO) da mesma categoria
+        $pillar_args = $base_args;
+
+        $pillar_args['meta_query'] = [
+          'relation' => 'OR',
+
+          // Yoast: conteúdo pilar / cornerstone
+          [
+            'key'   => '_yoast_wpseo_is_cornerstone',
+            'value' => '1',
+          ],
+
+          // Rank Math: conteúdo pilar
+          [
+            'key'   => '_rank_math_pillar_content',
+            'value' => '1',
+          ],
+          [
+            'key'   => '_rank_math_pillar_content',
+            'value' => 'on',
+          ],
+
+          // AIOSEO (ajustável se precisar)
+          [
+            'key'   => '_aioseo_pillar_content',
+            'value' => '1',
+          ],
+        ];
+
+        $q = new \WP_Query($pillar_args);
+
+        // 2) SE NÃO TIVER NENHUM PILAR, cai para a base normal (mesma categoria)
+        if (!$q->have_posts()) {
+          $q = new \WP_Query($base_args);
+        }
+      } else {
+        // modo AUTO → só mesma categoria, sem filtro de pilar
+        $q = new \WP_Query($base_args);
+      }
+
+
+      if ($q && $q->have_posts()) {
+        foreach ($q->posts as $p) {
+          if ((int) $p->ID === (int) $post_id) {
+            continue; // não linka pra ele mesmo
+          }
+
+          $targets[] = [
+            'url'   => get_permalink($p),
+            'title' => get_the_title($p),
+          ];
+        }
+      }
+
+      wp_reset_postdata();
+    }
+
+    if (empty($targets)) {
+      return $html;
+    }
+
+    // garante que não vamos extrapolar a quantidade de posts
+    // se tiver menos targets do que maxFinal, podemos repetir alguns
+    $links = [];
+    $i     = 0;
+    while (count($links) < $maxFinal && !empty($targets)) {
+      $links[] = $targets[$i % count($targets)];
+      $i++;
+    }
+
+    if (!$links) {
+      return $html;
+    }
+
+    return self::inject_internal_links_in_html($html, $links);
+  }
+
+  /**
+   * Insere CTAs "Leia também" distribuídos no texto:
+   * - Sempre a partir do meio pra baixo
+   * - Nunca imediatamente em cima de <h2> (não cola no título)
+   */
+  protected static function inject_internal_links_in_html(string $html, array $links): string
+  {
+    // Normaliza lista de links (garante que tem url e title)
+    $links = array_values(array_filter($links, function ($l) {
+      return !empty($l['url']) && !empty($l['title']);
+    }));
+
+    $totalLinks = count($links);
+    if ($totalLinks === 0 || trim($html) === '') {
+      return $html;
+    }
+
+    // Se não tivermos H2, tudo vai pro final (regra do "último pode ir no final")
+    $parts = preg_split(
+      '~(<h2\b[^>]*>.*?</h2>)~is',
+      $html,
+      -1,
+      PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY
+    );
+
+    if (!$parts || count($parts) === 1) {
+      $ctaHtml = '';
+      foreach ($links as $l) {
+        $ctaHtml .= sprintf(
+          '<p><strong>Leia também:</strong> <a href="%s">%s</a></p>',
+          esc_url($l['url']),
+          esc_html($l['title'])
+        );
+      }
+      return $html . "\n\n" . $ctaHtml;
+    }
+
+    // Índices dos blocos que são H2
+    $h2Idx = [];
+    foreach ($parts as $idx => $chunk) {
+      if (preg_match('~^<h2\b~i', trim($chunk))) {
+        $h2Idx[] = $idx;
+      }
+    }
+
+    if (empty($h2Idx)) {
+      // nenhum H2 detectado → tudo no final
+      $ctaHtml = '';
+      foreach ($links as $l) {
+        $ctaHtml .= sprintf(
+          '<p><strong>Leia também:</strong> <a href="%s">%s</a></p>',
+          esc_url($l['url']),
+          esc_html($l['title'])
+        );
+      }
+      return $html . "\n\n" . $ctaHtml;
+    }
+
+    // Quantos links vamos colocar ACIMA de H2:
+    // - se só tiver 1 link → ele pode ir no final do post
+    // - se tiver 2+ → (total - 1) acima de H2, o último no final
+    $linksAboveH2 = ($totalLinks > 1) ? $totalLinks - 1 : 0;
+    $linksAboveH2 = min($linksAboveH2, count($h2Idx));
+
+    $positions = [];
+
+    if ($linksAboveH2 > 0) {
+      $nCandidates = count($h2Idx);
+
+      // Distribui os CTAs entre os H2, mais concentrado do meio pra baixo
+      for ($i = 0; $i < $linksAboveH2; $i++) {
+        if ($linksAboveH2 === 1) {
+          // um só → perto do final
+          $frac = 0.9;
+        } else {
+          // vários → espalha entre meio e final
+          $frac = ($i + 1) / ($linksAboveH2 + 1);
+        }
+
+        $candIdx = (int) round($frac * ($nCandidates - 1));
+        $candIdx = max(0, min($nCandidates - 1, $candIdx));
+        $positions[] = $h2Idx[$candIdx];
+      }
+
+      // remove duplicados e ordena
+      $positions = array_values(array_unique($positions));
+      sort($positions);
+    }
+
+    // Mapeia: índice do bloco H2 -> CTAs que vão antes dele
+    $injectMap = [];
+    $linkIndex = 0;
+
+    foreach ($positions as $pos) {
+      if (!isset($links[$linkIndex])) break;
+
+      $l = $links[$linkIndex];
+      $cta = sprintf(
+        '<p><strong>Leia também:</strong> <a href="%s">%s</a></p>',
+        esc_url($l['url']),
+        esc_html($l['title'])
+      );
+
+      if (!isset($injectMap[$pos])) {
+        $injectMap[$pos] = [];
+      }
+      $injectMap[$pos][] = $cta;
+
+      $linkIndex++;
+    }
+
+    // Reconstrói HTML inserindo CTAs ANTES dos H2 escolhidos
+    $out = '';
+    foreach ($parts as $idx => $chunk) {
+      if (!empty($injectMap[$idx])) {
+        $out .= implode("\n", $injectMap[$idx]) . "\n";
+      }
+      $out .= $chunk;
+    }
+
+    // Se ainda houver link sobrando (último), ele vai no FINAL do conteúdo
+    if ($linkIndex < $totalLinks) {
+      $out .= "\n\n";
+      for (; $linkIndex < $totalLinks; $linkIndex++) {
+        $l = $links[$linkIndex];
+        $out .= sprintf(
+          '<p><strong>Leia também:</strong> <a href="%s">%s</a></p>',
+          esc_url($l['url']),
+          esc_html($l['title'])
+        );
+      }
+    }
+
+    return $out;
+  }
+
+  /**
+   * Remove apenas o primeiro <h2>...</h2> do conteúdo (introdução).
+   */
+  protected static function remove_first_h2(string $html): string
+  {
+    return preg_replace('/<h2\b[^>]*>.*?<\/h2>/is', '', $html, 1);
+  }
+
+
   /**
    * Remove APENAS o primeiro <h2>...</h2> do conteúdo.
    * Assim o post final fica:

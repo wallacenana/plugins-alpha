@@ -425,144 +425,273 @@ class PluginsAlpha_REST
      * Aplica remoção do primeiro <h2> e insere links internos
      * com base em $options: ['mode' => ..., 'max' => int, 'manual_ids' => '...'].
      */
-    private static function apply_internal_links_and_cleanup(int $post_id, array $options = []): void
+    /**
+     * Remove o primeiro H2 do conteúdo e insere links internos
+     * de forma distribuída (final / meio), evitando ficar logo abaixo de um H2.
+     *
+     * @param int   $post_id
+     * @param array $internal_opts ['mode' => none|auto|manual|pillar, 'max' => int, 'manual_ids' => '1,2,3']
+     */
+    protected static function apply_internal_links_and_cleanup(int $post_id, array $internal_opts = []): void
     {
-        if ($post_id <= 0) {
-            return;
-        }
+        $post_id = absint($post_id);
+        if (!$post_id) return;
 
-        $post = get_post($post_id);
-        if (!$post || empty($post->post_content)) {
-            return;
-        }
+        $content = get_post_field('post_content', $post_id);
+        if (!$content) return;
 
-        $mode = isset($options['mode']) ? sanitize_key($options['mode']) : 'none';
-        $max  = isset($options['max']) ? max(0, intval($options['max'])) : 0;
-        $manualRaw = isset($options['manual_ids']) ? (string)$options['manual_ids'] : '';
+        // 1) Remove apenas o PRIMEIRO <h2>...</h2>
+        $content = preg_replace('#<h2\b[^>]*>.*?</h2>#is', '', $content, 1);
+        $content = preg_replace("/\n{3,}/", "\n\n", $content);
 
-        // 0) Se não há nada pra fazer (sem link e sem limpeza), ainda assim removemos o primeiro H2
-        $content = $post->post_content;
+        $mode  = isset($internal_opts['mode']) ? sanitize_key($internal_opts['mode']) : 'none';
+        $max   = max(0, (int)($internal_opts['max'] ?? 0));
+        $manual_raw = (string)($internal_opts['manual_ids'] ?? '');
 
-        // Remove APENAS o primeiro <h2>...</h2>
-        $new_content = preg_replace('/<h2\b[^>]*>.*?<\/h2>/is', '', $content, 1);
-        if (!is_string($new_content) || $new_content === '') {
-            $new_content = $content;
-        }
-
-        // Se o modo é "none" ou max <= 0, só salva a limpeza do H2
+        // Se não tem links internos configurados → só salva o conteúdo sem H2
         if ($mode === 'none' || $max <= 0) {
-            if ($new_content !== $post->post_content) {
-                wp_update_post([
-                    'ID'           => $post_id,
-                    'post_content' => $new_content,
-                ]);
-            }
-            return;
-        }
-
-        // 1) Descobre posts candidatos
-        $post_type = get_post_type($post_id) ?: 'post';
-        $related_posts = [];
-
-        if ($mode === 'manual' && $manualRaw !== '') {
-            // IDs separados por vírgula
-            $ids = array_filter(array_map('intval', preg_split('/[,\s]+/', $manualRaw)));
-            if (!empty($ids)) {
-                $q = new WP_Query([
-                    'post_type'      => $post_type,
-                    'post_status'    => 'publish',
-                    'post__in'       => $ids,
-                    'post__not_in'   => [$post_id],
-                    'posts_per_page' => $max,
-                    'orderby'        => 'post__in',
-                    'no_found_rows'  => true,
-                ]);
-                if ($q->have_posts()) {
-                    while ($q->have_posts()) {
-                        $q->the_post();
-                        $related_posts[] = get_post(get_the_ID());
-                    }
-                    wp_reset_postdata();
-                }
-            }
-        } else {
-            // "auto" e "pillar" – por enquanto mesma lógica: mesmo CPT + mesma categoria
-            $terms = wp_get_post_terms($post_id, 'category');
-            $cat_ids = [];
-            if (!is_wp_error($terms) && !empty($terms)) {
-                $cat_ids = wp_list_pluck($terms, 'term_id');
-            }
-
-            $args = [
-                'post_type'      => $post_type,
-                'post_status'    => 'publish',
-                'post__not_in'   => [$post_id],
-                'posts_per_page' => $max,
-                'no_found_rows'  => true,
-            ];
-
-            if (!empty($cat_ids)) {
-                $args['tax_query'] = [
-                    [
-                        'taxonomy' => 'category',
-                        'field'    => 'term_id',
-                        'terms'    => $cat_ids,
-                    ],
-                ];
-            }
-
-            $q = new WP_Query($args);
-            if ($q->have_posts()) {
-                while ($q->have_posts()) {
-                    $q->the_post();
-                    $related_posts[] = get_post(get_the_ID());
-                }
-                wp_reset_postdata();
-            }
-        }
-
-        if (empty($related_posts)) {
-            // só salvamos sem o <h2>
-            if ($new_content !== $post->post_content) {
-                wp_update_post([
-                    'ID'           => $post_id,
-                    'post_content' => $new_content,
-                ]);
-            }
-            return;
-        }
-
-        // CTA/heading configurável nas opções
-        $opt = class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [];
-        $cta = isset($opt['internal_links']['cta']) ? trim((string)$opt['internal_links']['cta']) : '';
-        if ($cta === '') {
-            $cta = __('Leia também', 'plugins-alpha');
-        }
-
-        $items = [];
-        foreach ($related_posts as $rp) {
-            $items[] = sprintf(
-                '<li><a href="%s" rel="internal">%s</a></li>',
-                esc_url(get_permalink($rp)),
-                esc_html(get_the_title($rp))
-            );
-        }
-
-        $related_html  = "\n\n";
-        $related_html .= '<section class="pga-orion-related">';
-        $related_html .= '<h2>' . esc_html($cta) . '</h2>';
-        $related_html .= '<ul>' . implode('', $items) . '</ul>';
-        $related_html .= '</section>';
-        $related_html .= "\n\n";
-
-        $final_content = $new_content . $related_html;
-
-        if ($final_content !== $post->post_content) {
             wp_update_post([
                 'ID'           => $post_id,
-                'post_content' => $final_content,
+                'post_content' => $content,
             ]);
+            return;
         }
+
+        // IDs manuais (se houver)
+        $manual_ids = array_filter(array_map('absint', preg_split('/[,\s]+/', $manual_raw)));
+
+        // 2) Resolve quais posts serão usados como alvo
+        $targets = self::resolve_internal_link_targets($post_id, $mode, $manual_ids, $max);
+        if (empty($targets)) {
+            // nada pra linkar, mas já salva sem o primeiro H2
+            wp_update_post([
+                'ID'           => $post_id,
+                'post_content' => $content,
+            ]);
+            return;
+        }
+
+        // 3) Quebra o conteúdo em blocos (H2 / P / outros)
+        $blocks  = [];
+        $pattern = '#(<h2\b[^>]*>.*?</h2>|<p\b[^>]*>.*?</p>)#is';
+        $offset  = 0;
+        $len     = strlen($content);
+
+        if (preg_match_all($pattern, $content, $m, PREG_OFFSET_CAPTURE)) {
+            foreach ($m[1] as $match) {
+                $pos = (int)$match[1];
+                $html = $match[0];
+
+                if ($pos > $offset) {
+                    $blocks[] = substr($content, $offset, $pos - $offset);
+                }
+
+                $blocks[] = $html;
+                $offset   = $pos + strlen($html);
+            }
+
+            if ($offset < $len) {
+                $blocks[] = substr($content, $offset);
+            }
+        } else {
+            // fallback: não achou H2/P “bem formados”, não vamos enlouquecer
+            $blocks[] = $content;
+        }
+
+        $countBlocks = count($blocks);
+
+        // 4) Encontra índices candidatos para inserir CTA:
+        //    - apenas parágrafos (<p>...</p>)
+        //    - cujo bloco anterior NÃO é um <h2> (para não ficar logo abaixo de H2)
+        $candidateIdx = [];
+        for ($i = 0; $i < $countBlocks; $i++) {
+            $b = $blocks[$i];
+
+            if (stripos($b, '<p') !== false && stripos($b, '</p>') !== false) {
+                $prevIsH2 = ($i > 0 && stripos($blocks[$i - 1], '<h2') !== false);
+                if ($prevIsH2) {
+                    continue;
+                }
+                $candidateIdx[] = $i;
+            }
+        }
+
+        if (empty($candidateIdx)) {
+            // sem parágrafos “bons” pra inserir CTA
+            wp_update_post([
+                'ID'           => $post_id,
+                'post_content' => $content,
+            ]);
+            return;
+        }
+
+        // quantos CTAs vamos realmente inserir?
+        $maxLinks = min($max, count($targets), count($candidateIdx));
+        if ($maxLinks <= 0) {
+            wp_update_post([
+                'ID'           => $post_id,
+                'post_content' => $content,
+            ]);
+            return;
+        }
+
+        // 5) Define posições-alvo "de baixo pra cima"
+        //    - 1 link  -> ~95% do texto (quase final)
+        //    - 2 links -> meio (~50%) e final (~90%)
+        //    - 3 links -> ~1/3, ~2/3, ~93%
+        $positions = [];
+        $candCount = count($candidateIdx);
+
+        for ($k = 0; $k < $maxLinks; $k++) {
+            if ($maxLinks === 1) {
+                $frac = 0.95;
+            } elseif ($maxLinks === 2) {
+                $frac = ($k === 0) ? 0.5 : 0.9;
+            } elseif ($maxLinks === 3) {
+                $fractions = [0.33, 0.66, 0.93];
+                $frac = $fractions[$k];
+            } else {
+                // 4+ links: distribui mais linearmente
+                $frac = ($k + 1) / ($maxLinks + 1); // 1/(n+1), 2/(n+1) ... → meio bem espalhado
+            }
+
+            $idxCand = (int) floor($frac * ($candCount - 1));
+            $idxCand = max(0, min($candCount - 1, $idxCand));
+            $targetBlockIdx = $candidateIdx[$idxCand];
+
+            // evita duplicar exatamente o mesmo bloco (se der colisão, sobe uma posição)
+            while (in_array($targetBlockIdx, $positions, true) && $targetBlockIdx > 0) {
+                $targetBlockIdx--;
+            }
+
+            $positions[] = $targetBlockIdx;
+        }
+
+        // 6) Mapeia: bloco → CTAs a serem inseridos ANTES DELE
+        //    Queremos: link mais importante (primeiro da lista) mais pro FINAL do post
+        $inject = [];
+        $positionsDesc = $positions;
+        rsort($positionsDesc); // de baixo pra cima
+
+        for ($i = 0; $i < $maxLinks; $i++) {
+            $blockIndex = $positionsDesc[$i];
+            $postTarget = $targets[$i]; // 0 = "mais importante", vai mais embaixo
+
+            if (!($postTarget instanceof WP_Post)) continue;
+
+            $ctaHtml = self::build_internal_link_cta($postTarget);
+            if (!$ctaHtml) continue;
+
+            if (!isset($inject[$blockIndex])) {
+                $inject[$blockIndex] = [];
+            }
+            $inject[$blockIndex][] = $ctaHtml;
+        }
+
+        // 7) Reconstrói o HTML final
+        $newContent = '';
+        for ($i = 0; $i < $countBlocks; $i++) {
+            // insere CTAs antes do bloco-alvo
+            if (!empty($inject[$i])) {
+                $newContent .= implode("\n", $inject[$i]) . "\n";
+            }
+            $newContent .= $blocks[$i];
+        }
+
+        $newContent = preg_replace("/\n{3,}/", "\n\n", $newContent);
+
+        wp_update_post([
+            'ID'           => $post_id,
+            'post_content' => $newContent,
+        ]);
+    }
+
+    /**
+     * Resolve quais posts serão usados como links internos.
+     * - mode = manual  → usa somente IDs informados
+     * - mode = auto    → busca posts relacionados (mesmo CPT / categoria)
+     * - mode = pillar  → por enquanto trata igual ao auto (dá pra evoluir depois)
+     *
+     * Em modo MANUAL, se tiver menos posts do que $max, duplica em ciclo
+     * (ex: 2 posts, max=3 => [post1, post2, post1]).
+     */
+    protected static function resolve_internal_link_targets(int $post_id, string $mode, array $manual_ids, int $max): array
+    {
+        $post_id = absint($post_id);
+        $max     = max(1, (int) $max);
+        $post_type = get_post_type($post_id) ?: 'posts_orion';
+
+        // ---- MANUAL ----
+        if ($mode === 'manual') {
+            $manual_ids = array_values(array_filter(array_map('absint', $manual_ids)));
+            if (empty($manual_ids)) {
+                return [];
+            }
+
+            $posts = get_posts([
+                'post_type'      => $post_type,
+                'post__in'       => $manual_ids,
+                'posts_per_page' => -1,
+                'orderby'        => 'post__in',
+                'post_status'    => 'publish',
+            ]);
+
+            if (empty($posts)) {
+                return [];
+            }
+
+            // Se tem posts suficientes, só corta no max
+            if (count($posts) >= $max) {
+                return array_slice($posts, 0, $max);
+            }
+
+            // Se tem menos posts que max → duplica em ciclo
+            $out = [];
+            $c   = count($posts);
+            for ($i = 0; $i < $max; $i++) {
+                $out[] = $posts[$i % $c];
+            }
+            return $out;
+        }
+
+        // ---- AUTO / PILLAR (MVP) ----
+        $args = [
+            'post_type'      => $post_type,
+            'post_status'    => 'publish',
+            'post__not_in'   => [$post_id],
+            'posts_per_page' => $max,
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+        ];
+
+        // tenta cluster por categoria
+        $cats = wp_get_post_terms($post_id, 'category', ['fields' => 'ids']);
+        if (!is_wp_error($cats) && !empty($cats)) {
+            $args['category__in'] = $cats;
+        }
+
+        // TODO: se quiser, aqui dá pra tratar 'pillar' filtrando por meta específica (pilar = 1)
+
+        $posts = get_posts($args);
+        return $posts ?: [];
+    }
+    /**
+     * Monta um CTA simples "Leia também" com o link interno.
+     */
+    protected static function build_internal_link_cta(WP_Post $post): string
+    {
+        $url   = get_permalink($post);
+        if (!$url) return '';
+
+        $title = get_the_title($post) ?: __('Artigo relacionado', 'plugins-alpha');
+        $label = __('Leia também:', 'plugins-alpha');
+
+        return sprintf(
+            '<p class="pga-internal-link-cta"><strong>%s</strong> <a href="%s">%s</a></p>',
+            esc_html($label),
+            esc_url($url),
+            esc_html($title)
+        );
     }
 
 
@@ -589,14 +718,17 @@ class PluginsAlpha_REST
             );
         }
 
-        // pega as opções vindas do JS
-        $il_raw = is_array($params['internal_links'] ?? null) ? $params['internal_links'] : [];
+        // opções de link interno vindas do JS
+        $internal_opts = [];
+        if (!empty($params['internal_links']) && is_array($params['internal_links'])) {
+            $internal_opts = $params['internal_links'];
+        }
 
-        // 1) Finaliza via Generator (JÁ fazendo: remover H2 + links internos)
+        // 1) Finaliza via Generator
         $res = PluginsAlpha_Pages_Generator::finalize_from_sections(
             $post_id,
             [
-                'internal_links' => $il_raw,
+                'internal_links' => $internal_opts,
             ]
         );
 
@@ -605,11 +737,16 @@ class PluginsAlpha_REST
         }
 
         // 2) Descobre a keyword usada nesse job
-        $keyword = '';
-        if (is_array($res) && !empty($res['keyword'])) {
+        //    PRIORIDADE:
+        //    1) params['keyword'] vindo do JS
+        //    2) $res['keyword'] retornado pelo Generator
+        //    3) meta _pga_outline_keyword
+        $keyword = trim((string)($params['keyword'] ?? ''));
+        if ($keyword === '' && is_array($res) && !empty($res['keyword'])) {
             $keyword = (string)$res['keyword'];
-        } else {
-            $keyword = (string)get_post_meta($post_id, '_pga_outline_keyword', true);
+        }
+        if ($keyword === '') {
+            $keyword = (string) get_post_meta($post_id, '_pga_outline_keyword', true);
         }
 
         // 3) Atualiza listas de palavras (pending → done)
@@ -626,7 +763,12 @@ class PluginsAlpha_REST
             ];
         }
 
-        if ($state !== null && is_array($res)) {
+        // garante que $res seja array pra anexar o estado
+        if (!is_array($res)) {
+            $res = ['result' => $res];
+        }
+
+        if ($state !== null) {
             $res['state'] = $state;
         }
 
