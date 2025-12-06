@@ -8,137 +8,321 @@ class PluginsAlpha_Pages_Generator
 {
   public static function render(): void
   {
-    $opt = PluginsAlpha_Settings::get(); ?>
-    <div class="wrap pga-wrap pga-layout">
-      <div class="pga-main">
-        <h1>Gerador — Alpha Órion</h1>
-        <div class="pga-card">
-          <div class="pga-row between">
-            <h2 style="margin:0">Frases pendentes (1 por linha)</h2>
-            <div class="pga-actions">
-              <button class="button" id="pga_save_keywords">Salvar</button>
-              <button class="button" id="pga_kw_import">Importar .txt</button>
-              <button class="button" id="pga_kw_export">Exportar .txt</button>
-              <button class="button button-link-delete" id="pga_kw_clear_pending">Limpar</button>
-            </div>
+    $opt = PluginsAlpha_Settings::get();
+    $chk = PluginsAlpha_License::check('alpha_orion');
+?>
+    <div class="pga-wrap">
+      <h1>Gerador — Alpha Órion</h1>
+
+      <div class="wrap pga-layout">
+        <div class="pga-main">
+          <!-- Contêiner de grupos -->
+          <div id="pga_gen_container">
+
+            <!-- GRUPO 1 (colapse) -->
+            <div class="pga-gen-box pga-collapse pga-collapse--open" data-gen="1">
+              <!-- Cabeçalho do colapse com título dinâmico -->
+              <button
+                type="button"
+                class="button pga-collapse-toggle">
+                <span class="pga-gen-title">
+                  <!-- título inicial (JS vai atualizar sempre que mudar algo) -->
+                  Título
+                </span>
+                <span class="dashicons dashicons-arrow-up-alt2"></span>
+              </button>
+
+              <!-- Corpo do colapse -->
+              <div class="pga-collapse-body">
+
+                <div class="pga-card">
+                  <div class="pga-row between">
+                    <div class="pga-field" style="width:100%;">
+                      <label for="pga_keywords">Keywords</label>
+                      <textarea
+                        id="pga_keywords"
+                        class="pga_keywords"
+                        rows="16"
+                        placeholder="Uma por linha"></textarea>
+                    </div>
+                  </div>
+
+                  <div class="pga-row">
+                    <div class="pga-field">
+                      <label for="pga_locale">Locale</label>
+                      <select id="pga_locale" class="pga_locale">
+                        <option value="pt_BR" <?php selected(($opt['defaults']['locale'] ?? '') === 'pt_BR'); ?>>Português (Brasil)</option>
+                        <option value="en_US" <?php selected(($opt['defaults']['locale'] ?? '') === 'en_US'); ?>>English (US)</option>
+                        <option value="es_ES" <?php selected(($opt['defaults']['locale'] ?? '') === 'es_ES'); ?>>Español</option>
+                        <option value="fr_FR" <?php selected(($opt['defaults']['locale'] ?? '') === 'fr_FR'); ?>>Français</option>
+                      </select>
+                    </div>
+
+                    <div class="pga-field">
+                      <label>Modelo de Post</label>
+                      <select id="pga_template_key" class="pga_template_key">
+                        <option value="discover_article">Discover (artigo)</option>
+                        <option value="faq">FAQ</option>
+                        <option value="review_roundup">Review comparativo (vários)</option>
+                        <option value="review_single">Review (1 produto)</option>
+                        <!--<option value="article">Artigo</option>-->
+                        <option value="howto">Guia / How-to</option>
+                        <!--<option value="list">Lista</option>-->
+                        <option value="news">Notícia</option>
+                        <option value="modelar">Modelar URL</option>
+                      </select>
+                    </div>
+
+                    <div class="pga-field">
+                      <label>Categoria</label>
+                      <?php
+                      wp_dropdown_categories([
+                        'show_option_none'  => '— Sem categoria —',
+                        'option_none_value' => '0',
+                        'taxonomy'          => 'category',
+                        'hide_empty'        => 0,
+                        'name'              => 'pga_category',
+                        'id'                => 'pga_category',
+                        'class'             => 'regular-text pga_category',
+                        'orderby'           => 'name',
+                        'hierarchical'      => true,
+                        'value_field'       => 'term_id',
+                        'selected'          => 0,
+                      ]);
+                      ?>
+                    </div>
+
+                    <div class="pga-field">
+                      <label>Quantidade total</label>
+                      <input id="pga_total" class="pga_total" type="number" min="1" step="1" value="6">
+                    </div>
+
+                    <div class="pga-field">
+                      <label>Posts por dia</label>
+                      <input id="pga_per_day" class="pga_per_day" type="number" min="1" step="1" value="3">
+                    </div>
+
+                    <div class="pga-field">
+                      <label for="pga_first_delay_hours">Inicio da programação</label>
+                      <?php
+                      $ts_default  = current_time('timestamp') + 2 * HOUR_IN_SECONDS;
+                      $val_default = date_i18n('Y-m-d\TH:i', $ts_default);
+                      ?>
+                      <input
+                        id="pga_first_delay_hours"
+                        class="pga_first_delay_hours"
+                        type="datetime-local"
+                        class="regular-text"
+                        value="<?php echo esc_attr($val_default); ?>" />
+                    </div>
+
+                    <div class="pga-field">
+                      <label for="pga_length">Extensão</label>
+                      <select id="pga_length" class="pga_length">
+                        <option value="short">Pequeno</option>
+                        <option value="medium">Médio</option>
+                        <option value="long">Longo</option>
+                        <option value="extra-long">Extra Longo</option>
+                      </select>
+                    </div>
+                    <!-- ... dentro da pga-row de campos do grupo ... -->
+
+                    <div class="pga-field">
+                      <label for="">Links internos</label>
+                      <select class="pga_link_mode">
+                        <option value="none">Sem link interno</option>
+                        <option value="auto">Automático</option>
+                        <option value="pillar">Post pilar</option>
+                        <option value="manual">Manual</option>
+                      </select>
+                    </div>
+
+                    <div class="pga-field pga_link_extra" style="display:none">
+                      <label>Links por post</label>
+                      <select class="pga_link_max">
+                        <option value="1">1 link</option>
+                        <option value="2">2 links</option>
+                        <option value="3">3 links</option>
+                        <option value="4">4 links</option>
+                        <option value="5">5 links</option>
+                        <option value="6">6 links</option>
+                        <option value="7">7 links</option>
+                        <option value="8">8 links</option>
+                        <option value="9">9 links</option>
+                        <option value="10">10 links</option>
+                        <option value="11">11 links</option>
+                        <option value="12">12 links</option>
+                        <option value="13">13 links</option>
+                        <option value="14">14 links</option>
+                        <option value="15">15 links</option>
+                      </select>
+                    </div>
+                    <div class="pga-field pga_link_manual_wrapper" style="display:none">
+                      <label>Posts para linkar (modo manual)</label>
+                      <?php
+                      // últimos posts Orion (ajuste o post_type se for outro)
+                      $orion_posts = get_posts([
+                        'post_type'      => 'posts_orion',
+                        'post_status'    => 'publish',
+                        'numberposts'    => 100,
+                        'orderby'        => 'date',
+                        'order'          => 'DESC',
+                      ]);
+                      ?>
+                      <select
+                        class="pga_link_manual pga-link-manual-select"
+                        multiple="multiple"
+                        size="6">
+                        <?php if (!empty($orion_posts)) : ?>
+                          <?php foreach ($orion_posts as $p) : ?>
+                            <option value="<?php echo esc_attr($p->ID); ?>">
+                              <?php echo esc_html(get_the_title($p)); ?>
+                            </option>
+                          <?php endforeach; ?>
+                        <?php else : ?>
+                          <option value="" disabled>Nenhum post Órion publicado ainda.</option>
+                        <?php endif; ?>
+                      </select>
+                    </div>
+
+                    <div class="pga-actions-unit pga-icon-buttons">
+                      <button
+                        type="button"
+                        disabled
+                        class="pga_generate_box pga-icon-btn"
+                        data-tooltip="(breve) Gerar sugestão de keywords">
+                        <span class="pga-icon">⚡</span>
+                      </button>
+                      <!-- Gerar -->
+                      <button
+                        type="button"
+                        class="pga_generate_box pga-icon-btn pga-btn-generate"
+                        data-tooltip="Gerar deste grupo">
+                        <span class="pga-icon">🪄</span>
+                      </button>
+
+                      <!-- Salvar configurações -->
+                      <button
+                        type="button"
+                        class="pga_save_box pga-icon-btn pga-btn-save"
+                        data-tooltip="Salvar configurações deste grupo">
+                        <span class="pga-icon">💾</span>
+                      </button>
+
+                      <!-- Importar -->
+                      <button
+                        type="button"
+                        class="pga_import_box pga-icon-btn pga-btn-import"
+                        data-tooltip="Importar keywords (.txt)">
+                        <span class="pga-icon">⬅️</span>
+                      </button>
+
+                      <!-- Exportar -->
+                      <button
+                        type="button"
+                        class="pga_export_box pga-icon-btn pga-btn-export"
+                        data-tooltip="Exportar keywords (.txt)">
+                        <span class="pga-icon">➡️</span>
+                      </button>
+
+                      <!-- Limpar -->
+                      <button
+                        type="button"
+                        class="pga_clear_box pga-icon-btn pga-btn-delete"
+                        data-tooltip="Limpar keywords deste grupo">
+                        <span class="pga-icon">🗑️</span>
+                      </button>
+
+                    </div>
+                  </div>
+                  <span
+                    class="pga_remove_box"
+                    aria-label="Remover grupo de geração"
+                    title="Remover este grupo"
+                    data-tooltip="Remover este grupo">
+                    ❌
+                  </span>
+                </div><!-- /.pga-card -->
+              </div><!-- /.pga-collapse-body -->
+
+            </div><!-- /.pga-gen-box -->
+
           </div>
-          <textarea id="pga_keywords" rows="16" placeholder="Uma por linha"></textarea>
         </div>
 
-        <div class="pga-card">
-          <div class="pga-row">
-            <div class="pga-field">
-              <label>Locale</label>
-              <select id="pga_locale">
-                <option value="pt_BR" <?php selected(($opt['defaults']['locale'] ?? '') === 'pt_BR'); ?>>Português (Brasil)</option>
-                <option value="en_US" <?php selected(($opt['defaults']['locale'] ?? '') === 'en_US'); ?>>English (US)</option>
-                <option value="es_ES" <?php selected(($opt['defaults']['locale'] ?? '') === 'es_ES'); ?>>Español</option>
-                <option value="fr_FR" <?php selected(($opt['defaults']['locale'] ?? '') === 'fr_FR'); ?>>Français</option>
-              </select>
-            </div>
+      </div>
+    </div>
+    <div class="pga-footer-fixed">
 
-            <div class="pga-field">
-              <label>Modelo de Post</label>
-              <select id="pga_template_key">
-                <option value="discover_article">Discover (artigo)</option>
-                <option value="faq">FAQ</option>
-                <option value="review_roundup">Review comparativo (vários)</option>
-                <option value="review_single">Review (1 produto)</option>
-                <!--<option value="article">Artigo</option>-->
-                <option value="howto">Guia / How-to</option>
-                <!--<option value="list">Lista</option>-->
-                <option value="news">Notícia</option>
-                <option value="modelar">Modelar URL</option>
-              </select>
-            </div>
+      <?php
+      if (!$chk['ok']) {
+        $url = admin_url('admin.php?page=plugins-alpha-dashboard');
 
-            <div class="pga-field">
-              <label>Categoria</label>
-              <?php
-              // dropdown de categorias (padrão do WP)
-              wp_dropdown_categories([
-                'show_option_none' => '— Sem categoria —',
-                'option_none_value' => '0',
-                'taxonomy'         => 'category',
-                'hide_empty'       => 0,
-                'name'             => 'pga_category',
-                'id'               => 'pga_category',
-                'class'            => 'regular-text',
-                'orderby'          => 'name',
-                'hierarchical'     => true,
-                'value_field'      => 'term_id',
-                'selected'         => 1,
-              ]);
-              ?>
-            </div>
-            <div class="pga-field"><label>Quantidade total</label><input id="pga_total" type="number" min="1" step="1" value="6"></div>
-            <div class="pga-field"><label>Posts por dia</label><input id="pga_per_day" type="number" min="1" step="1" value="3"></div>
-            <div class="pga-field">
-              <label for="pga_first_delay_hours">Inicio da programação</label>
-              <?php
-              // padrão: agora + 2 horas (igual ao valor 2 que já tinha)
-              $ts_default = current_time('timestamp') + 2 * HOUR_IN_SECONDS;
-              $val_default = date_i18n('Y-m-d\TH:i', $ts_default);
-              ?>
-              <input
-                id="pga_first_delay_hours"
-                type="datetime-local"
-                class="regular-text"
-                value="<?php echo esc_attr($val_default); ?>" />
-            </div>
-            <div class="pga-field">
-              <label for="pga_length">Extensão</label>
-              <select id="pga_length">
-                <option value="short">Pequeno (600 a 800 palavras)</option>
-                <option value="medium">Médio (800 a 1500 palavras)</option>
-                <option value="long">Longo (1500 a 2500 palavras)</option>
-                <option value="extra-long">Extra Longo (2500 a 5000 palavras)</option>
-              </select>
-              <p class="description">
-                Pequeno = post rápido • Médio = artigo completo • Longo = artigo aprofundado.
-              </p>
+        echo '<div class="notice notice-error is-dismissible"><p>'
+          . esc_html__('Módulo não ativado.', 'plugins-alpha')
+          . ' <a href="' . esc_url($url) . '">'
+          . esc_html__('Clique aqui para ativar', 'plugins-alpha')
+          . '</a></p></div>';
+      }
+
+      echo $chk['ok']
+        ? '<button class="button button-primary" id="pga_plan">🪄 Planejar &amp; Gerar</button>'
+        : '<button class="button button-primary" id="pga_plan" disabled>🪄 Planejar &amp; Gerar</button>';
+      ?>
+      <div class="pga-footer-actions">
+        <div class="pga-actions-unit pga-icon-buttons">
+          <!-- Salvar configurações -->
+          <button type="button" class="pga_save_box pga-icon-btn pga-btn-save" data-tooltip="Salvar todas configurações" id="pga_save_keywords">
+            <span class="pga-icon">💾</span>
+          </button>
+
+          <!-- Importar -->
+          <button type="button" class="pga_import_box pga-icon-btn pga-btn-import" id="pga_add_box" data-tooltip="Adicionar grupo de geração">
+            <span class="pga-icon">➕</span>
+          </button>
+          <button type="button" class="pga_import_box pga-icon-btn pga-btn-import" data-tooltip="Importar keywords (.txt)">
+            <span class="pga-icon">⬅️</span>
+          </button>
+
+          <!-- Exportar -->
+          <button type="button" class="pga_export_box pga-icon-btn pga-btn-export" data-tooltip="Exportar keywords (.txt)">
+            <span class="pga-icon">➡️</span>
+          </button>
+
+          <div class="pga-done-dropup">
+            <button
+              type="button"
+              id="pga_done_toggle"
+              class="button pga-floating-btn pga-icon-btn"
+              aria-expanded="false"
+              aria-controls="pga_done_panel"
+              data-tooltip="Ver frases já geradas">
+              ✔
+            </button>
+
+            <div
+              id="pga_done_panel"
+              class="pga-card pga-done-panel"
+              aria-hidden="true">
+              <div class="pga-row">
+                <h2>Concluídas</h2>
+                <button
+                  type="button"
+                  id="pga_kw_clear_done"
+                  class="pga-icon-btn pga-btn-delete"
+                  data-tooltip="Limpar frases geradas">
+                  <span class="pga-icon">🗑️</span>
+                </button>
+              </div>
+              <ul id="pga_kw_done" class="pga-list done"></ul>
             </div>
           </div>
-
-          <div class="pga-row radio" style="display:none">
-            <label><input type="radio" name="pga_mode" value="multi" checked> 1 post por palavra-chave</label>
-            <label><input type="radio" name="pga_mode" value="single"> 1 artigo combinando todas</label>
-          </div>
-
-          <?php
-          $chk = PluginsAlpha_License::check('alpha_orion');
-
-          if (!$chk['ok']) {
-            $url = admin_url('admin.php?page=plugins-alpha-dashboard');
-
-            echo '<div class="notice notice-error is-dismissible"><p>'
-              . esc_html__('Módulo não ativado.', 'plugins-alpha')
-              . ' <a href="' . esc_url($url) . '">'
-              . esc_html__('Clique aqui para ativar', 'plugins-alpha')
-              . '</a></p></div>';
-          }
-
-          echo $chk['ok']
-            ? '<button class="button button-primary" id="pga_plan">Planejar & Gerar</button>'
-            : '<button class="button button-primary" id="pga_plan" disabled>Planejar & Gerar</button>';
-          ?>
-
-
         </div>
       </div>
-
-      <aside class="pga-sidebar">
-        <div class="pga-card">
-          <div class="pga-row between">
-            <h2 style="margin:0">Concluídas</h2>
-            <button class="button button-link-delete" id="pga_kw_clear_done">Limpar</button>
-          </div>
-          <ul id="pga_kw_done" class="pga-list done"></ul>
-        </div>
-      </aside>
     </div>
 <?php
   }
+
 
   protected static function generate_meta_description_ai(
     string $keyword,
@@ -674,7 +858,7 @@ class PluginsAlpha_Pages_Generator
   }
 
 
-  public static function finalize_from_sections(int $post_id)
+  public static function finalize_from_sections(int $post_id, array $args = [])
   {
     $post_id = intval($post_id);
     if (!$post_id || get_post_type($post_id) === null) {
@@ -727,10 +911,25 @@ class PluginsAlpha_Pages_Generator
     }
 
     $content_html = trim(implode("\n\n", $htmlParts));
+
+    // remove QUALQUER h1 do conteúdo (WP já usa o título como H1)
     $content_html = preg_replace('#</?h1[^>]*>#i', '', $content_html);
 
     if ($content_html === '') {
       return new WP_Error('pga_final_empty', 'Nenhum conteúdo de seção encontrado para juntar.');
+    }
+
+    // --- 3.1) Remove SOMENTE o primeiro H2 (introdução) ---
+    $content_html = self::drop_first_intro_h2($content_html);
+
+    // --- 3.2) Aplica links internos (se configurado) ---
+    $internal_cfg = [];
+    if (!empty($args['internal_links']) && is_array($args['internal_links'])) {
+      $internal_cfg = $args['internal_links'];
+    }
+
+    if (!empty($internal_cfg)) {
+      $content_html = self::inject_internal_links($content_html, $post_id, $internal_cfg);
     }
 
     // --- 4) Meta dados ---
@@ -764,9 +963,145 @@ class PluginsAlpha_Pages_Generator
       'post_id'   => $post_id,
       'edit'      => get_edit_post_link($post_id, ''),
       'view_link' => get_permalink($post_id),
-      'keyword'   => $keyword, // <- devolve pro REST poder mexer nas listas
+      'keyword'   => $keyword,
     ];
   }
+  /**
+   * Remove APENAS o primeiro <h2>...</h2> do conteúdo.
+   * Assim o post final fica:
+   *   H1 (do título do WP)
+   *   parágrafo já de cara, sem H2 "Introdução".
+   */
+  protected static function drop_first_intro_h2(string $html): string
+  {
+    return (string) preg_replace('/<h2\b[^>]*>.*?<\/h2>/is', '', $html, 1);
+  }
+  /**
+   * Decide quais posts serão alvo dos links internos.
+   *
+   * $cfg:
+   *   - mode: 'none' | 'auto' | 'pillar' | 'manual'
+   *   - max:  int
+   *   - manual_ids: string "12,34,56" ou array
+   */
+  protected static function resolve_internal_link_targets(array $cfg, int $post_id): array
+  {
+    $mode = isset($cfg['mode']) ? (string) $cfg['mode'] : 'none';
+    $max  = max(0, intval($cfg['max'] ?? 0));
+
+    if ($mode === 'none' || $max <= 0) {
+      return [];
+    }
+
+    $post_type = get_post_type($post_id) ?: 'posts_orion';
+
+    // --- MANUAL: usa IDs enviados ---
+    if ($mode === 'manual') {
+      $raw = $cfg['manual_ids'] ?? '';
+      if (is_array($raw)) {
+        $ids = array_map('intval', $raw);
+      } else {
+        $ids = array_filter(array_map('intval', preg_split('/[,\s]+/', (string) $raw)));
+      }
+
+      // remove o próprio post
+      $ids = array_diff($ids, [$post_id]);
+      if (empty($ids)) return [];
+
+      $query = get_posts([
+        'post_type'      => $post_type,
+        'post_status'    => 'publish',
+        'post__in'       => $ids,
+        'orderby'        => 'post__in', // mantém ordem que veio no select
+        'posts_per_page' => $max,
+      ]);
+
+      return is_array($query) ? $query : [];
+    }
+
+    // --- AUTO / PILAR: MVP simples -> usa posts recentes ---
+    // Se no futuro quiser diferenciar "pillar", pode filtrar por categoria/meta aqui.
+    $query = get_posts([
+      'post_type'      => $post_type,
+      'post_status'    => 'publish',
+      'post__not_in'   => [$post_id],
+      'orderby'        => 'date',
+      'order'          => 'DESC',
+      'posts_per_page' => $max * 2, // pega um pouco mais, se quiser filtrar depois
+    ]);
+
+    return is_array($query) ? $query : [];
+  }
+  /**
+   * Injeta parágrafos "Leia também" dentro do conteúdo.
+   *
+   * - Nunca repete o mesmo post várias vezes.
+   * - Usa no máximo min(max, número de posts disponíveis).
+   * - Tenta encaixar depois de parágrafos <p>…</p>.
+   */
+  protected static function inject_internal_links(string $html, int $post_id, array $cfg): string
+  {
+    $mode = isset($cfg['mode']) ? (string) $cfg['mode'] : 'none';
+    $max  = max(0, intval($cfg['max'] ?? 0));
+
+    if ($mode === 'none' || $max <= 0) {
+      return $html;
+    }
+
+    $targets = self::resolve_internal_link_targets($cfg, $post_id);
+    if (empty($targets)) {
+      return $html;
+    }
+
+    // NUNCA excede o número de posts disponíveis
+    $limit   = min($max, count($targets));
+    $targets = array_slice($targets, 0, $limit);
+
+    // quebra em blocos incluindo o </p> como delimitador
+    $parts = preg_split('~(</p>)~i', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+    if (!is_array($parts) || count($parts) < 2) {
+      // fallback: sem <p>, só adiciona ao final
+      $linksHtml = '';
+      foreach ($targets as $t) {
+        $linksHtml .= sprintf(
+          '<p><strong>%s</strong> <a href="%s">%s</a></p>',
+          esc_html__('Leia também:', 'plugins-alpha'),
+          esc_url(get_permalink($t->ID)),
+          esc_html(get_the_title($t->ID))
+        );
+      }
+      return $html . "\n\n" . $linksHtml;
+    }
+
+    $out       = '';
+    $inserted  = 0;
+    $paragraph = 0;
+
+    foreach ($parts as $chunk) {
+      $out .= $chunk;
+
+      // sempre que achar um </p>, é chance de inserir CTA
+      if (preg_match('~</p>~i', $chunk)) {
+        if ($inserted < $limit) {
+          $t = $targets[$inserted];
+
+          $out .= sprintf(
+            '<p><strong>%s</strong> <a href="%s">%s</a></p>',
+            esc_html__('Leia também:', 'plugins-alpha'),
+            esc_url(get_permalink($t->ID)),
+            esc_html(get_the_title($t->ID))
+          );
+
+          $inserted++;
+        }
+
+        $paragraph++;
+      }
+    }
+
+    return $out;
+  }
+
 
   /** Seleciona o melhor título (keyword + número + curto) */
   /** Escolhe o melhor título (contém keyword, tem número, é curto, evita “guia completo”). */

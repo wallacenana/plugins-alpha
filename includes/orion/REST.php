@@ -331,6 +331,242 @@ class PluginsAlpha_REST
 
 
     /**
+     * Remove o primeiro <h2> do conteúdo e injeta bloco "Leia também"
+     * com links internos (mesmo CPT + mesma categoria, quando existir).
+     */
+    private static function tweak_final_content_and_internal_links(int $post_id): void
+    {
+        if ($post_id <= 0) {
+            return;
+        }
+
+        $post = get_post($post_id);
+        if (!$post || empty($post->post_content)) {
+            return;
+        }
+
+        $content = $post->post_content;
+
+        // 1) Remove APENAS o primeiro <h2>...</h2>
+        $new_content = preg_replace('/<h2\b[^>]*>.*?<\/h2>/is', '', $content, 1);
+        if (!is_string($new_content) || $new_content === '') {
+            $new_content = $content;
+        }
+
+        // 2) Monta bloco "Leia também" se houver posts relacionados
+        //    (mesmo CPT, published, mesma categoria quando possível)
+        $post_type = get_post_type($post_id) ?: 'post';
+
+        $terms = wp_get_post_terms($post_id, 'category');
+        $cat_ids = array();
+        if (!is_wp_error($terms) && !empty($terms)) {
+            $cat_ids = wp_list_pluck($terms, 'term_id');
+        }
+
+        $q_args = array(
+            'post_type'      => $post_type,
+            'post_status'    => 'publish',
+            'posts_per_page' => 5,
+            'post__not_in'   => array($post_id),
+            'no_found_rows'  => true,
+        );
+
+        if (!empty($cat_ids)) {
+            $q_args['tax_query'] = array(
+                array(
+                    'taxonomy' => 'category',
+                    'field'    => 'term_id',
+                    'terms'    => $cat_ids,
+                ),
+            );
+        }
+
+        $related_html = '';
+
+        // evita injetar duas vezes se já tiver o bloco no conteúdo
+        if (strpos($new_content, 'pga-orion-related') === false) {
+            $rel_q = new WP_Query($q_args);
+
+            if ($rel_q->have_posts()) {
+                $items = array();
+                while ($rel_q->have_posts()) {
+                    $rel_q->the_post();
+                    $items[] = sprintf(
+                        '<li><a href="%s" rel="internal">%s</a></li>',
+                        esc_url(get_permalink()),
+                        esc_html(get_the_title())
+                    );
+                }
+                wp_reset_postdata();
+
+                if (!empty($items)) {
+                    $related_html  = "\n\n";
+                    $related_html .= '<section class="pga-orion-related">';
+                    $related_html .= '<h2>' . esc_html__('Leia também', 'plugins-alpha') . '</h2>';
+                    $related_html .= '<ul>' . implode('', $items) . '</ul>';
+                    $related_html .= '</section>';
+                    $related_html .= "\n\n";
+                }
+            }
+        }
+
+        // 3) Junta tudo e salva de volta
+        $final_content = $new_content . $related_html;
+
+        // só atualiza se realmente mudou
+        if ($final_content !== $post->post_content) {
+            wp_update_post(array(
+                'ID'           => $post_id,
+                'post_content' => $final_content,
+            ));
+        }
+    }
+    /**
+     * Aplica remoção do primeiro <h2> e insere links internos
+     * com base em $options: ['mode' => ..., 'max' => int, 'manual_ids' => '...'].
+     */
+    private static function apply_internal_links_and_cleanup(int $post_id, array $options = []): void
+    {
+        if ($post_id <= 0) {
+            return;
+        }
+
+        $post = get_post($post_id);
+        if (!$post || empty($post->post_content)) {
+            return;
+        }
+
+        $mode = isset($options['mode']) ? sanitize_key($options['mode']) : 'none';
+        $max  = isset($options['max']) ? max(0, intval($options['max'])) : 0;
+        $manualRaw = isset($options['manual_ids']) ? (string)$options['manual_ids'] : '';
+
+        // 0) Se não há nada pra fazer (sem link e sem limpeza), ainda assim removemos o primeiro H2
+        $content = $post->post_content;
+
+        // Remove APENAS o primeiro <h2>...</h2>
+        $new_content = preg_replace('/<h2\b[^>]*>.*?<\/h2>/is', '', $content, 1);
+        if (!is_string($new_content) || $new_content === '') {
+            $new_content = $content;
+        }
+
+        // Se o modo é "none" ou max <= 0, só salva a limpeza do H2
+        if ($mode === 'none' || $max <= 0) {
+            if ($new_content !== $post->post_content) {
+                wp_update_post([
+                    'ID'           => $post_id,
+                    'post_content' => $new_content,
+                ]);
+            }
+            return;
+        }
+
+        // 1) Descobre posts candidatos
+        $post_type = get_post_type($post_id) ?: 'post';
+        $related_posts = [];
+
+        if ($mode === 'manual' && $manualRaw !== '') {
+            // IDs separados por vírgula
+            $ids = array_filter(array_map('intval', preg_split('/[,\s]+/', $manualRaw)));
+            if (!empty($ids)) {
+                $q = new WP_Query([
+                    'post_type'      => $post_type,
+                    'post_status'    => 'publish',
+                    'post__in'       => $ids,
+                    'post__not_in'   => [$post_id],
+                    'posts_per_page' => $max,
+                    'orderby'        => 'post__in',
+                    'no_found_rows'  => true,
+                ]);
+                if ($q->have_posts()) {
+                    while ($q->have_posts()) {
+                        $q->the_post();
+                        $related_posts[] = get_post(get_the_ID());
+                    }
+                    wp_reset_postdata();
+                }
+            }
+        } else {
+            // "auto" e "pillar" – por enquanto mesma lógica: mesmo CPT + mesma categoria
+            $terms = wp_get_post_terms($post_id, 'category');
+            $cat_ids = [];
+            if (!is_wp_error($terms) && !empty($terms)) {
+                $cat_ids = wp_list_pluck($terms, 'term_id');
+            }
+
+            $args = [
+                'post_type'      => $post_type,
+                'post_status'    => 'publish',
+                'post__not_in'   => [$post_id],
+                'posts_per_page' => $max,
+                'no_found_rows'  => true,
+            ];
+
+            if (!empty($cat_ids)) {
+                $args['tax_query'] = [
+                    [
+                        'taxonomy' => 'category',
+                        'field'    => 'term_id',
+                        'terms'    => $cat_ids,
+                    ],
+                ];
+            }
+
+            $q = new WP_Query($args);
+            if ($q->have_posts()) {
+                while ($q->have_posts()) {
+                    $q->the_post();
+                    $related_posts[] = get_post(get_the_ID());
+                }
+                wp_reset_postdata();
+            }
+        }
+
+        if (empty($related_posts)) {
+            // só salvamos sem o <h2>
+            if ($new_content !== $post->post_content) {
+                wp_update_post([
+                    'ID'           => $post_id,
+                    'post_content' => $new_content,
+                ]);
+            }
+            return;
+        }
+
+        // CTA/heading configurável nas opções
+        $opt = class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [];
+        $cta = isset($opt['internal_links']['cta']) ? trim((string)$opt['internal_links']['cta']) : '';
+        if ($cta === '') {
+            $cta = __('Leia também', 'plugins-alpha');
+        }
+
+        $items = [];
+        foreach ($related_posts as $rp) {
+            $items[] = sprintf(
+                '<li><a href="%s" rel="internal">%s</a></li>',
+                esc_url(get_permalink($rp)),
+                esc_html(get_the_title($rp))
+            );
+        }
+
+        $related_html  = "\n\n";
+        $related_html .= '<section class="pga-orion-related">';
+        $related_html .= '<h2>' . esc_html($cta) . '</h2>';
+        $related_html .= '<ul>' . implode('', $items) . '</ul>';
+        $related_html .= '</section>';
+        $related_html .= "\n\n";
+
+        $final_content = $new_content . $related_html;
+
+        if ($final_content !== $post->post_content) {
+            wp_update_post([
+                'ID'           => $post_id,
+                'post_content' => $final_content,
+            ]);
+        }
+    }
+
+
+    /**
      * POST /wp-json/pga/v1/orion/finalize
      * Body: { post_id: 123 }
      */
@@ -353,8 +589,16 @@ class PluginsAlpha_REST
             );
         }
 
-        // 1) Finaliza via Generator
-        $res = PluginsAlpha_Pages_Generator::finalize_from_sections($post_id);
+        // pega as opções vindas do JS
+        $il_raw = is_array($params['internal_links'] ?? null) ? $params['internal_links'] : [];
+
+        // 1) Finaliza via Generator (JÁ fazendo: remover H2 + links internos)
+        $res = PluginsAlpha_Pages_Generator::finalize_from_sections(
+            $post_id,
+            [
+                'internal_links' => $il_raw,
+            ]
+        );
 
         if (is_wp_error($res)) {
             return $res;
@@ -368,7 +612,7 @@ class PluginsAlpha_REST
             $keyword = (string)get_post_meta($post_id, '_pga_outline_keyword', true);
         }
 
-        // 3) Atualiza listas de palavras (pending → done), se os helpers existirem
+        // 3) Atualiza listas de palavras (pending → done)
         $state = null;
 
         if ($keyword !== '' && method_exists(__CLASS__, 'kw_move_to_done_one')) {
@@ -382,11 +626,10 @@ class PluginsAlpha_REST
             ];
         }
 
-        if ($state !== null) {
+        if ($state !== null && is_array($res)) {
             $res['state'] = $state;
         }
 
-        // 4) Resposta final pro JS (mantém compatibilidade)
         return rest_ensure_response($res);
     }
 
@@ -423,6 +666,20 @@ class PluginsAlpha_REST
         return self::guard(function () use ($req) {
             $p     = $req->get_json_params();
             $mode  = (isset($p['mode']) && $p['mode'] === 'single') ? 'single' : 'multi';
+
+            $il_raw = is_array($p['internal_links'] ?? null) ? $p['internal_links'] : [];
+
+            // modo: none | auto | pillar | manual
+            $link_mode = self::clean($il_raw['mode'] ?? 'none');
+            if (!in_array($link_mode, ['none', 'auto', 'pillar', 'manual'], true)) {
+                $link_mode = 'none';
+            }
+
+            // máximo de links por post (limita a base de targets depois)
+            $link_max = max(0, intval($il_raw['max'] ?? 0));
+
+            // "12,34, 56" -> [12, 34, 56]
+            $link_manual_ids = array_values(array_filter(array_map('absint', explode(',', (string)($il_raw['manual_ids'] ?? '')))));
 
             // textarea (um por linha) – pode ser frase OU URL, depende do template
             $kw_in = self::lines_to_array($p['keywords'] ?? '');
@@ -556,6 +813,11 @@ class PluginsAlpha_REST
                         'publish_time' => $t,
                         'transition'   => $transition,
                         'category_id'  => $cat_id,
+                        'internal_links' => [
+                            'mode'       => $link_mode,
+                            'max'        => $link_max,
+                            'manual_ids' => $link_manual_ids,
+                        ],
                     ];
 
                     $i++;
