@@ -23,10 +23,30 @@ class PluginsAlpha_Updater
 
     protected static function get_current_version(): string
     {
+        // 1) tenta ler a versão direto do cabeçalho do plugin (Version: X.Y.Z)
+        if (!empty(self::$plugin_file)) {
+            $file = WP_PLUGIN_DIR . '/' . self::$plugin_file;
+
+            if (file_exists($file)) {
+                // garante que a função existe (no admin sempre existe, mas por via das dúvidas)
+                if (!function_exists('get_file_data')) {
+                    require ABSPATH . 'wp-admin/includes/plugin.php';
+                }
+
+                $data = get_file_data($file, ['Version' => 'Version'], 'plugin');
+
+                if (!empty($data['Version'])) {
+                    return (string) $data['Version'];
+                }
+            }
+        }
+
+        // 2) fallback: se por algum motivo der ruim, usa a constante (se existir)
         if (defined('PLUGINS_ALPHA_VERSION')) {
             return (string) PLUGINS_ALPHA_VERSION;
         }
 
+        // 3) fallback final
         return '1.0.0';
     }
 

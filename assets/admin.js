@@ -503,7 +503,6 @@
     });
   }
 
-
   // ------------------ utils ------------------
   async function fetchJSON(url, options = {}) {
     const { silent, ...fetchOpts } = options; // 👈 novo: flag silent
@@ -766,9 +765,18 @@
     loadPrefs()
 
     function collectPrefs() {
-      const $box = $('#pga_gen_container .pga-gen-box').first();
+      // tenta achar o BOX que está "ativo" (aquele que tem o #pga_keywords dentro)
+      let $box = $('#pga_gen_container .pga-gen-box').filter(function () {
+        return $(this).find('#pga_keywords').length > 0;
+      }).first();
+
+      // se por algum motivo não tiver nenhum com #pga_keywords, cai no 1º (fallback)
       if (!$box.length) {
-        // fallback antigo se não houver box
+        $box = $('#pga_gen_container .pga-gen-box').first();
+      }
+
+      // se ainda assim não tiver box, usa o fallback antigo (ids soltos)
+      if (!$box.length) {
         return {
           locale: $('#pga_locale').val(),
           length: $('#pga_length').val(),
@@ -782,7 +790,6 @@
         };
       }
 
-      // pega tudo a partir do 1º grupo
       const manualVals = $box.find('.pga_link_manual').val() || []; // select[multiple]
 
       return {
@@ -803,6 +810,7 @@
         }
       };
     }
+
 
     function savePrefsToLocal() {
       try { localStorage.setItem(PREF_KEY, JSON.stringify(collectPrefs())); } catch (e) { }
@@ -1180,6 +1188,11 @@
       async function pgaFetchSectionWithRetry(params, maxRetries = 3) {
         let attempt = 0;
 
+        // usa o NONCE do PGA_CFG, com fallback opcional pro wpApiSettings se existir
+        const nonce =
+          (window.wpApiSettings && window.wpApiSettings.nonce) ||
+          NONCE;
+
         while (attempt < maxRetries) {
           attempt++;
 
@@ -1188,33 +1201,39 @@
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'X-WP-Nonce': window.wpApiSettings.nonce,
+                'X-WP-Nonce': nonce,
               },
               body: JSON.stringify(params),
             });
 
             if (!r.ok) {
-              console.warn(`SECTION ${params.section_id} → tentativa ${attempt} falhou: HTTP ${r.status}`);
+              console.warn(
+                `SECTION ${params.section_id} → tentativa ${attempt} falhou: HTTP ${r.status}`
+              );
               throw new Error('HTTP ' + r.status);
             }
 
             const json = await r.json();
 
             if (!json || json.error) {
-              console.warn(`SECTION ${params.section_id} → JSON inválido na tentativa ${attempt}`, json);
+              console.warn(
+                `SECTION ${params.section_id} → JSON inválido na tentativa ${attempt}`,
+                json
+              );
               throw new Error('JSON inválido');
             }
 
             return { ok: true, data: json, attempt };
           } catch (err) {
-            console.error(`Erro na section ${params.section_id} (tentativa ${attempt}):`, err);
+            console.error(
+              `Erro na section ${params.section_id} (tentativa ${attempt}):`,
+              err
+            );
 
-            // última tentativa → falhou de vez
             if (attempt >= maxRetries) {
               return { ok: false, error: err };
             }
 
-            // espera antes de tentar de novo
             await new Promise(res => setTimeout(res, 800 * attempt));
           }
         }
@@ -1244,19 +1263,20 @@
 
         const postId = outlineRes.post_id;
         const sections = outlineRes.sections || [];
+        const errors = []; // 👈 agora existe
 
         for (const section of sections) {
           const sid = section.id;
 
           const secRes = await pgaFetchSectionWithRetry({
-            post_id: postId, section_id: sid
+            post_id: postId,
+            section_id: sid,
           });
 
           if (!secRes.ok) {
-            errors.push(`Falha definitiva na seção ${secId} do post ${post_id}`);
-            continue; // segue para próxima seção sem abortar
+            errors.push(`Falha definitiva na seção ${sid} do post ${postId}`);
+            continue;
           }
-
         }
 
         const finRes = await fetchJSON(`${REST}/orion/finalize`, {
@@ -1268,8 +1288,8 @@
             internal_links: {
               mode: job.internal_links?.mode || 'none',
               max: job.internal_links?.max || 0,
-              manual_ids: (job.internal_links?.manual_ids || []).join(',')
-            }
+              manual_ids: (job.internal_links?.manual_ids || []).join(','),
+            },
           }),
           silent: true
         });
@@ -1278,7 +1298,8 @@
           throw new Error(finRes.message || 'Erro ao finalizar post');
         }
 
-        return finRes;
+        // se você quiser, pode anexar os erros de seção no retorno:
+        return { ...finRes, section_errors: errors };
       }
 
       window.PGA_IS_GENERATING = true;
@@ -1355,12 +1376,15 @@
                     }
                   }
 
-                  if (r.state) {
+                  if (r && r.state) {
+                    // quando o backend devolve state (fila global),
+                    // atualizamos só o campo atual e a lista de concluídas
                     $('#pga_keywords').val((r.state.pending || []).join('\n'));
                     $('#pga_kw_done').empty().append(
                       (r.state.done || []).map(k => `<li>${k}</li>`).join('')
                     );
                   } else if (kw) {
+                    // fallback: remove a keyword atual da lista do textarea
                     const lines = $('#pga_keywords')
                       .val()
                       .split('\n')
@@ -1370,6 +1394,9 @@
                     $('#pga_keywords').val(lines.join('\n'));
                     $('#pga_kw_done').append(`<li>${kw}</li>`);
                   }
+
+                  // sem copiar nada manualmente entre eles.
+                  pgaSaveBoxesToLocal();
                 }
               } catch (e) {
                 failCount++;

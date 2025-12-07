@@ -7,7 +7,7 @@ define('ALPHA_STORYS_URL',  plugin_dir_url(__FILE__));
 
 // slug interno do módulo no sistema de licença (ajuste se usar outro nome)
 if (!defined('PGA_STORIES_MODULE_SLUG')) {
-  define('PGA_STORIES_MODULE_SLUG', 'stories');
+  define('PGA_STORIES_MODULE_SLUG', 'alpha_stories');
 }
 
 require_once ALPHA_STORYS_PATH . 'includes/plugin.php';

@@ -799,16 +799,18 @@ class PluginsAlpha_REST
         ];
     }
 
-    // ---------------------- PLAN: só planeja (rápido) ----------------------
     public static function plan($req)
     {
         $v = self::verify_nonce($req);
         if (is_wp_error($v)) return $v;
 
         return self::guard(function () use ($req) {
-            $p     = $req->get_json_params();
-            $mode  = (isset($p['mode']) && $p['mode'] === 'single') ? 'single' : 'multi';
+            $p    = $req->get_json_params();
+            $mode = (isset($p['mode']) && $p['mode'] === 'single') ? 'single' : 'multi';
 
+            // ---------------------------
+            // INTERNAL LINKS
+            // ---------------------------
             $il_raw = is_array($p['internal_links'] ?? null) ? $p['internal_links'] : [];
 
             // modo: none | auto | pillar | manual
@@ -817,11 +819,18 @@ class PluginsAlpha_REST
                 $link_mode = 'none';
             }
 
-            // máximo de links por post (limita a base de targets depois)
+            // máx. de links por post
             $link_max = max(0, intval($il_raw['max'] ?? 0));
 
             // "12,34, 56" -> [12, 34, 56]
-            $link_manual_ids = array_values(array_filter(array_map('absint', explode(',', (string)($il_raw['manual_ids'] ?? '')))));
+            $link_manual_ids = array_values(array_filter(array_map(
+                'absint',
+                explode(',', (string)($il_raw['manual_ids'] ?? ''))
+            )));
+
+            // ---------------------------
+            // CAMPOS BÁSICOS
+            // ---------------------------
 
             // textarea (um por linha) – pode ser frase OU URL, depende do template
             $kw_in = self::lines_to_array($p['keywords'] ?? '');
@@ -832,34 +841,45 @@ class PluginsAlpha_REST
 
             $isModelar = ($tpl === 'modelar');
 
-            if ($tpl === 'modelar') {
-                $kw_in = array_map(function ($u) {
-                    $u = trim($u);
+            // ---------------------------
+            // VALIDAÇÕES: NORMAL x MODELAR
+            // ---------------------------
+            if ($isModelar) {
+                // cada linha precisa virar uma URL limpa
+                $urls = [];
+                foreach ($kw_in as $line) {
+                    $u = trim($line);
 
                     // remove espaços invisíveis / caracteres ruins
                     $u = preg_replace('/[\x00-\x1F\x7F]/u', '', $u);
 
-                    // evita prefixos quebrados tipo "/-xxxxx"
-                    if (str_starts_with($u, '/-')) {
-                        $u = ltrim($u, '/-');
+                    if ($u === '') {
+                        continue;
                     }
 
-                    // se não começa com http, tenta consertar
+                    // garante esquema
                     if (!preg_match('~^https?://~i', $u)) {
-                        $u = 'https://' . ltrim($u, '/');
+                        $u = 'https://' . $u;
                     }
 
-                    return esc_url_raw($u);
-                }, $kw_in);
-            }
+                    if (!filter_var($u, FILTER_VALIDATE_URL)) {
+                        continue;
+                    }
 
+                    $urls[] = $u;
+                }
 
-            /**
-             * VALIDAÇÃO
-             *  - templates normais: exige keywords (multi ou single)
-             *  - template "modelar": exige ao menos 1 linha (URL)
-             */
-            if (!$isModelar) {
+                $kw_in = $urls;
+
+                if (empty($kw_in)) {
+                    return new WP_Error(
+                        'pga_kw',
+                        'Para modelar, informe pelo menos 1 URL (uma por linha).',
+                        ['status' => 400]
+                    );
+                }
+            } else {
+                // templates normais → keywords obrigatórias
                 if ($mode === 'multi' && empty($kw_in)) {
                     return new WP_Error(
                         'pga_kw',
@@ -874,21 +894,18 @@ class PluginsAlpha_REST
                         ['status' => 400]
                     );
                 }
-            } else {
-                // modelar → cada linha do textarea é uma URL
-                if (empty($kw_in)) {
-                    return new WP_Error(
-                        'pga_kw',
-                        'Para modelar, informe pelo menos 1 URL (uma por linha).',
-                        ['status' => 400]
-                    );
-                }
             }
 
+            // ---------------------------
+            // TOTAL / POR DIA
+            // ---------------------------
             $total  = max(1, intval($p['total'] ?? ($mode === 'single' ? 1 : count($kw_in))));
             $perDay = max(1, intval($p['per_day'] ?? 3));
 
+            // ---------------------------
+            // PRIMEIRA PUBLICAÇÃO
             // first_delay_hours agora é DATETIME-LOCAL (string)
+            // ---------------------------
             $first_raw = trim((string)($p['first_delay_hours'] ?? ''));
             $now       = time();
             $firstH    = 2; // fallback padrão
@@ -901,6 +918,9 @@ class PluginsAlpha_REST
                 }
             }
 
+            // ---------------------------
+            // TRANSITION
+            // ---------------------------
             $transition = [
                 'strict'    => !empty($p['transition']['strict'] ?? false),
                 'min_ratio' => floatval($p['transition']['min_ratio'] ?? 0.3),
@@ -909,70 +929,27 @@ class PluginsAlpha_REST
                     : [],
             ];
 
-            // monta agenda leve
-            $jobs   = [];
-            $days   = (int) ceil($total / max(1, $perDay));
-            $i      = 0;
             $cat_id = max(0, intval($p['category_id'] ?? 0));
 
-            for ($d = 0; $d < $days; $d++) {
-                $slotsToday = min($perDay, $total - count($jobs));
-                $base       = [9 * 3600, 14 * 3600, 19 * 3600];
-
-                for ($s = 0; $s < $slotsToday; $s++) {
-                    $baseIdx = min($s, count($base) - 1);
-                    $offset  = wp_rand(-40 * MINUTE_IN_SECONDS, 40 * MINUTE_IN_SECONDS);
-                    $t       = strtotime('+' . $d . ' day', $now) + $base[$baseIdx] + $offset;
-
-                    if ($i === 0) {
-                        $min = $now + $firstH * HOUR_IN_SECONDS;
-                        if ($t < $min) {
-                            $t = $min + wp_rand(300, 2400);
-                        }
-                    }
-
-                    // escolhe LINHA (keyword OU URL) para este job
-                    $lineValue = '';
-                    if ($mode === 'single') {
-                        $lineValue = $kw_in[0] ?? '';
-                    } else {
-                        $lineValue = $kw_in[$i] ?? '';
-                    }
-
-                    // acabou as linhas
-                    if ($lineValue === '') {
-                        continue;
-                    }
-
-                    // SEM source_url aqui. Um campo só:
-                    // - templates normais: lineValue = keyword
-                    // - modelar: lineValue = URL
-                    $jobs[] = [
-                        'keyword'      => $lineValue,
-                        'locale'       => $locale,
-                        'length'       => $length,
-                        'template_key' => $tpl,
-                        'publish_time' => $t,
-                        'transition'   => $transition,
-                        'category_id'  => $cat_id,
-                        'internal_links' => [
-                            'mode'       => $link_mode,
-                            'max'        => $link_max,
-                            'manual_ids' => $link_manual_ids,
-                        ],
-                    ];
-
-                    $i++;
-                    if (count($jobs) >= $total) {
-                        break;
-                    }
-                }
-            }
-
-            // multi: no máx. 1 job por linha
-            if ($mode === 'multi' && count($kw_in) < $total) {
-                $jobs = array_slice($jobs, 0, count($kw_in));
-            }
+            // ---------------------------
+            // MONTA A AGENDA (JOBS) – TUDO NO BACKEND
+            // ---------------------------
+            $jobs = self::build_jobs(
+                $mode,
+                $kw_in,
+                $locale,
+                $tpl,
+                $length,
+                $total,
+                $perDay,
+                $now,
+                $firstH,
+                $transition,
+                $cat_id,
+                $link_mode,
+                $link_max,
+                $link_manual_ids
+            );
 
             return [
                 'ok'                 => true,
@@ -983,6 +960,94 @@ class PluginsAlpha_REST
             ];
         });
     }
+    /**
+     * Monta a lista de jobs (agenda) a partir dos parâmetros do planejamento.
+     *
+     * Cada job já sai pronto para ser enviado para o /generate depois.
+     */
+    private static function build_jobs(
+        string $mode,
+        array $kw_in,
+        string $locale,
+        string $tpl,
+        string $length,
+        int $total,
+        int $perDay,
+        int $now,
+        int $firstH,
+        array $transition,
+        int $cat_id,
+        string $link_mode,
+        int $link_max,
+        array $link_manual_ids
+    ) {
+        $jobs = [];
+
+        $days = (int) ceil($total / max(1, $perDay));
+        $i    = 0;
+
+        for ($d = 0; $d < $days; $d++) {
+            $slotsToday = min($perDay, $total - count($jobs));
+            $base       = [9 * 3600, 14 * 3600, 19 * 3600]; // manhã / tarde / noite
+
+            for ($s = 0; $s < $slotsToday; $s++) {
+                $baseIdx = min($s, count($base) - 1);
+                $offset  = wp_rand(-40 * MINUTE_IN_SECONDS, 40 * MINUTE_IN_SECONDS);
+                $t       = strtotime('+' . $d . ' day', $now) + $base[$baseIdx] + $offset;
+
+                // primeiro post respeita a regra do firstH
+                if ($i === 0) {
+                    $min = $now + $firstH * HOUR_IN_SECONDS;
+                    if ($t < $min) {
+                        $t = $min + wp_rand(300, 2400);
+                    }
+                }
+
+                // escolhe LINHA (keyword OU URL) para este job
+                if ($mode === 'single') {
+                    $lineValue = $kw_in[0] ?? '';
+                } else {
+                    $lineValue = $kw_in[$i] ?? '';
+                }
+
+                // acabou as linhas
+                if ($lineValue === '') {
+                    continue;
+                }
+
+                // UM campo só:
+                // - templates normais: lineValue = keyword
+                // - modelar: lineValue = URL
+                $jobs[] = [
+                    'keyword'        => $lineValue,
+                    'locale'         => $locale,
+                    'length'         => $length,
+                    'template_key'   => $tpl,
+                    'publish_time'   => $t,
+                    'transition'     => $transition,
+                    'category_id'    => $cat_id,
+                    'internal_links' => [
+                        'mode'       => $link_mode,
+                        'max'        => $link_max,
+                        'manual_ids' => $link_manual_ids,
+                    ],
+                ];
+
+                $i++;
+                if (count($jobs) >= $total) {
+                    break;
+                }
+            }
+        }
+
+        // multi: no máx. 1 job por linha
+        if ($mode === 'multi' && count($kw_in) < $total) {
+            $jobs = array_slice($jobs, 0, count($kw_in));
+        }
+
+        return $jobs;
+    }
+
 
     public static function status()
     {

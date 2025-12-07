@@ -5,7 +5,6 @@ class PluginsAlpha_Plugin
 {
   public static function init(): void
   {
-    if (class_exists('PluginsAlpha_Keywords')) PluginsAlpha_Keywords::init();
     if (class_exists('PluginsAlpha_CPT_Posts_Orion')) PluginsAlpha_CPT_Posts_Orion::init();
     if (class_exists('PluginsAlpha_PermalinkSettings')) PluginsAlpha_PermalinkSettings::init();
     if (class_exists('PluginsAlpha_Settings')) PluginsAlpha_Settings::init();
