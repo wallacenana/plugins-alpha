@@ -60,7 +60,7 @@ class PluginsAlpha_Settings
       // --- apis.images ---
       $img      = $in['apis']['images'] ?? [];
       $provider = isset($img['provider']) ? sanitize_text_field($img['provider']) : 'pollinations';
-      $allowed_providers = ['pollinations', 'openai', 'none'];
+      $allowed_providers = ['pollinations', 'openai', 'pexels', 'unsplash', 'none'];
       if (!in_array($provider, $allowed_providers, true)) {
         $provider = 'pollinations';
       }
@@ -88,6 +88,31 @@ class PluginsAlpha_Settings
         'size'     => $size,
         'quality'  => $quality,
       ];
+
+      /**
+       * Pexels – banco de imagens
+       */
+      $pex = $in['apis']['pexels'] ?? [];
+      $out['apis']['pexels'] = [
+        'key' => sanitize_text_field($pex['key'] ?? ''),
+      ];
+
+      /**
+       * Unsplash – banco de imagens
+       */
+      $uns = $in['apis']['unsplash'] ?? [];
+      $out['apis']['unsplash'] = [
+        'access_key' => sanitize_text_field($uns['access_key'] ?? ''),
+      ];
+
+      /**
+       * Gemini – credenciais para textos (futuro)
+       */
+      $gem = $in['apis']['gemini'] ?? [];
+      $out['apis']['gemini'] = [
+        'key'        => sanitize_text_field($gem['key'] ?? ''),
+        'model_text' => sanitize_text_field($gem['model_text'] ?? 'gemini-1.5-pro'),
+      ];
     }
 
     /*
@@ -95,12 +120,36 @@ class PluginsAlpha_Settings
      */
     if ($tab === 'orion-posts') {
       $gp = $in['orion_posts'] ?? [];
+
+      // provider de TEXTO para Órion
+      $text_prov = isset($gp['text_provider'])
+        ? sanitize_text_field($gp['text_provider'])
+        : 'openai'; // default
+
+      $allowed_text_prov = ['openai', 'gemini']; // por enquanto só openai funciona de fato
+      if (!in_array($text_prov, $allowed_text_prov, true)) {
+        $text_prov = 'openai';
+      }
+
+      // provider de IMAGEM para Órion
+      $img_prov = isset($gp['images_provider'])
+        ? sanitize_text_field($gp['images_provider'])
+        : 'pollinations'; // default imagem
+
+      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'none'];
+      if (!in_array($img_prov, $allowed_img_prov, true)) {
+        $img_prov = 'pollinations';
+      }
+
       $out['orion_posts'] = [
         'defaults' => [
           'locale' => sanitize_text_field($gp['defaults']['locale'] ?? 'pt_BR'),
         ],
+        'text_provider'   => $text_prov,
+        'images_provider' => $img_prov,
       ];
     }
+
 
     /*
      * STORIES ==========================
@@ -111,14 +160,25 @@ class PluginsAlpha_Settings
       $allowed_fonts  = ['system', 'inter', 'poppins', 'merriweather', 'plusjakarta'];
 
       // provider específico dos stories
-      $prov = isset($st['images_provider'])
-        ? sanitize_text_field($st['images_provider'])
-        : 'inherit';
+      $text_prov = isset($st['text_provider'])
+        ? sanitize_text_field($st['text_provider'])
+        : 'openai';
 
-      $allowed_providers = ['inherit', 'pollinations', 'openai', 'none'];
-      if (!in_array($prov, $allowed_providers, true)) {
-        $prov = 'inherit';
+      $allowed_text_prov = ['openai', 'gemini'];
+      if (!in_array($text_prov, $allowed_text_prov, true)) {
+        $text_prov = 'openai';
       }
+
+      // provider de IMAGEM para stories
+      $img_prov = isset($st['images_provider'])
+        ? sanitize_text_field($st['images_provider'])
+        : 'pollinations';
+
+      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'none'];
+      if (!in_array($img_prov, $allowed_img_prov, true)) {
+        $img_prov = 'pollinations';
+      }
+
 
       // cores com fallback
       $accent = isset($st['accent_color']) ? trim((string)$st['accent_color']) : '';
@@ -154,7 +214,8 @@ class PluginsAlpha_Settings
 
         'ai_brief_default'  => wp_kses_post($st['ai_brief_default'] ?? ''),
 
-        'images_provider'   => $prov,
+        'text_provider'   => $text_prov,
+        'images_provider' => $img_prov,
       ];
     }
 
@@ -235,6 +296,11 @@ class PluginsAlpha_Settings
     $img_model   = $img['model'] ?? 'dall-e-3';
     $img_size    = $img['size'] ?? '1024x576';
     $img_quality = $img['quality'] ?? 'auto';
+
+    $pex = $o['apis']['pexels'] ?? [];
+    $uns = $o['apis']['unsplash'] ?? [];
+    $gem = $o['apis']['gemini'] ?? [];
+
   ?>
     <h2 class="title">OpenAI (global)</h2>
     <table class="form-table" role="presentation">
@@ -255,89 +321,71 @@ class PluginsAlpha_Settings
         <td><input name="pga_settings[apis][openai][max_tokens]" id="pga_openai_maxtok" type="number" class="small-text" value="<?php echo esc_attr($apis['max_tokens'] ?? 6000); ?>"></td>
       </tr>
     </table>
-    <h2 class="title"><?php esc_html_e('OpenAI (global)', 'plugins-alpha'); ?></h2>
-    <table class="form-table" role="presentation">
-      <!-- seus campos já existentes de OpenAI aqui -->
-    </table>
-
-    <h2 class="title"><?php esc_html_e('Imagens (thumbnails automáticas)', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('Gemini (Google AI – textos)', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row">
-          <label for="pga_img_provider"><?php esc_html_e('Provedor de imagem', 'plugins-alpha'); ?></label>
+          <label for="pga_gemini_key"><?php esc_html_e('API Key', 'plugins-alpha'); ?></label>
         </th>
         <td>
-          <select name="pga_settings[apis][images][provider]"
-            id="pga_img_provider">
-            <option value="pollinations" <?php selected($prov, 'pollinations'); ?>>
-              <?php esc_html_e('Pollinations (grátis, qualidade variável)', 'plugins-alpha'); ?>
-            </option>
-            <option value="openai" <?php selected($prov, 'openai'); ?>>
-              <?php esc_html_e('OpenAI / DALL·E (pago, melhor qualidade)', 'plugins-alpha'); ?>
-            </option>
-            <option value="none" <?php selected($prov, 'none'); ?>>
-              <?php esc_html_e('Não gerar thumbnails automaticamente', 'plugins-alpha'); ?>
-            </option>
-          </select>
+          <input name="pga_settings[apis][gemini][key]"
+            id="pga_gemini_key"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($gem['key'] ?? ''); ?>">
           <p class="description">
-            <?php esc_html_e('Escolha se as imagens serão geradas pelo Pollinations, OpenAI ou se serão desativadas.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Chave da API Gemini (para uso futuro em geração de textos).', 'plugins-alpha'); ?>
           </p>
         </td>
       </tr>
-
-      <tr class="pga-img-openai-row">
+      <tr>
         <th scope="row">
-          <label for="pga_img_model"><?php esc_html_e('Modelo OpenAI', 'plugins-alpha'); ?></label>
+          <label for="pga_gemini_model"><?php esc_html_e('Modelo de texto', 'plugins-alpha'); ?></label>
         </th>
         <td>
-          <select name="pga_settings[apis][images][model]"
-            id="pga_img_model">
-            <option value="dall-e-3" <?php selected($img_model, 'dall-e-3'); ?>>
-              dall-e-3
-            </option>
-            <!-- <option value="gpt-image-1" <?php selected($img_model, 'gpt-image-1'); ?>>
-              gpt-image-1
-            </option> -->
-          </select>
+          <input name="pga_settings[apis][gemini][model_text]"
+            id="pga_gemini_model"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($gem['model_text'] ?? 'gemini-1.5-pro'); ?>">
           <p class="description">
-            <?php esc_html_e('Escolha o modelo de imagem da OpenAI compatível com a sua conta.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Ex.: gemini-1.5-pro, gemini-1.5-flash, etc.', 'plugins-alpha'); ?>
           </p>
         </td>
       </tr>
-
-      <tr class="pga-img-openai-row">
+    </table>
+    <h2 class="title"><?php esc_html_e('Pexels (banco de imagens)', 'plugins-alpha'); ?></h2>
+    <table class="form-table" role="presentation">
+      <tr>
         <th scope="row">
-          <label for="pga_img_size"><?php esc_html_e('Tamanho da imagem', 'plugins-alpha'); ?></label>
+          <label for="pga_pexels_key"><?php esc_html_e('API Key Pexels', 'plugins-alpha'); ?></label>
         </th>
         <td>
-          <select name="pga_settings[apis][images][size]"
-            id="pga_img_size">
-            <option value="1024x1024" <?php selected($img_size, '1024x1024'); ?>>1024x1024 (quadrado)</option>
-            <option value="1024x1792" <?php selected($img_size, '1024x1792'); ?>>1024x1792 (Vertical)</option>
-            <option value="1792x1024" <?php selected($img_size, '1792x1024'); ?>>1792x1024 (wide)</option>
-          </select>
+          <input name="pga_settings[apis][pexels][key]"
+            id="pga_pexels_key"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($pex['key'] ?? ''); ?>">
           <p class="description">
-            <?php esc_html_e('Use 16:9 para thumbnails de posts e 1024x1024 para usos genéricos.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Chave da API do Pexels. Uso gratuito com limites de requisições.', 'plugins-alpha'); ?>
           </p>
         </td>
       </tr>
-
-      <tr class="pga-img-openai-row">
+    </table>
+    <h2 class="title"><?php esc_html_e('Unsplash (banco de imagens)', 'plugins-alpha'); ?></h2>
+    <table class="form-table" role="presentation">
+      <tr>
         <th scope="row">
-          <label for="pga_img_quality"><?php esc_html_e('Qualidade', 'plugins-alpha'); ?></label>
+          <label for="pga_unsplash_key"><?php esc_html_e('Access Key Unsplash', 'plugins-alpha'); ?></label>
         </th>
         <td>
-          <select name="pga_settings[apis][images][quality]"
-            id="pga_img_quality">
-            <option value="standard" <?php selected($img_quality, 'standard'); ?>>
-              <?php esc_html_e('Standard (mais barato)', 'plugins-alpha'); ?>
-            </option>
-            <option value="hd" <?php selected($img_quality, 'hd'); ?>>
-              <?php esc_html_e('HD (mais caro, melhor)', 'plugins-alpha'); ?>
-            </option>
-          </select>
+          <input name="pga_settings[apis][unsplash][access_key]"
+            id="pga_unsplash_key"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($uns['access_key'] ?? ''); ?>">
           <p class="description">
-            <?php esc_html_e('HD consome mais créditos, use apenas quando precisar de máxima qualidade.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Access Key da API Unsplash. Uso gratuito com limites de requisições.', 'plugins-alpha'); ?>
           </p>
         </td>
       </tr>
@@ -362,24 +410,57 @@ class PluginsAlpha_Settings
 
   private static function render_tab_orion_posts(array $o): void
   {
-    $gp = $o['orion_posts']['defaults'] ?? [];
+    $gp_provider      = $o['orion_posts']['images_provider'] ?? 'inherit';
+    $gp_defaults = $o['orion_posts']['defaults'] ?? [];
+    $gp_text     = $o['orion_posts']['text_provider'] ?? 'openai';
+    $gp_img      = $o['orion_posts']['images_provider'] ?? 'pollinations';
+
   ?>
     <h2 class="title">Padrões de geração</h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row"><label for="pga_gp_locale">Locale padrão</label></th>
         <td>
-          <select name="pga_settings[orion_posts][defaults][locale]" id="pga_gp_locale">
-            <?php foreach (['pt_BR' => 'Português (Brasil)', 'en_US' => 'English (US)', 'es_ES' => 'Español', 'fr_FR' => 'Français'] as $v => $lab): ?>
-              <option value="<?php echo esc_attr($v); ?>" <?php selected(($gp['locale'] ?? 'pt_BR'), $v); ?>>
-                <?php echo esc_html($lab); ?>
-              </option>
-            <?php endforeach; ?>
+          <!-- select de locale que você já tem -->
+        </td>
+      </tr>
+
+      <tr>
+        <th scope="row">
+          <label for="pga_gp_text_provider">IA para geração de TEXTO</label>
+        </th>
+        <td>
+          <select name="pga_settings[orion_posts][text_provider]" id="pga_gp_text_provider">
+            <option value="openai" <?php selected($gp_text, 'openai'); ?>>OpenAI</option>
+            <option value="gemini" <?php selected($gp_text, 'gemini'); ?>>Gemini (futuro)</option>
           </select>
+          <p class="description">
+            Usada para gerar títulos, sections, planos etc. (por enquanto só OpenAI está implementado).
+          </p>
+        </td>
+      </tr>
+
+      <tr>
+        <th scope="row">
+          <label for="pga_gp_img_provider">IA / Fonte para IMAGEM</label>
+        </th>
+        <td>
+          <select name="pga_settings[orion_posts][images_provider]" id="pga_gp_img_provider">
+            <option value="pollinations" <?php selected($gp_img, 'pollinations'); ?>>Pollinations (IA grátis)</option>
+            <option value="openai" <?php selected($gp_img, 'openai'); ?>>OpenAI (DALL·E)</option>
+            <option value="pexels" <?php selected($gp_img, 'pexels'); ?>>Pexels (banco de imagens)</option>
+            <option value="unsplash" <?php selected($gp_img, 'unsplash'); ?>>Unsplash (banco de imagens)</option>
+            <option value="none" <?php selected($gp_img, 'none'); ?>>Não gerar imagens automaticamente</option>
+          </select>
+          <p class="description">
+            Usada para thumbnails e imagens geradas pelo módulo Órion.
+          </p>
         </td>
       </tr>
     </table>
+
   <?php
+
   }
 
   private static function render_tab_stories(array $o): void
@@ -387,9 +468,10 @@ class PluginsAlpha_Settings
     $st = $o['stories'] ?? [];
     $logo_id = (int)($st['publisher_logo_id'] ?? 0);
     $logo_url = $logo_id ? wp_get_attachment_image_url($logo_id, 'full') : '';
-    $images_provider = $st['images_provider'] ?? 'inherit';
     $bg_color   = $st['background_color'] ?? '#000000';
     $text_color = $st['text_color'] ?? '#ffffff';
+    $images_provider = $st['images_provider'] ?? 'pollinations';
+    $text_provider   = $st['text_provider'] ?? 'openai';
 
   ?>
     <h2 class="title">Publisher</h2>
@@ -525,33 +607,31 @@ class PluginsAlpha_Settings
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row">
-          <label for="pga_st_img_provider">
-            <?php esc_html_e('Provedor de imagens para Stories', 'plugins-alpha'); ?>
-          </label>
+          <label for="pga_st_text_provider"><?php esc_html_e('IA para geração de TEXTO dos stories', 'plugins-alpha'); ?></label>
         </th>
         <td>
-          <select
-            id="pga_st_img_provider"
-            name="pga_settings[stories][images_provider]">
-            <option value="inherit" <?php selected($images_provider, 'inherit'); ?>>
-              <?php esc_html_e('Usar provedor global (Imagens)', 'plugins-alpha'); ?>
-            </option>
-            <option value="pollinations" <?php selected($images_provider, 'pollinations'); ?>>
-              <?php esc_html_e('Pollinations (grátis, qualidade variável)', 'plugins-alpha'); ?>
-            </option>
-            <option value="openai" <?php selected($images_provider, 'openai'); ?>>
-              <?php esc_html_e('OpenAI / DALL·E (pago, melhor qualidade)', 'plugins-alpha'); ?>
-            </option>
-            <option value="none" <?php selected($images_provider, 'none'); ?>>
-              <?php esc_html_e('Não gerar imagens automaticamente para Stories', 'plugins-alpha'); ?>
-            </option>
+          <select id="pga_st_text_provider" name="pga_settings[stories][text_provider]">
+            <option value="openai" <?php selected($text_provider, 'openai'); ?>>OpenAI</option>
+            <option value="gemini" <?php selected($text_provider, 'gemini'); ?>>Gemini (futuro)</option>
           </select>
           <p class="description">
-            <?php esc_html_e(
-              'Se escolher "Usar provedor global", os Stories usam o mesmo provedor configurado em Geral › Imagens. Caso contrário, essa escolha vale só para as imagens de Web Stories.',
-              'plugins-alpha'
-            ); ?>
+            Usada para gerar as páginas de Web Stories (texto).
           </p>
+        </td>
+      </tr>
+
+      <tr>
+        <th scope="row">
+          <label for="pga_st_img_provider"><?php esc_html_e('Provedor para IMAGENS dos stories', 'plugins-alpha'); ?></label>
+        </th>
+        <td>
+          <select id="pga_st_img_provider" name="pga_settings[stories][images_provider]">
+            <option value="pollinations" <?php selected($images_provider, 'pollinations'); ?>>Pollinations (IA grátis)</option>
+            <option value="openai" <?php selected($images_provider, 'openai'); ?>>OpenAI (DALL·E)</option>
+            <option value="pexels" <?php selected($images_provider, 'pexels'); ?>>Pexels</option>
+            <option value="unsplash" <?php selected($images_provider, 'unsplash'); ?>>Unsplash</option>
+            <option value="none" <?php selected($images_provider, 'none'); ?>>Não gerar imagens automáticas</option>
+          </select>
         </td>
       </tr>
     </table>

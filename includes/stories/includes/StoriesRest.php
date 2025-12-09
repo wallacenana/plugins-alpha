@@ -161,10 +161,10 @@ class PluginsAlpha_StoriesRest
         }
 
         $alt = !empty($page['heading']) ? $page['heading'] : $prompt;
-
+        error_log($prompt);
         // Usa o sistema global (decide OpenAI/Pollinations etc.)
         $att_id = PluginsAlpha_Images::generate_story_by_settings(
-            $prompt . "FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração, sem marca d'água.",
+            $prompt,
             $post_id,
             $alt
         );

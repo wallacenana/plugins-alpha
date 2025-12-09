@@ -35,7 +35,6 @@ class PluginsAlpha_Images
         }
 
         // Carrega settings globais se não veio override
-        // Carrega settings globais se não veio override
         if (empty($imgSettings) && class_exists('PluginsAlpha_Settings')) {
             $opts = PluginsAlpha_Settings::get();
 
@@ -62,6 +61,20 @@ class PluginsAlpha_Images
                 }
                 // se for inherit, simplesmente usa o global mesmo
             }
+
+            if ($context !== 'story') {
+                $gp = isset($opts['orion_posts']) && is_array($opts['orion_posts'])
+                    ? $opts['orion_posts']
+                    : [];
+
+                $orionProv = isset($gp['images_provider'])
+                    ? (string) $gp['images_provider']
+                    : 'inherit';
+
+                if ($orionProv && $orionProv !== 'inherit') {
+                    $imgSettings['provider'] = $orionProv;
+                }
+            }
         }
 
 
@@ -81,13 +94,27 @@ class PluginsAlpha_Images
 
         switch ($provider) {
             case 'openai':
-                // OpenAI (DALL·E / gpt-image-1)
-                // tamanho é decidido DENTRO de generate_openai_image
                 return self::generate_openai_image(
                     $prompt,
                     $post_id,
                     $alt,
                     $imgSettings,
+                    $context
+                );
+
+            case 'pexels':
+                return self::generate_pexels_image(
+                    $prompt,
+                    $post_id,
+                    $alt,
+                    $context
+                );
+
+            case 'unsplash':
+                return self::generate_unsplash_image(
+                    $prompt,
+                    $post_id,
+                    $alt,
                     $context
                 );
 
@@ -276,6 +303,249 @@ class PluginsAlpha_Images
             'openai'
         );
     }
+
+    public static function generate_pexels_image(
+        string $prompt,
+        int $post_id,
+        string $alt = '',
+        string $context = 'thumb'
+    ) {
+        if ($prompt === '' || $post_id <= 0) {
+            return 0;
+        }
+
+        if (!class_exists('PluginsAlpha_Settings')) {
+            return new \WP_Error(
+                'pga_pexels_no_cfg',
+                __('Configurações do Pexels não encontradas.', 'plugins-alpha')
+            );
+        }
+
+        $opts = PluginsAlpha_Settings::get();
+        $api  = $opts['apis']['pexels'] ?? [];
+        $key  = trim((string) ($api['key'] ?? ''));
+
+        if ($key === '') {
+            return new \WP_Error(
+                'pga_pexels_no_key',
+                __('Chave de API do Pexels não configurada.', 'plugins-alpha')
+            );
+        }
+
+        // orienta vertical pros stories, horizontal pro resto
+        $orientation = ($context === 'story') ? 'portrait' : 'landscape';
+
+        // busca sempre várias imagens e varia página + índice
+        $search_query = trim($prompt);
+        $page         = wp_rand(1, 5); // páginas 1..5 dão bastante variação
+
+        $endpoint = add_query_arg(
+            [
+                'query'       => $search_query,
+                'per_page'    => 12,
+                'page'        => $page,
+                'orientation' => $orientation,
+            ],
+            'https://api.pexels.com/v1/search'
+        );
+
+        $res = wp_remote_get(
+            $endpoint,
+            [
+                'timeout' => 30,
+                'headers' => [
+                    'Authorization' => $key,
+                ],
+            ]
+        );
+
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        $code = wp_remote_retrieve_response_code($res);
+        $body = wp_remote_retrieve_body($res);
+
+        if ($code < 200 || $code >= 300 || !$body) {
+            return new \WP_Error(
+                'pga_pexels_http',
+                sprintf(__('Erro ao buscar imagem no Pexels (HTTP %d).', 'plugins-alpha'), (int) $code)
+            );
+        }
+
+        $json    = json_decode($body, true);
+        $results = $json['photos'] ?? [];
+
+        if (empty($results)) {
+            return new \WP_Error(
+                'pga_pexels_empty',
+                __('Nenhuma imagem encontrada no Pexels para este prompt.', 'plugins-alpha')
+            );
+        }
+
+        // 🎯 ESCOLHE UM RESULTADO ALEATÓRIO ENTRE OS RETORNADOS
+        $idx    = wp_rand(0, count($results) - 1);
+        $chosen = $results[$idx];
+
+        $src     = $chosen['src'] ?? [];
+        $img_url = $src['landscape']
+            ?? $src['portrait']
+            ?? $src['large2x']
+            ?? $src['large']
+            ?? $src['medium']
+            ?? $src['original']
+            ?? '';
+
+        if (!$img_url) {
+            return new \WP_Error(
+                'pga_pexels_no_url',
+                __('Não foi possível determinar a URL da imagem do Pexels.', 'plugins-alpha')
+            );
+        }
+
+        $img_res = wp_remote_get($img_url, [
+            'timeout' => 60,
+        ]);
+
+        if (is_wp_error($img_res)) {
+            return $img_res;
+        }
+
+        $binary = wp_remote_retrieve_body($img_res);
+        if (!$binary) {
+            return new \WP_Error(
+                'pga_pexels_empty_image',
+                __('Imagem vazia retornada pelo Pexels.', 'plugins-alpha')
+            );
+        }
+
+        return self::create_attachment_from_binary(
+            $binary,
+            $post_id,
+            $alt,
+            'pexels'
+        );
+    }
+
+    public static function generate_unsplash_image(
+        string $prompt,
+        int $post_id,
+        string $alt = '',
+        string $context = 'thumb'
+    ) {
+        if ($prompt === '' || $post_id <= 0) {
+            return 0;
+        }
+
+        if (!class_exists('PluginsAlpha_Settings')) {
+            return new \WP_Error(
+                'pga_unsplash_no_cfg',
+                __('Configurações do Unsplash não encontradas.', 'plugins-alpha')
+            );
+        }
+
+        $opts = PluginsAlpha_Settings::get();
+        $api  = $opts['apis']['unsplash'] ?? [];
+        $key  = trim((string) ($api['access_key'] ?? ''));
+
+        if ($key === '') {
+            return new \WP_Error(
+                'pga_unsplash_no_key',
+                __('Access Key do Unsplash não configurada.', 'plugins-alpha')
+            );
+        }
+
+        $orientation = ($context === 'story') ? 'portrait' : 'landscape';
+
+        // opcional: ruído pra mudar ranking, mas ainda baseado no prompt
+        // NÃO muda o sentido, só ajuda a variar
+        $search_query = trim($prompt) . ' #' . wp_rand(1000, 9999);
+
+        $endpoint = add_query_arg(
+            [
+                'query'          => $search_query,
+                'per_page'       => 12,          // pega várias
+                'orientation'    => $orientation,
+                'content_filter' => 'high',
+            ],
+            'https://api.unsplash.com/search/photos'
+        );
+
+        $res = wp_remote_get(
+            $endpoint,
+            [
+                'timeout' => 30,
+                'headers' => [
+                    'Authorization' => 'Client-ID ' . $key,
+                ],
+            ]
+        );
+
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        $code = wp_remote_retrieve_response_code($res);
+        $body = wp_remote_retrieve_body($res);
+
+        if ($code < 200 || $code >= 300 || !$body) {
+            return new \WP_Error(
+                'pga_unsplash_http',
+                sprintf(__('Erro ao buscar imagem no Unsplash (HTTP %d).', 'plugins-alpha'), (int) $code)
+            );
+        }
+
+        $json    = json_decode($body, true);
+        $results = $json['results'] ?? [];
+
+        if (empty($results)) {
+            return new \WP_Error(
+                'pga_unsplash_empty',
+                __('Nenhuma imagem encontrada no Unsplash para este prompt.', 'plugins-alpha')
+            );
+        }
+
+        // 🎯 AQUI é o pulo do gato: escolhe UM resultado aleatório entre os retornados
+        $idx    = wp_rand(0, count($results) - 1);
+        $chosen = $results[$idx];
+
+        $urls = $chosen['urls'] ?? [];
+        $img_url = $urls['regular']
+            ?? $urls['full']
+            ?? $urls['small']
+            ?? '';
+
+        if (!$img_url) {
+            return new \WP_Error(
+                'pga_unsplash_no_url',
+                __('Não foi possível determinar a URL da imagem do Unsplash.', 'plugins-alpha')
+            );
+        }
+
+        $img_res = wp_remote_get($img_url, [
+            'timeout' => 60,
+        ]);
+
+        if (is_wp_error($img_res)) {
+            return $img_res;
+        }
+
+        $binary = wp_remote_retrieve_body($img_res);
+        if (!$binary) {
+            return new \WP_Error(
+                'pga_unsplash_empty_image',
+                __('Imagem vazia retornada pelo Unsplash.', 'plugins-alpha')
+            );
+        }
+
+        return self::create_attachment_from_binary(
+            $binary,
+            $post_id,
+            $alt,
+            'unsplash'
+        );
+    }
+
 
     /**
      * Wrapper de compat: se em algum lugar antigo ainda chamarem generate_openai_thumbnail,

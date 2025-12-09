@@ -768,8 +768,6 @@ class PluginsAlpha_Prompts
         $s .= "- Evite títulos genéricos como \"Introdução\"; o primeiro título precisa ser o mais chamativo de todos.\n";
         $s .= "- Não inclua comentários ou explicações fora do JSON.\n";
         $s .= "- Não inclua markdown, HTML, bullet points ou explicações fora do JSON.\n";
-        $s .= "- No campo \"prompt\" de cada página, crie SEMPRE um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
-
         return $s;
     }
 
@@ -786,7 +784,7 @@ class PluginsAlpha_Prompts
         $s .= "      \"body\": \"Texto curto da página.\",\n";
         $s .= "      \"cta_text\": \"Texto do botão ou chamada final (intercalados).\",\n";
         $s .= "      \"cta_url\": \"\",\n";
-        $s .= "      \"prompt\": \"Crie um prompt de imagem em português sobre o conteúdo do slide, levando em conta título e conteúdo para gerar uma FOTO REALISTA VERTICAL do tema deste slide, estilo cinematográfico, luz natural, sem molduras, sem desenho, sem ilustração, sem texto, sem legendas, sem letras, sem logos.\"\n";
+        $s .= "      \"prompt\": \"\"\n";
         $s .= "    }\n";
         $s .= "  ]\n";
         $s .= "}\n\n";
@@ -815,36 +813,58 @@ class PluginsAlpha_Prompts
      * @param string  $brief    Brief padrão (se existir)
      * @return string           Texto final que será enviado à IA
      */
-    public static function build_story_prompt_for_post(WP_Post $post, string $raw_html, string $brief = ''): string
-    {
+    public static function build_story_prompt_for_post(
+        WP_Post $post,
+        string $raw_html,
+        string $brief = '',
+        string $imageProvider = 'pollinations'
+    ): string {
         // 1) Template vindo da central de prompts (chave: story)
         $system_pt = self::get_prompt_for('story'); // já cai no default se vazio
+        if ($system_pt === '') {
+            $system_pt = self::story_default_template();
+        }
 
         // 2) Prepara variáveis para replace
         $title   = get_the_title($post);
         $content = wp_strip_all_tags($raw_html);
         $locale  = get_locale() ?: 'pt_BR';
 
+        // 2.1 Regra dinâmica para o campo "prompt" das páginas (depende do provider)
+        if ($imageProvider === 'pexels' || $imageProvider === 'unsplash') {
+            // 🔹 Pensado para Pexels/Unsplash (tags simples)
+            $imagePromptRule =
+                'No campo "prompt" de cada página, deve ter apenas uma frase curta com um conjunto máximo de 4 PALAVRAS SIMPLES, focadas no elemento central da imagem deste slide. ' .
+                'Use termos como se fossem tags de busca de banco de imagens, por exemplo: "cachorro preocupado no sofá, sala de estar, homem/mulher com celular sorrindo na sala... etc"'.
+                'não precisa conter coisas como "Imagem de um..." isso é desnecessário';
+        } else {
+            error_log($imageProvider . ' <- provider ds ds ds sd');
+            // 🔹 Pensado para Pollinations/OpenAI (prompt de IA completo)
+            $imagePromptRule =
+                'No campo "prompt" de cada página, crie um prompt de imagem em português sobre o conteúdo do slide, levando em conta título e conteúdo para gerar principalmente o elemento central da imagem, ' .
+                'uma FOTO REALISTA VERTICAL do tema deste slide, estilo cinematográfico, luz natural, sem molduras, sem desenho, sem ilustração, sem texto, sem legendas, sem letras, sem logos.';
+        }
+
         $vars = [
-            'title'   => $title,
-            'content' => $content,
-            'brief'   => $brief,
-            'locale'  => $locale,
+            'title'             => $title,
+            'content'           => $content,
+            'brief'             => $brief,
+            'locale'            => $locale,
+            'image_prompt_rule' => $imagePromptRule,
         ];
 
         $system_pt = self::replace_vars($system_pt, $vars);
 
         // 3) Blocos fixos (formato + header de JSON)
         $format_block = self::story_json_format_block();
-        $json_header  = self::json_header_for_responses_api();
 
         // 4) Monta tudo
-        $input_text = $system_pt . "\n\n";
+        $input_text  = $system_pt . "\n\n";
         $input_text .= $format_block . "\n";
-        $input_text .= $json_header . "\n";
 
         return $input_text;
     }
+
 
     public static function build_outline_prompt_modelar(
         string $url,

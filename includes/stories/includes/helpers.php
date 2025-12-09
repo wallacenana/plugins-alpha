@@ -254,15 +254,30 @@ class PluginsAlpha_Helpers
   {
     $post = get_post($post_id);
     if (!$post) {
-      return new WP_Error('alpha_ai_post', 'Post inválido.');
+      return new \WP_Error('alpha_ai_post', 'Post inválido.');
     }
 
-    // Conteúdo e brief
     $raw_html = apply_filters('the_content', $post->post_content);
     $brief    = self::alpha_ai_get_default_brief();
 
-    // 1) Monta o prompt via central de prompts
-    $prompt = PluginsAlpha_Prompts::build_story_prompt_for_post($post, $raw_html, $brief);
+    // Descobre provider de IMAGEM configurado para Stories
+    $imageProvider = 'pollinations';
+    if (class_exists('PluginsAlpha_Settings')) {
+      $opts    = PluginsAlpha_Settings::get();
+      $stories = $opts['stories'] ?? [];
+      if (!empty($stories['images_provider'])) {
+        $imageProvider = (string) $stories['images_provider'];
+      }
+    }
+
+    error_log($imageProvider . ' selected for story image generation.');
+    // 1) Monta o prompt via central de prompts, passando o provider
+    $prompt = PluginsAlpha_Prompts::build_story_prompt_for_post(
+      $post,
+      $raw_html,
+      $brief,
+      $imageProvider
+    );
 
     $result = PluginsAlpha_AI::generate_story_pages($prompt);
 

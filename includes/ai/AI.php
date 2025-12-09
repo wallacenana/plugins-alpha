@@ -115,7 +115,7 @@ class PluginsAlpha_AI
         if (200 !== $code) {
             return new WP_Error(
                 'alpha_ai_http',
-                'OpenAI retornou ' . $code . ': ' . substr((string) $body, 0, 300)
+                'OpenAI retornou ' . $code . ': ' .  $body
             );
         }
 
