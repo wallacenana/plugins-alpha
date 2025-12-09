@@ -725,6 +725,49 @@
   }
 
 
+    function pgaMarkKeywordDoneGlobally(rawKw) {
+      const kw = (rawKw || '').trim();
+      if (!kw) return;
+    
+      let foundAnywhere = false;
+    
+      $('#pga_gen_container .pga-gen-box').each(function () {
+        const $box = $(this);
+        const $ta  = $box.find('.pga_keywords').first();
+        if (!$ta.length) return;
+    
+        const orig = $ta.val() || '';
+        if (!orig) return;
+    
+        const lines = orig
+          .split('\n')
+          .map(l => l.trim())
+          .filter(l => l.length > 0);
+    
+        const idx = lines.indexOf(kw);
+        if (idx === -1) return; // não é deste grupo
+    
+        // remove a keyword deste grupo
+        lines.splice(idx, 1);
+        $ta.val(lines.join('\n'));
+    
+        foundAnywhere = true;
+      });
+    
+      if (foundAnywhere) {
+        // lista global de “concluídas”
+        const $done = $('#pga_kw_done');
+        if ($done.length) {
+          const li = document.createElement('li');
+          li.textContent = kw;
+          $done.append(li);
+        }
+    
+        // persiste no localStorage
+        pgaSaveBoxesToLocal();
+      }
+    }
+
   // ============================================================
   // ========== BLOCO: GERADOR (keywords/plan/generate) ==========
   // ============================================================
@@ -979,16 +1022,18 @@
     $(document).off('click.pgaGenerateBox').on('click.pgaGenerateBox', '.pga_generate_box', function () {
       const $box = $(this).closest('.pga-gen-box');
       if (!$box.length) return;
-
+    
       (async () => {
         pgaActivateBox($box);
         savePrefsToLocal();
-
-        const res = await generateForActiveBox(); // com validações normais
-        if (!res) return; // cancelado ou erro antes de gerar
-
+    
+        const titleText = $box.find('.pga-gen-title').text().trim() || 'Grupo atual';
+    
+        const res = await generateForActiveBox({ groupTitle: titleText });
+        if (!res) return;
+    
         const html = buildSummaryHtml(res.okCount, res.failCount, res.editLinks, res.failedKeywords);
-
+    
         await Swal.fire({
           icon: res.failCount ? 'warning' : 'success',
           title: 'Finalizado',
@@ -996,7 +1041,6 @@
         });
       })();
     });
-
 
     $('#pga_kw_clear_done').off('click').on('click', async () => {
       const ok = window.Swal ? (await Swal.fire({ icon: 'warning', title: 'Limpar concluídas?', showCancelButton: true })).isConfirmed : confirm('Limpar concluídas?');
@@ -1011,10 +1055,14 @@
     // ---------- Planejar -> gerar sequencial ----------
     // ---------- GERAÇÃO: 1 BOX ATIVO ----------
     async function generateForActiveBox(options = {}) {
-      const skipKwWarning = !!options.skipKeywordWarning; // usado no "modo global"
-
+      const {
+        skipKeywordWarning = false,
+        groupTitle = ''
+      } = options;
+    
       const prefs = collectPrefs();
       const kwList = textareaToArray($('#pga_keywords').val());
+
 
       const transition = {
         strict: false,
@@ -1072,7 +1120,7 @@
 
         // keywords < total
         if (prefs.mode === 'multi' && kwList.length < prefs.total) {
-          if (!skipKwWarning) {
+          if (!skipKeywordWarning) {
             const ok = (await Swal.fire({
               icon: 'question',
               title: 'Quantidade insuficiente',
@@ -1161,30 +1209,6 @@
         return m ? parseInt(m[1], 10) : 0;
       }
 
-      async function runJobWithRetries(job, maxRetries = 3) {
-        let attempt = 0;
-        let lastError = null;
-
-        while (attempt < maxRetries) {
-          attempt++;
-          try {
-            const res = await generateExtraLongPost(job);
-            return { ok: true, res, attempts: attempt };
-          } catch (e) {
-            lastError = e;
-            const status = extractStatus(e);
-
-            if (status && status < 500 && status !== 429) break;
-
-            if (attempt < maxRetries) {
-              await new Promise(r => setTimeout(r, attempt * 1500));
-            }
-          }
-        }
-
-        return { ok: false, error: lastError };
-      }
-
       async function pgaFetchSectionWithRetry(params, maxRetries = 3) {
         let attempt = 0;
 
@@ -1239,68 +1263,135 @@
         }
       }
 
-      async function generateExtraLongPost(job) {
-        const outlineRes = await fetchJSON(`${REST}/orion/outline`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-          body: JSON.stringify({
-            keyword: job.keyword,
-            keywords: [job.keyword],
-            length: job.length,
-            locale: job.locale,
-            template: job.template_key,
-            template_key: job.template_key,
-            publish_time: job.publish_time,
-            category_id: job.category_id,
-            post_type: 'posts_orion',
-          }),
-          silent: true
-        });
-
-        if (!outlineRes || outlineRes.code) {
-          throw new Error(outlineRes?.message || 'Erro ao gerar esboço');
-        }
-
-        const postId = outlineRes.post_id;
-        const sections = outlineRes.sections || [];
-        const errors = []; // 👈 agora existe
-
-        for (const section of sections) {
-          const sid = section.id;
-
-          const secRes = await pgaFetchSectionWithRetry({
-            post_id: postId,
-            section_id: sid,
-          });
-
-          if (!secRes.ok) {
-            errors.push(`Falha definitiva na seção ${sid} do post ${postId}`);
-            continue;
-          }
-        }
-
-        const finRes = await fetchJSON(`${REST}/orion/finalize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-          body: JSON.stringify({
-            post_id: postId,
-            keyword: job.keyword || '',
-            internal_links: {
-              mode: job.internal_links?.mode || 'none',
-              max: job.internal_links?.max || 0,
-              manual_ids: (job.internal_links?.manual_ids || []).join(','),
+      async function generateExtraLongPost(job, opts = {}) {
+          const onStatus = typeof opts.onStatus === 'function' ? opts.onStatus : () => {};
+        
+          // 1) OUTLINE -------------------------------------------------
+          onStatus('Gerando outline…');
+        
+          const outlineRes = await fetchJSON(`${REST}/orion/outline`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-WP-Nonce': NONCE
             },
-          }),
-          silent: true
-        });
-
-        if (finRes && finRes.code) {
-          throw new Error(finRes.message || 'Erro ao finalizar post');
+            body: JSON.stringify({
+              keyword: job.keyword,
+              keywords: [job.keyword],
+              length: job.length,
+              locale: job.locale,
+              template: job.template_key,
+              template_key: job.template_key,
+              publish_time: job.publish_time,
+              category_id: job.category_id,
+              post_type: 'posts_orion',
+            }),
+            silent: true
+          });
+        
+          if (!outlineRes || outlineRes.code) {
+            throw new Error(outlineRes?.message || 'Erro ao gerar esboço');
+          }
+        
+          const postId   = outlineRes.post_id;
+          const sections = outlineRes.sections || [];
+          const errors   = [];
+        
+          // 2) SEÇÕES ---------------------------------------------------
+          const totalSections = sections.length;
+          let doneSections    = 0;
+        
+          for (const section of sections) {
+            const sid = section.id;
+        
+            onStatus(`Gerando seções… (${doneSections}/${totalSections})`);
+        
+            const secRes = await pgaFetchSectionWithRetry({
+              post_id: postId,
+              section_id: sid,
+            });
+        
+            if (!secRes.ok) {
+              errors.push(`Falha definitiva na seção ${sid} do post ${postId}`);
+            }
+        
+            doneSections++;
+          }
+        
+          onStatus(`Gerando seções… (${doneSections}/${totalSections})`);
+        
+          // 3) FINALIZE (SEM IMAGEM) -----------------------------------
+          onStatus('Finalizando conteúdo…');
+        
+          const il       = job.internal_links || {};
+          const rawManual = il.manual_ids;
+        
+          const finRes = await fetchJSON(`${REST}/orion/finalize`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-WP-Nonce': NONCE
+            },
+            body: JSON.stringify({
+              post_id: postId,
+              keyword: job.keyword || '',
+              internal_links: {
+                mode: il.mode || 'none',
+                max: typeof il.max === 'number'
+                  ? il.max
+                  : (parseInt(il.max || '0', 10) || 0),
+                // se vier string, mantém; se vier array, junta:
+                manual_ids: Array.isArray(rawManual)
+                  ? rawManual.join(',')
+                  : (rawManual ? String(rawManual) : ''),
+              },
+              // ⚠️ DIZ PRO BACKEND NÃO GERAR IMAGEM AQUI
+              skip_images: true,
+            }),
+            silent: true
+          });
+        
+          if (finRes && finRes.code) {
+            throw new Error(finRes.message || 'Erro ao finalizar post');
+          }
+        
+          // 4) IMAGEM EM ENDPOINT SEPARADO ------------------------------
+          onStatus('Gerando imagem destacada…');
+        
+          let imgRes = null;
+        
+          try {
+            imgRes = await fetchJSON(`${REST}/orion/image`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-WP-Nonce': NONCE
+              },
+              body: JSON.stringify({
+                post_id: postId,
+                keyword: job.keyword || '',
+                locale: job.locale,
+                template: job.template_key,
+              }),
+              silent: true
+            });
+          } catch (e) {
+            console.warn('Falha ao gerar imagem para o post', postId, e);
+            onStatus('Conteúdo pronto. Imagem falhou (pode tentar depois).');
+          }
+        
+          if (imgRes && !imgRes.error) {
+            onStatus('Conteúdo e imagem gerados com sucesso.');
+          }
+        
+          return {
+            ...finRes,
+            image: imgRes,
+            section_errors: errors,
+          };
         }
 
-        // se você quiser, pode anexar os erros de seção no retorno:
-        return { ...finRes, section_errors: errors };
-      }
+
 
       window.PGA_IS_GENERATING = true;
 
@@ -1308,56 +1399,65 @@
         await Swal.fire({
           title: 'Gerando posts…',
           html: `
-            <div id="pga_loader" style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:6px">
-              <svg width="22" height="22" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <g fill="none" fill-rule="evenodd" stroke-width="4">
-                  <circle cx="22" cy="22" r="18" stroke="#e5e7eb" />
-                  <path d="M40 22c0-9.941-8.059-18-18-18" stroke="#3b82f6">
-                    <animateTransform attributeName="transform" type="rotate" from="0 22 22" to="360 22 22" dur="0.9s" repeatCount="indefinite"/>
-                  </path>
-                </g>
-              </svg>
-              <div id="pga_step_label" style="font-weight:600">Aguarde…</div>
+            <div id="pga_group" style="text-align:center;font-weight:600;font-size:13px;margin-bottom:4px;"></div>
+        
+            <div id="pga_loader" style="display:flex;align-items:center;justify-content:center;margin-bottom:6px;">
+              <div class="swal2-loader" style="display:block;border-width:3px;width:20px;height:20px;"></div>
             </div>
-
-            <div id="pga_prog" style="margin-top:8px">0 / ${jobs.length}</div>
-
+        
+            <div id="pga_prog" style="text-align:center;font-size:13px;margin-bottom:4px;">
+              Progresso: 0 de ${jobs.length}
+            </div>
+        
             <div class="swal2-progress-steps" style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px">
               <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
             </div>
-
-            <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px"></div>
+        
+            <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px;">
+              Preparando geração…
+            </div>
           `,
-          showConfirmButton: false,
-          showCancelButton: false,
-          focusConfirm: false,
           allowOutsideClick: false,
           allowEscapeKey: false,
+          showConfirmButton: false,
           didOpen: async () => {
+            const $group  = document.getElementById('pga_group');
             const $status = document.getElementById('pga_prog');
-            const $bar = document.getElementById('pga_progbar');
-
+            const $bar    = document.getElementById('pga_progbar');
+            const $cur    = document.getElementById('pga_current');
+        
+            if ($group && groupTitle) {
+              $group.textContent = groupTitle;
+            }
+        
+            okCount = 0;
+            failCount = 0;
+            editLinks.length = 0;
+            failedKeywords.length = 0;
+        
             for (let i = 0; i < jobs.length; i++) {
-              const j = jobs[i];
-              const kw = getJobKeyword(j);
-
+              const job = jobs[i];
+              const kw  = getJobKeyword(job);
+        
               try {
-                const result = await runJobWithRetries(j, 3);
-
-                if (!result.ok) {
+                const result = await generateExtraLongPost(job, {
+                  onStatus: msg => {
+                    if ($cur) $cur.textContent = msg;
+                  }
+                });
+        
+                const r = result && result.res ? result.res : result;
+        
+                if (!r || r.error) {
                   failCount++;
-                  failedKeywords.push({
-                    keyword: kw || '(sem keyword)',
-                    error: result.error && result.error.message ? result.error.message : 'Erro desconhecido'
-                  });
+                  if (kw) failedKeywords.push(kw);
                 } else {
-                  const r = result.res;
-
                   okCount++;
-
+                  if (kw) pgaMarkKeywordDoneGlobally(kw);
+        
                   if (r.edit || r.post_id || r.view_link) {
                     let editUrl = '';
-
+        
                     if (typeof r.edit === 'string' && r.edit.indexOf('http') === 0) {
                       editUrl = r.edit;
                     } else {
@@ -1367,7 +1467,7 @@
                         editUrl = `${base}/wp-admin/post.php?post=${postId}&action=edit`;
                       }
                     }
-
+        
                     if (editUrl) {
                       const labelId = r.post_id || r.edit;
                       editLinks.push(
@@ -1375,49 +1475,28 @@
                       );
                     }
                   }
-
-                  if (r && r.state) {
-                    // quando o backend devolve state (fila global),
-                    // atualizamos só o campo atual e a lista de concluídas
-                    $('#pga_keywords').val((r.state.pending || []).join('\n'));
-                    $('#pga_kw_done').empty().append(
-                      (r.state.done || []).map(k => `<li>${k}</li>`).join('')
-                    );
-                  } else if (kw) {
-                    // fallback: remove a keyword atual da lista do textarea
-                    const lines = $('#pga_keywords')
-                      .val()
-                      .split('\n')
-                      .map(l => l.trim())
-                      .filter(l => l && l !== kw);
-
-                    $('#pga_keywords').val(lines.join('\n'));
-                    $('#pga_kw_done').append(`<li>${kw}</li>`);
-                  }
-
-                  // sem copiar nada manualmente entre eles.
-                  pgaSaveBoxesToLocal();
                 }
               } catch (e) {
                 failCount++;
                 failedKeywords.push({
                   keyword: kw || '(sem keyword)',
-                  error: e && e.message ? e.message : 'Erro desconhecido'
+                  error: e && e.message ? e.message : 'Erro desconhecido',
                 });
               }
-
+        
               const done = i + 1;
-              const pct = Math.round((done / jobs.length) * 100);
-
-              if ($status) $status.textContent = `${done} / ${jobs.length}`;
-              if ($bar) $bar.style.width = pct + '%';
-
+              const pct  = Math.round((done / jobs.length) * 100);
+        
+              if ($status) $status.textContent = `Progresso: ${done} de ${jobs.length}`;
+              if ($bar)    $bar.style.width = pct + '%';
+        
               await new Promise(r => setTimeout(r, 150));
             }
-
+        
             Swal.close();
           }
         });
+
       } finally {
         window.PGA_IS_GENERATING = false;
       }
@@ -1504,14 +1583,17 @@
       let allEditLinks = [];
 
       for (const g of groups) {
-        // ignora grupos normais sem keywords
-        if (g.templateKey !== 'modelar' && g.kwCount === 0) continue;
+      if (g.templateKey !== 'modelar' && g.kwCount === 0) continue;
+    
+      pgaActivateBox(g.$box);
+      savePrefsToLocal();
+    
+      const res = await generateForActiveBox({
+          skipKeywordWarning: true,
+          groupTitle: g.titleText 
+        });
 
-        pgaActivateBox(g.$box);
-        savePrefsToLocal();
-
-        const res = await generateForActiveBox({ skipKeywordWarning: true });
-        if (!res) continue; // plano vazio, erro de licença, etc.
+      if (!res) continue
 
         totalOk += res.okCount;
         totalFail += res.failCount;

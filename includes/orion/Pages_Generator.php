@@ -1,9 +1,6 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-if (!class_exists('PluginsAlpha_OpenAI')) require_once __DIR__ . '/OpenAI.php';
-if (!class_exists('PluginsAlpha_Images')) require_once __DIR__ . '/Images.php';
-
 class PluginsAlpha_Pages_Generator
 {
   public static function render(): void
@@ -12,8 +9,18 @@ class PluginsAlpha_Pages_Generator
     $chk = PluginsAlpha_License::check('alpha_orion');
 ?>
     <div class="pga-wrap">
-      <h1>Gerador — Alpha Órion</h1>
+    <?php
+      if (!$chk['ok']) {
+        $url = admin_url('admin.php?page=plugins-alpha-dashboard');
 
+        echo '<div class="notice notice-error is-dismissible"><p>'
+          . esc_html__('Módulo não ativado.', 'plugins-alpha')
+          . ' <a href="' . esc_url($url) . '">'
+          . esc_html__('Clique aqui para ativar', 'plugins-alpha')
+          . '</a></p></div>';
+      } 
+    ?>
+      <h1>Gerador — Alpha Órion</h1>
       <div class="wrap pga-layout">
         <div class="pga-main">
           <!-- Contêiner de grupos -->
@@ -255,16 +262,6 @@ class PluginsAlpha_Pages_Generator
     <div class="pga-footer-fixed">
 
       <?php
-      if (!$chk['ok']) {
-        $url = admin_url('admin.php?page=plugins-alpha-dashboard');
-
-        echo '<div class="notice notice-error is-dismissible"><p>'
-          . esc_html__('Módulo não ativado.', 'plugins-alpha')
-          . ' <a href="' . esc_url($url) . '">'
-          . esc_html__('Clique aqui para ativar', 'plugins-alpha')
-          . '</a></p></div>';
-      }
-
       echo $chk['ok']
         ? '<button class="button button-primary" id="pga_plan">🪄 Planejar &amp; Gerar</button>'
         : '<button class="button button-primary" id="pga_plan" disabled>🪄 Planejar &amp; Gerar</button>';
@@ -879,25 +876,6 @@ class PluginsAlpha_Pages_Generator
     $title     = get_post_meta($post_id, '_pga_chosen_title',     true) ?: $keyword;
     $post_type = get_post_type($post_id) ?: 'posts_orion';
 
-    // --- 2) Publish_ts corrigido / reaproveitado ---
-    $publish_ts = (int) get_post_meta($post_id, '_pga_publish_ts', true);
-
-    if (!$publish_ts) {
-      $publish_ts = self::compute_publish_time([
-        'keywords'                   => [$keyword],
-        'schedule_idx'               => 0,
-        'schedule_total'             => 1,
-        'schedule_per_day'           => 1,
-        'schedule_first_delay_hours' => 24,
-      ]);
-    }
-
-    if ($publish_ts < (time() + 60)) {
-      $publish_ts = time() + 60;
-    }
-
-    update_post_meta($post_id, '_pga_publish_ts', $publish_ts);
-
     // --- 3) Monta conteúdo final a partir das seções ---
     $htmlParts = [];
     foreach ($sections as $s) {
@@ -943,6 +921,12 @@ class PluginsAlpha_Pages_Generator
     $image_alt  = get_post_meta($post_id, '_pga_image_alt',        true) ?: '';
 
     // --- 5) Agenda / criação final do post ---
+    // se veio do REST com generate_image definido, respeita.
+    // se não vier nada, padrão é TRUE (comportamento antigo).
+    $generate_image = array_key_exists('generate_image', $args)
+      ? !empty($args['generate_image'])
+      : true;
+
     $res = self::do_schedule_post($post_id, [
       'keyword'        => $keyword,
       'title'          => $title,
@@ -950,12 +934,11 @@ class PluginsAlpha_Pages_Generator
       'locale'         => $locale,
       'post_id'        => $post_id,
       'template'       => $template,
-      'publish_time'   => $publish_ts,
       'post_type'      => $post_type,
       'meta_title'     => $meta_title,
       'meta_desc'      => $meta_desc,
       'image_alt'      => $image_alt,
-      'generate_image' => true,
+      'generate_image' => $generate_image,
       'edit'           => get_edit_post_link($post_id, ''),
     ]);
 
@@ -1455,61 +1438,6 @@ class PluginsAlpha_Pages_Generator
     return $cands[0];
   }
 
-  public static function plan_and_schedule(array $payload)
-  {
-    // **não usado no novo fluxo** — mantido apenas por compatibilidade
-    return new WP_Error('deprecated', 'Use /plan (que retorna jobs) + /generate para cada job.');
-  }
-
-  private static function compute_publish_time(array $args): int
-  {
-    $now = time();
-
-    $idx   = isset($args['schedule_idx']) ? (int)$args['schedule_idx'] : -1;
-    $total = max(1, (int)($args['schedule_total'] ?? 1));
-    $per   = max(1, (int)($args['schedule_per_day'] ?? 1));
-    $first = max(2, (int)($args['schedule_first_delay_hours'] ?? 2));
-
-    // uso manual: sem plano → só delay simples
-    if ($idx < 0) {
-      return $now + $first * HOUR_IN_SECONDS;
-    }
-
-    // === Lógica de distribuição (igual ao que você tinha no plan) ===
-    $dayIndex  = (int)floor($idx / $per);
-    $slotIndex = $idx % $per;
-
-    // meia-noite hoje
-    $today_midnight = strtotime('today', $now);
-
-    $base = [9 * 3600, 14 * 3600, 19 * 3600];
-    $baseIdx = min($slotIndex, count($base) - 1);
-    $offset  = wp_rand(-40 * MINUTE_IN_SECONDS, 40 * MINUTE_IN_SECONDS);
-
-    $t = $today_midnight + ($dayIndex * DAY_IN_SECONDS) + $base[$baseIdx] + $offset;
-
-    // primeiro post respeita delay
-    if ($idx === 0) {
-      $min = $now + $first * HOUR_IN_SECONDS;
-      if ($t < $min) {
-        $t = $min + wp_rand(300, 2400);
-      }
-    }
-
-    // anti-madrugada
-    $offset_tz = get_option('gmt_offset') * HOUR_IN_SECONDS;
-    $local_ts  = $t + $offset_tz;
-    $hour      = (int)gmdate('G', $local_ts);
-
-    if ($hour >= 0 && $hour < 6) {
-      $diff = (6 - $hour) * HOUR_IN_SECONDS;
-      $t    = $t + $diff + wp_rand(300, 2400);
-    }
-
-    return $t;
-  }
-
-
   private static function do_schedule_post(int $post_id, array $args = [])
   {
     $post_id = intval($post_id);
@@ -1522,18 +1450,22 @@ class PluginsAlpha_Pages_Generator
     $content_html = (string)($args['content']      ?? '');
     $locale       = (string)($args['locale']       ?? 'pt_BR');
     $template     = (string)($args['template']     ?? 'discover_article');
+    $publish_ts = (int) get_post_meta($post_id, '_pga_publish_ts', true);
 
-    // 1) PRIORIDADE: publish_time vindo nos args (planner / outline / generate)
-    $publish_ts = isset($args['publish_time']) ? (int)$args['publish_time'] : 0;
-
-    // 2) Se não veio nos args, tenta meta salvo (_pga_publish_ts)
+    // se por algum motivo não tiver meta (fallback raro)
     if (!$publish_ts) {
-      $publish_ts = (int) get_post_meta($post_id, '_pga_publish_ts', true);
-    }
-
-    // 3) Se ainda não tiver nada, fallback genérico
-    if (!$publish_ts) {
-      $publish_ts = self::compute_publish_time($args); // aqui usa schedule_* se tiver, senão cai no default
+      // tenta args (caso fluxos antigos ainda enviem)
+      if (!empty($args['publish_time'])) {
+        $raw = $args['publish_time'];
+        if (is_numeric($raw)) {
+          $publish_ts = (int)$raw;
+        } else {
+          $t = strtotime((string)$raw);
+          if ($t !== false) {
+            $publish_ts = $t;
+          }
+        }
+      }
     }
 
     $post_type    = !empty($args['post_type']) ? sanitize_key($args['post_type']) : (get_post_type($post_id) ?: 'posts_orion');

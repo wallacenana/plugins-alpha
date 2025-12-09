@@ -203,6 +203,16 @@ class PluginsAlpha_REST
                 return current_user_can('edit_posts');
             },
         ]);
+        
+        // 4) Gera/aplica apenas a imagem destacada do post
+        register_rest_route('pga/v1', '/orion/image', [
+            'methods'             => 'POST',
+            'callback'            => [__CLASS__, 'handle_image'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            },
+        ]);
+
 
         register_rest_route('pga/v1', '/license/activate', [
             'methods'  => 'POST',
@@ -273,6 +283,137 @@ class PluginsAlpha_REST
     {
         return current_user_can('edit_posts');
     }
+    
+    /**
+     * POST /wp-json/pga/v1/orion/image
+     * Body: { post_id: 123, keyword?: "...", locale?: "...", template?: "..." }
+     */
+    public static function handle_image(WP_REST_Request $req)
+    {
+        $v = self::verify_nonce($req);
+        if (is_wp_error($v)) return $v;
+    
+        $params = $req->get_json_params();
+        if (empty($params)) {
+            $params = $req->get_params();
+        }
+    
+        $post_id = intval($params['post_id'] ?? 0);
+        if (!$post_id || get_post_type($post_id) === null) {
+            return new WP_Error(
+                'pga_bad_request',
+                __('post_id inválido.', 'plugins-alpha'),
+                ['status' => 400]
+            );
+        }
+    
+        // keyword / locale / template com fallbacks
+        $keyword  = trim((string)($params['keyword'] ?? ''));
+        if ($keyword === '') {
+            $keyword = (string) get_post_meta($post_id, '_pga_outline_keyword', true);
+        }
+    
+        $locale = (string)($params['locale'] ?? '');
+        if ($locale === '') {
+            $locale = get_post_meta($post_id, '_pga_outline_locale', true) ?: 'pt_BR';
+        }
+    
+        $template = (string)($params['template'] ?? '');
+        if ($template === '') {
+            $template = get_post_meta($post_id, '_pga_outline_template', true) ?: 'discover_article';
+        }
+    
+        $title = get_post_meta($post_id, '_pga_chosen_title', true);
+        if ($title === '') {
+            $title = get_the_title($post_id) ?: $keyword;
+        }
+    
+        $image_alt = get_post_meta($post_id, '_pga_image_alt', true);
+        if ($image_alt === '') {
+            $image_alt = $title;
+        }
+    
+        if ($keyword === '' || $title === '') {
+            return new WP_Error(
+                'pga_img_missing_data',
+                __('Dados insuficientes para gerar imagem.', 'plugins-alpha'),
+                ['status' => 400]
+            );
+        }
+    
+        // 1) META-PROMPT vindo do Prompts.php
+        if (!class_exists('PluginsAlpha_Prompts')) {
+            return new WP_Error('pga_prompts_missing', 'Classe de prompts não encontrada.', ['status' => 500]);
+        }
+    
+        $meta_img_prompt = PluginsAlpha_Prompts::build_image_prompt(
+            $keyword,
+            $title,
+            $locale,
+            $template
+        );
+    
+        $img_prompt = '';
+    
+        if ($meta_img_prompt && class_exists('PluginsAlpha_OpenAI')) {
+            $resolved = PluginsAlpha_OpenAI::image_prompt($meta_img_prompt);
+            if (!is_wp_error($resolved)) {
+                $img_prompt = trim((string) $resolved);
+            }
+        }
+    
+        if ($img_prompt === '') {
+            $img_prompt = $meta_img_prompt;
+        }
+    
+        if ($img_prompt === '') {
+            return new WP_Error(
+                'pga_img_prompt_empty',
+                __('Não foi possível montar o prompt de imagem.', 'plugins-alpha'),
+                ['status' => 500]
+            );
+        }
+    
+        if (!class_exists('PluginsAlpha_Images')) {
+            return new WP_Error('pga_images_missing', 'Classe de imagens não encontrada.', ['status' => 500]);
+        }
+    
+        $thumb_id = PluginsAlpha_Images::generate_by_settings(
+            $img_prompt,
+            $post_id,
+            $image_alt
+        );
+    
+        if (is_wp_error($thumb_id) || !$thumb_id) {
+            return new WP_Error(
+                'pga_img_fail',
+                is_wp_error($thumb_id) ? $thumb_id->get_error_message() : 'Falha ao gerar imagem.',
+                ['status' => 500]
+            );
+        }
+    
+        // define thumbnail do post
+        set_post_thumbnail($post_id, $thumb_id);
+    
+        // guarda metadados pra referência
+        update_post_meta($post_id, '_pga_image_prompt', $img_prompt);
+    
+        $opts     = class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [];
+        $img_opts = $opts['apis']['images'] ?? [];
+        $provider = $img_opts['provider'] ?? 'pollinations';
+    
+        update_post_meta($post_id, '_pga_image_provider', $provider);
+        update_post_meta($post_id, '_pga_image_alt', $image_alt);
+    
+        return rest_ensure_response([
+            'ok'        => true,
+            'post_id'   => $post_id,
+            'thumb_id'  => $thumb_id,
+            'provider'  => $provider,
+            'prompt'    => $img_prompt,
+        ]);
+    }
+
     /**
      * POST /wp-json/pga/v1/orion/outline
      * Body: { keywords: [...], length, template, locale, publish_time, category_id, post_type }
@@ -703,12 +844,12 @@ class PluginsAlpha_REST
     {
         $v = self::verify_nonce($req);
         if (is_wp_error($v)) return $v;
-
+    
         $params = $req->get_json_params();
         if (empty($params)) {
             $params = $req->get_params();
         }
-
+    
         $post_id = intval($params['post_id'] ?? 0);
         if (!$post_id) {
             return new WP_Error(
@@ -717,30 +858,30 @@ class PluginsAlpha_REST
                 ['status' => 400]
             );
         }
-
+    
         // opções de link interno vindas do JS
         $internal_opts = [];
         if (!empty($params['internal_links']) && is_array($params['internal_links'])) {
             $internal_opts = $params['internal_links'];
         }
-
+    
+        // NOVO: controla se a finalização vai ou não gerar imagem
+        $skip_images    = !empty($params['skip_images']);
+        $generate_image = !$skip_images;
+    
         // 1) Finaliza via Generator
         $res = PluginsAlpha_Pages_Generator::finalize_from_sections(
             $post_id,
             [
                 'internal_links' => $internal_opts,
+                'generate_image' => $generate_image,
             ]
         );
-
+    
         if (is_wp_error($res)) {
             return $res;
         }
 
-        // 2) Descobre a keyword usada nesse job
-        //    PRIORIDADE:
-        //    1) params['keyword'] vindo do JS
-        //    2) $res['keyword'] retornado pelo Generator
-        //    3) meta _pga_outline_keyword
         $keyword = trim((string)($params['keyword'] ?? ''));
         if ($keyword === '' && is_array($res) && !empty($res['keyword'])) {
             $keyword = (string)$res['keyword'];
@@ -803,83 +944,60 @@ class PluginsAlpha_REST
     {
         $v = self::verify_nonce($req);
         if (is_wp_error($v)) return $v;
-
+    
         return self::guard(function () use ($req) {
             $p    = $req->get_json_params();
             $mode = (isset($p['mode']) && $p['mode'] === 'single') ? 'single' : 'multi';
-
-            // ---------------------------
-            // INTERNAL LINKS
-            // ---------------------------
+    
             $il_raw = is_array($p['internal_links'] ?? null) ? $p['internal_links'] : [];
-
+    
             // modo: none | auto | pillar | manual
             $link_mode = self::clean($il_raw['mode'] ?? 'none');
             if (!in_array($link_mode, ['none', 'auto', 'pillar', 'manual'], true)) {
                 $link_mode = 'none';
             }
-
-            // máx. de links por post
+    
+            // máximo de links por post
             $link_max = max(0, intval($il_raw['max'] ?? 0));
-
+    
             // "12,34, 56" -> [12, 34, 56]
             $link_manual_ids = array_values(array_filter(array_map(
                 'absint',
                 explode(',', (string)($il_raw['manual_ids'] ?? ''))
             )));
-
-            // ---------------------------
-            // CAMPOS BÁSICOS
-            // ---------------------------
-
-            // textarea (um por linha) – pode ser frase OU URL, depende do template
+    
+            // textarea (um por linha)
             $kw_in = self::lines_to_array($p['keywords'] ?? '');
-
+    
             $locale = self::clean($p['locale'] ?? 'pt_BR');
             $tpl    = self::clean($p['template_key'] ?? 'article');
             $length = self::clean($p['length'] ?? 'short');
-
+    
             $isModelar = ($tpl === 'modelar');
-
-            // ---------------------------
-            // VALIDAÇÕES: NORMAL x MODELAR
-            // ---------------------------
-            if ($isModelar) {
-                // cada linha precisa virar uma URL limpa
-                $urls = [];
-                foreach ($kw_in as $line) {
-                    $u = trim($line);
-
+    
+            if ($tpl === 'modelar') {
+                $kw_in = array_map(function ($u) {
+                    $u = trim($u);
+    
                     // remove espaços invisíveis / caracteres ruins
                     $u = preg_replace('/[\x00-\x1F\x7F]/u', '', $u);
-
-                    if ($u === '') {
-                        continue;
+    
+                    // evita prefixos quebrados tipo "/-xxxxx"
+                    if (str_starts_with($u, '/-')) {
+                        $u = ltrim($u, '/-');
                     }
-
-                    // garante esquema
+    
+                    // se não começa com http, tenta consertar
                     if (!preg_match('~^https?://~i', $u)) {
-                        $u = 'https://' . $u;
+                        $u = 'https://' . ltrim($u, '/');
                     }
-
-                    if (!filter_var($u, FILTER_VALIDATE_URL)) {
-                        continue;
-                    }
-
-                    $urls[] = $u;
-                }
-
-                $kw_in = $urls;
-
-                if (empty($kw_in)) {
-                    return new WP_Error(
-                        'pga_kw',
-                        'Para modelar, informe pelo menos 1 URL (uma por linha).',
-                        ['status' => 400]
-                    );
-                }
-            } else {
-                // templates normais → keywords obrigatórias
+    
+                    return esc_url_raw($u);
+                }, $kw_in);
+            }
+    
+            // VALIDAÇÃO
+            if (!$isModelar) {
                 if ($mode === 'multi' && empty($kw_in)) {
                     return new WP_Error(
                         'pga_kw',
@@ -894,33 +1012,35 @@ class PluginsAlpha_REST
                         ['status' => 400]
                     );
                 }
+            } else {
+                if (empty($kw_in)) {
+                    return new WP_Error(
+                        'pga_kw',
+                        'Para modelar, informe pelo menos 1 URL (uma por linha).',
+                        ['status' => 400]
+                    );
+                }
             }
-
-            // ---------------------------
-            // TOTAL / POR DIA
-            // ---------------------------
+    
             $total  = max(1, intval($p['total'] ?? ($mode === 'single' ? 1 : count($kw_in))));
             $perDay = max(1, intval($p['per_day'] ?? 3));
-
-            // ---------------------------
-            // PRIMEIRA PUBLICAÇÃO
-            // first_delay_hours agora é DATETIME-LOCAL (string)
-            // ---------------------------
+    
+            // ---------- PRIMEIRA PUBLICAÇÃO (DATETIME-LOCAL) ----------
             $first_raw = trim((string)($p['first_delay_hours'] ?? ''));
             $now       = time();
-            $firstH    = 2; // fallback padrão
-
+    
+            // baseTs = timestamp base do plano
+            //  - se veio data/hora futura → data escolhida
+            //  - senão → agora + 2h (fallback antigo)
+            $baseTs = $now + 2 * HOUR_IN_SECONDS;
+    
             if ($first_raw !== '') {
                 $ts = strtotime($first_raw);
                 if ($ts !== false && $ts > $now) {
-                    $diffSec = $ts - $now;
-                    $firstH  = max(2, (int)ceil($diffSec / HOUR_IN_SECONDS));
+                    $baseTs = $ts;
                 }
             }
-
-            // ---------------------------
-            // TRANSITION
-            // ---------------------------
+    
             $transition = [
                 'strict'    => !empty($p['transition']['strict'] ?? false),
                 'min_ratio' => floatval($p['transition']['min_ratio'] ?? 0.3),
@@ -928,29 +1048,63 @@ class PluginsAlpha_REST
                     ? array_values(array_filter(array_map('trim', $p['transition']['words'])))
                     : [],
             ];
-
+    
+            // monta agenda leve
+            $jobs   = [];
+            $days   = (int) ceil($total / max(1, $perDay));
+            $i      = 0;
             $cat_id = max(0, intval($p['category_id'] ?? 0));
-
-            // ---------------------------
-            // MONTA A AGENDA (JOBS) – TUDO NO BACKEND
-            // ---------------------------
-            $jobs = self::build_jobs(
-                $mode,
-                $kw_in,
-                $locale,
-                $tpl,
-                $length,
-                $total,
-                $perDay,
-                $now,
-                $firstH,
-                $transition,
-                $cat_id,
-                $link_mode,
-                $link_max,
-                $link_manual_ids
-            );
-
+    
+            for ($d = 0; $d < $days; $d++) {
+                $slotsToday = min($perDay, $total - count($jobs));
+                $base       = [9 * 3600, 14 * 3600, 19 * 3600];
+    
+                for ($s = 0; $s < $slotsToday; $s++) {
+                    $baseIdx = min($s, count($base) - 1);
+                    $offset  = wp_rand(-40 * MINUTE_IN_SECONDS, 40 * MINUTE_IN_SECONDS);
+    
+                    // sempre a partir do baseTs, somando dias pra frente
+                    $t = strtotime('+' . $d . ' day', $baseTs) + $base[$baseIdx] + $offset;
+    
+                    // escolhe LINHA (keyword OU URL) para este job
+                    $lineValue = '';
+                    if ($mode === 'single') {
+                        $lineValue = $kw_in[0] ?? '';
+                    } else {
+                        $lineValue = $kw_in[$i] ?? '';
+                    }
+    
+                    if ($lineValue === '') {
+                        continue;
+                    }
+    
+                    $jobs[] = [
+                        'keyword'        => $lineValue,
+                        'locale'         => $locale,
+                        'length'         => $length,
+                        'template_key'   => $tpl,
+                        'publish_time'   => $t,
+                        'transition'     => $transition,
+                        'category_id'    => $cat_id,
+                        'internal_links' => [
+                            'mode'       => $link_mode,
+                            'max'        => $link_max,
+                            'manual_ids' => $link_manual_ids,
+                        ],
+                    ];
+    
+                    $i++;
+                    if (count($jobs) >= $total) {
+                        break;
+                    }
+                }
+            }
+    
+            // multi: no máx. 1 job por linha
+            if ($mode === 'multi' && count($kw_in) < $total) {
+                $jobs = array_slice($jobs, 0, count($kw_in));
+            }
+    
             return [
                 'ok'                 => true,
                 'mode'               => $mode,
@@ -960,95 +1114,12 @@ class PluginsAlpha_REST
             ];
         });
     }
+
     /**
      * Monta a lista de jobs (agenda) a partir dos parâmetros do planejamento.
      *
      * Cada job já sai pronto para ser enviado para o /generate depois.
      */
-    private static function build_jobs(
-        string $mode,
-        array $kw_in,
-        string $locale,
-        string $tpl,
-        string $length,
-        int $total,
-        int $perDay,
-        int $now,
-        int $firstH,
-        array $transition,
-        int $cat_id,
-        string $link_mode,
-        int $link_max,
-        array $link_manual_ids
-    ) {
-        $jobs = [];
-
-        $days = (int) ceil($total / max(1, $perDay));
-        $i    = 0;
-
-        for ($d = 0; $d < $days; $d++) {
-            $slotsToday = min($perDay, $total - count($jobs));
-            $base       = [9 * 3600, 14 * 3600, 19 * 3600]; // manhã / tarde / noite
-
-            for ($s = 0; $s < $slotsToday; $s++) {
-                $baseIdx = min($s, count($base) - 1);
-                $offset  = wp_rand(-40 * MINUTE_IN_SECONDS, 40 * MINUTE_IN_SECONDS);
-                $t       = strtotime('+' . $d . ' day', $now) + $base[$baseIdx] + $offset;
-
-                // primeiro post respeita a regra do firstH
-                if ($i === 0) {
-                    $min = $now + $firstH * HOUR_IN_SECONDS;
-                    if ($t < $min) {
-                        $t = $min + wp_rand(300, 2400);
-                    }
-                }
-
-                // escolhe LINHA (keyword OU URL) para este job
-                if ($mode === 'single') {
-                    $lineValue = $kw_in[0] ?? '';
-                } else {
-                    $lineValue = $kw_in[$i] ?? '';
-                }
-
-                // acabou as linhas
-                if ($lineValue === '') {
-                    continue;
-                }
-
-                // UM campo só:
-                // - templates normais: lineValue = keyword
-                // - modelar: lineValue = URL
-                $jobs[] = [
-                    'keyword'        => $lineValue,
-                    'locale'         => $locale,
-                    'length'         => $length,
-                    'template_key'   => $tpl,
-                    'publish_time'   => $t,
-                    'transition'     => $transition,
-                    'category_id'    => $cat_id,
-                    'internal_links' => [
-                        'mode'       => $link_mode,
-                        'max'        => $link_max,
-                        'manual_ids' => $link_manual_ids,
-                    ],
-                ];
-
-                $i++;
-                if (count($jobs) >= $total) {
-                    break;
-                }
-            }
-        }
-
-        // multi: no máx. 1 job por linha
-        if ($mode === 'multi' && count($kw_in) < $total) {
-            $jobs = array_slice($jobs, 0, count($kw_in));
-        }
-
-        return $jobs;
-    }
-
-
     public static function status()
     {
         return ['ok' => true, 'time' => current_time('mysql')];
