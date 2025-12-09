@@ -791,10 +791,6 @@ class PluginsAlpha_Prompts
         $s .= "  ]\n";
         $s .= "}\n\n";
 
-        $s .= "Regras adicionais sobre CTA:\n";
-        $s .= "- Deixe SEMPRE o campo \"cta_url\" como string vazia \"\". O sistema preencherá automaticamente com o link do artigo.\n";
-        $s .= "- No campo \"prompt\", crie sempre um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
-
         return $s;
     }
 
@@ -805,7 +801,7 @@ class PluginsAlpha_Prompts
     {
         $s  = "IMPORTANTE: a resposta deve ser APENAS um JSON válido.\n";
         $s .= "A palavra \"json\" aparece aqui apenas para atender requisitos internos da API.\n\n";
-        $s .= "- No campo \"prompt\", crie sempre um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
+        $s .= "- No campo \"prompt\", especifique sempre um prompt de FOTO REALISTA VERTICAL, estilo cinematográfico, cores naturais, sem qualquer texto, sem letras, sem legendas, sem molduras, sem desenho, sem ilustração.\n";
 
         return $s;
     }
@@ -843,9 +839,9 @@ class PluginsAlpha_Prompts
         $json_header  = self::json_header_for_responses_api();
 
         // 4) Monta tudo
-        $input_text  = $json_header . "\n";
-        $input_text .= $system_pt . "\n\n";
+        $input_text = $system_pt . "\n\n";
         $input_text .= $format_block . "\n";
+        $input_text .= $json_header . "\n";
 
         return $input_text;
     }
@@ -1125,8 +1121,10 @@ class PluginsAlpha_Prompts
         $s .= "Especificações do esboço:\n";
         $s .= "- O artigo final deve ter entre {{min_words}} e {{max_words}} palavras.\n";
         $s .= "- Crie entre {{min_sections}} e {{max_sections}} seções principais de nível H2.\n";
+        $s .= "- importante que os títulos não tenham Capitalização dos h2, h3, apenas a primeira palavra e quando aplicavel, como por exemplo, para nomes.\n";
         $s .= "- Quando fizer sentido, crie subtópicos H3 dentro das seções principais.\n";
         $s .= "- Cada título de seção deve ser claro, direto e alinhado com o tema central do artigo.\n\n";
+        $s .= "- A finalização deve ser o mais natural possivel com comportamento humanizado, sem usar termos do nivel de 'conclusão' ou qualquer coisa que demonstre que está finalizando ali.\n\n";
 
         $s .= "O que entregar agora:\n";
         $s .= "- Apenas o esboço hierárquico (H2 e H3).\n";
@@ -1166,9 +1164,10 @@ class PluginsAlpha_Prompts
         $s .= "- Cada H2 pode conter um array \"children\" com H3 relacionados.\n";
         $s .= "- Com exceção da introdução e finalização, ao menos 1 H2 deve ter subseções.\n";
         $s .= "- Inclua \"bullets\" com ideias que serão desenvolvidas em cada seção.\n\n";
+        $s .= "- importante que os títulos não tenham Capitalização dos h2, h3, apenas a primeira palavra e quando aplicavel, como por exemplo, para nomes.\n";
 
         $s .= "Finalização:\n";
-        $s .= "- Finalize sempre com a conclusão, mas jamais coloque o título como 'conclusão'.\n\n";
+        $s .= "- Finalize natualmente, sem aquelas coisas de 'conclusão', jamais coloque o título como 'conclusão', seja natual ao ponto de estar bem humanizado.\n\n";
 
         $s .= "A frase chave \"{{keyword}}\" deve ser considerada em toda a estrutura.\n";
 

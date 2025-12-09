@@ -264,7 +264,6 @@ class PluginsAlpha_Helpers
     // 1) Monta o prompt via central de prompts
     $prompt = PluginsAlpha_Prompts::build_story_prompt_for_post($post, $raw_html, $brief);
 
-    // 2) Chama a IA genérica (sem Pollinations aqui!)
     $result = PluginsAlpha_AI::generate_story_pages($prompt);
 
     if (is_wp_error($result)) {
