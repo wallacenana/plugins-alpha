@@ -641,18 +641,81 @@ class PluginsAlpha_Prompts
         string $keyword,
         string $title,
         string $locale,
-        string $template
+        string $template,
+        string $imageProvider = ''
     ): string {
-        $tpl = self::get_prompt_for('image');
+        $imageProvider = trim((string) $imageProvider);
 
-        $vars = array(
+        // 🔹 Se for Pexels/Unsplash → prompt especial de "tags de busca"
+        if ($imageProvider === 'pexels' || $imageProvider === 'unsplash') {
+            // se algum dia você quiser permitir customizar esse template via painel,
+            // poderia usar get_prompt_for('image_stock') aqui
+            $tpl = self::default_image_prompt_stock();
+        } else {
+            // 🔹 IA de imagem (Pollinations / OpenAI / etc.) → usa o template normal
+            $tpl = self::get_prompt_for('image');
+            if (!$tpl) {
+                $tpl = self::default_image_prompt();
+            }
+
+            // Se quiser ainda adicionar alguma regra extra específica pra IA:
+            $tpl .= "- Gere um prompt longo descrevendo uma FOTO REALISTA HORIZONTAL 16:9 do tema principal deste post.\n";
+            $tpl .= "- Estilo cinematográfico, luz natural, sem molduras, sem desenho, sem ilustração.\n";
+            $tpl .= "- Não deve haver texto, legendas, letras ou logotipos na imagem.\n";
+            $tpl .= "- Foque especialmente no elemento central da imagem relacionado ao problema e à solução abordados no conteúdo.\n";
+        }
+
+        $vars = [
             'keyword'  => $keyword,
             'locale'   => $locale,
             'template' => $template,
             'title'    => $title,
-        );
+        ];
 
         return self::replace_vars($tpl, $vars);
+    }
+
+
+    private static function default_image_prompt_stock(): string
+    {
+        $s  = '';
+        $s .= "Você é um gerador de TAGS de busca para bancos de imagens (Pexels/Unsplash).\n";
+        $s .= "Com base nas informações abaixo (locale, keyword, título e template), gere APENAS uma frase bem curta para ser usada como query de busca.\n\n";
+
+        $s .= "Dados de contexto:\n";
+        $s .= "- Locale: {{locale}}\n";
+        $s .= "- Keyword principal: {{keyword}}\n";
+        $s .= "- Título do post: {{title}}\n";
+        $s .= "- Tipo de conteúdo: {{template}}\n\n";
+
+        $s .= "Regras IMPORTANTES:\n";
+        $s .= "- O resultado final deve ser APENAS uma frase bem curta, com no máximo 4 PALAVRAS SIMPLES.\n";
+        $s .= "- Escreva como se fossem TAGS de busca de banco de imagens.\n";
+        $s .= "- Foque no elemento central da cena, sempre algo concreto e cotidiano a nivel emocional (homem, mulher, gato, cachorro, carro, celular... etc...).\n";
+        $s .= "- Exemplos: \"cachorro comendo ração\", \"mulher sorrindo notebook\", \"homem correndo praia\".\n";
+        $s .= "- Nunca gere coisas subjetivas/abstratas, como \"cachorro se adaptando rotina\" ou \"felicidade em família\".\n";
+        $s .= "- Não use prefixos como \"Imagem de\", \"Foto de\", \"Thumbnail de\".\n";
+        $s .= "- Não escreva frases completas; apenas termos descritivos.\n";
+
+        return $s;
+    }
+
+    private static function default_image_prompt(): string
+    {
+        $s  = '';
+        $s .= 'Você é um gerador de prompts para imagens realistas.' . "\n";
+        $s .= 'Crie um prompt em {{locale}} para gerar uma thumbnail em estilo fotográfico/realista (não ilustrativo) relacionada ao conteúdo: "{{keyword}}".' . "\n";
+        $s .= 'Considere também o título do post: "{{title}}" e o tipo de conteúdo: "{{template}}".' . "\n\n";
+        $s .= "Regras:\n";
+        $s .= "- Descreva a cena com detalhes visuais claros (ambiente, iluminação, enquadramento, estilo).\n";
+        $s .= "- Evite texto na imagem, logotipos e elementos de interface.\n";
+        $s .= "- Não cite palavras como \"thumbnail\", \"blog\", \"post\", \"imagem\" no prompt.\n";
+        $s .= "- Foque em uma única cena marcante, em proporção 16:9.\n";
+        $s .= "- Tamanho do prompt: pelo menos 200 caracteres.\n";
+        $s .= "- Não escreva palavras como 'Descubra', 'veja como' ou palavras desse tipo; prefira inserir uma dor com uma solução dessa dor, falando de possíveis benefícios.\n";
+        $s .= "- Peça para não ter textos ou marca d'água.\n";
+
+        return $s;
     }
 
     public static function length_to_range(string $length): array
@@ -728,10 +791,6 @@ class PluginsAlpha_Prompts
         return $base . "\n\n" . self::outline_json_suffix();
     }
 
-    /* ---------------------------------------------------------------------
-     *  DEFAULTS – aqui você pode ir refinando com calma depois
-     * ------------------------------------------------------------------ */
-
     /**
      * Template padrão para Web Stories.
      * Agora suporta placeholders: {{title}}, {{content}}, {{brief}}, {{locale}}.
@@ -768,6 +827,7 @@ class PluginsAlpha_Prompts
         $s .= "- Evite títulos genéricos como \"Introdução\"; o primeiro título precisa ser o mais chamativo de todos.\n";
         $s .= "- Não inclua comentários ou explicações fora do JSON.\n";
         $s .= "- Não inclua markdown, HTML, bullet points ou explicações fora do JSON.\n";
+        $s .= "- Nunca finalize com coisas no sentido de \"conclusão\", finalize natualmente, sem querer dizer que está concluindo.\n";
         return $s;
     }
 
@@ -835,10 +895,9 @@ class PluginsAlpha_Prompts
             // 🔹 Pensado para Pexels/Unsplash (tags simples)
             $imagePromptRule =
                 'No campo "prompt" de cada página, deve ter apenas uma frase curta com um conjunto máximo de 4 PALAVRAS SIMPLES, focadas no elemento central da imagem deste slide. ' .
-                'Use termos como se fossem tags de busca de banco de imagens, por exemplo: "cachorro preocupado no sofá, sala de estar, homem/mulher com celular sorrindo na sala... etc"'.
+                'Use termos como se fossem tags de busca de banco de imagens, por exemplo: "cachorro preocupado no sofá, sala de estar, homem/mulher com celular sorrindo na sala... etc"' .
                 'não precisa conter coisas como "Imagem de um..." isso é desnecessário';
         } else {
-            error_log($imageProvider . ' <- provider ds ds ds sd');
             // 🔹 Pensado para Pollinations/OpenAI (prompt de IA completo)
             $imagePromptRule =
                 'No campo "prompt" de cada página, crie um prompt de imagem em português sobre o conteúdo do slide, levando em conta título e conteúdo para gerar principalmente o elemento central da imagem, ' .
@@ -1041,6 +1100,10 @@ class PluginsAlpha_Prompts
         $txt .= "- Nunca mencione o nome do site, domínio ou marca da página original.\n";
         $txt .= "- Não faça referências ao fato de estar modelando outro texto; escreva como um artigo original.\n\n";
 
+        $txt .= "Regras de Finalização:\n";
+        $txt .= "Se esta sessão for a ultima, sendo algo sobre conclusão/finalização, o h2 não deve demonstrar que é uma conclusão, então é proibido colocar coisas como:\n";
+        $txt .= "conclusão, finalização, considerações finais, encerramento, resumo, fechamento. Faça uma finalização sem demonstrar de forma nitica que é uma conclusão:\n";
+
         $txt .= "Contexto do esboço desta seção:\n";
         $txt .= $bulletsText . "\n";
 
@@ -1072,10 +1135,6 @@ class PluginsAlpha_Prompts
     }
 
 
-    /**
-     * Prompt padrão para gerar um prompt de IMAGEM
-     * baseado no título + conteúdo de um post.
-     */
     private static function default_post_thumbnail_regen_prompt(): string
     {
         $s  = "";
@@ -1096,16 +1155,37 @@ class PluginsAlpha_Prompts
     /**
      * Monta o prompt de thumbnail para um post específico,
      * usando título + conteúdo como base.
+     *
+     * Agora leva em conta o provider de IMAGEM:
+     * - pexels/unsplash → tags curtas
+     * - IA (pollinations/openai/etc.) → prompt descritivo
      */
     public static function build_post_thumbnail_regen_prompt(
         string $title,
         string $content,
-        string $locale = 'pt_BR'
+        string $locale = 'pt_BR',
+        string $imageProvider = ''
     ): string {
         $tpl = self::get_prompt_for('post_thumbnail_regen');
 
         if (!$tpl) {
             $tpl = self::default_post_thumbnail_regen_prompt();
+        }
+
+        // 🔹 Ajusta as REGRAS conforme provider de IMAGEM
+        if ($imageProvider === 'pexels' || $imageProvider === 'unsplash') {
+            // 🔹 Pensado para Pexels/Unsplash (tags simples)
+            $tpl .= "- O resultado final deve ser APENAS uma frase bem curta (no máximo 4 PALAVRAS SIMPLES), como se fossem TAGS de busca de banco de imagens.\n";
+            $tpl .= "- Foque no elemento central da cena com coisas comcretas e possiveis, por exemplo: \"cachorro no sofá\", \"mulher sorrindo com notebook\", \"homem correndo na praia\".\n";
+            $tpl .= "- Nunca gere coisas subjetivas, como \"cachorro se adaptando rotina\", nesse exemplo, não tem como encontrar um resultado plausível para corresponder.\n";
+            $tpl .= "- Não use prefixos como \"Imagem de\", \"Foto de\", \"Thumbnail de\" ou termos do tipo.\n";
+        } else {
+            // Pensado para IA de imagem (OpenAI / Pollinations / etc.)
+            $tpl .= "\n\nRegras específicas para IA de imagem (OpenAI/Pollinations):\n";
+            $tpl .= "- Gere um prompt longo em português descrevendo uma FOTO REALISTA HORIZONTAL 16:9 do tema principal deste post.\n";
+            $tpl .= "- Estilo cinematográfico, luz natural, sem molduras, sem desenho, sem ilustração.\n";
+            $tpl .= "- Não deve haver texto, legendas, letras ou logotipos na imagem.\n";
+            $tpl .= "- Foque especialmente no elemento central da imagem ligado à dor e à solução citadas no conteúdo.\n";
         }
 
         $vars = [
@@ -1116,7 +1196,6 @@ class PluginsAlpha_Prompts
 
         return self::replace_vars($tpl, $vars);
     }
-
 
     private static function default_outline_modelar_prompt(): string
     {
@@ -1187,7 +1266,8 @@ class PluginsAlpha_Prompts
         $s .= "- importante que os títulos não tenham Capitalização dos h2, h3, apenas a primeira palavra e quando aplicavel, como por exemplo, para nomes.\n";
 
         $s .= "Finalização:\n";
-        $s .= "- Finalize natualmente, sem aquelas coisas de 'conclusão', jamais coloque o título como 'conclusão', seja natual ao ponto de estar bem humanizado.\n\n";
+        $s .= "- Finalize natualmente, sem aquelas coisas de conclusão, considerações finais, finalização, nada disso, jamais coloque o título como 'conclusão',\n";
+        $s .= "seja natual ao ponto de estar bem humanizado.\n\n";
 
         $s .= "A frase chave \"{{keyword}}\" deve ser considerada em toda a estrutura.\n";
 
@@ -1386,24 +1466,6 @@ class PluginsAlpha_Prompts
         $s .= "- No máximo 60 caracteres.\n";
         $s .= "- Deve ser sempre diferente de anteriores que você já escreveu a pedido meu.\n";
         $s .= "- Nunca gere números absurdos como mais de 20, ou seja, nunca gere nomes como '30 dicas para xxxx'.\n";
-
-        return $s;
-    }
-
-    private static function default_image_prompt(): string
-    {
-        $s  = '';
-        $s .= 'Você é um gerador de prompts para imagens realistas.' . "\n";
-        $s .= 'Crie um prompt em {{locale}} para gerar uma thumbnail em estilo fotográfico/realista (não ilustrativo) relacionada ao conteúdo: "{{keyword}}".' . "\n";
-        $s .= 'Considere também o título do post: "{{title}}" e o tipo de conteúdo: "{{template}}".' . "\n\n";
-        $s .= "Regras:\n";
-        $s .= "- Descreva a cena com detalhes visuais claros (ambiente, iluminação, enquadramento, estilo).\n";
-        $s .= "- Evite texto na imagem, logotipos e elementos de interface.\n";
-        $s .= "- Não cite palavras como \"thumbnail\", \"blog\", \"post\", \"imagem\" no prompt.\n";
-        $s .= "- Foque em uma única cena marcante, em proporção 16:9.\n";
-        $s .= "- Tamanho do prompt: pelo menos 200 caracteres.\n";
-        $s .= "- Não escreva palavras como 'Descubra', 'veja como' ou palavras desse tipo; prefira inserir uma dor com uma solução dessa dor, falando de possíveis benefícios.\n";
-        $s .= "- Peça para não ter textos ou marca d'água.\n";
 
         return $s;
     }

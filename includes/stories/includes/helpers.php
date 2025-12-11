@@ -270,7 +270,6 @@ class PluginsAlpha_Helpers
       }
     }
 
-    error_log($imageProvider . ' selected for story image generation.');
     // 1) Monta o prompt via central de prompts, passando o provider
     $prompt = PluginsAlpha_Prompts::build_story_prompt_for_post(
       $post,

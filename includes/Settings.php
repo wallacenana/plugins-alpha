@@ -106,7 +106,7 @@ class PluginsAlpha_Settings
       ];
 
       /**
-       * Gemini – credenciais para textos (futuro)
+       * Gemini – credenciais para textos
        */
       $gem = $in['apis']['gemini'] ?? [];
       $out['apis']['gemini'] = [
@@ -126,7 +126,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($gp['text_provider'])
         : 'openai'; // default
 
-      $allowed_text_prov = ['openai', 'gemini']; // por enquanto só openai funciona de fato
+      $allowed_text_prov = ['openai', 'gemini']; 
       if (!in_array($text_prov, $allowed_text_prov, true)) {
         $text_prov = 'openai';
       }
@@ -290,13 +290,6 @@ class PluginsAlpha_Settings
   private static function render_tab_core(array $o): void
   {
     $apis = $o['apis']['openai'] ?? [];
-    $img  = $o['apis']['images'] ?? [];
-
-    $prov    = $img['provider'] ?? 'pollinations';
-    $img_model   = $img['model'] ?? 'dall-e-3';
-    $img_size    = $img['size'] ?? '1024x576';
-    $img_quality = $img['quality'] ?? 'auto';
-
     $pex = $o['apis']['pexels'] ?? [];
     $uns = $o['apis']['unsplash'] ?? [];
     $gem = $o['apis']['gemini'] ?? [];
@@ -347,9 +340,9 @@ class PluginsAlpha_Settings
             id="pga_gemini_model"
             type="text"
             class="regular-text"
-            value="<?php echo esc_attr($gem['model_text'] ?? 'gemini-1.5-pro'); ?>">
+            value="<?php echo esc_attr($gem['model_text'] ?? 'gemini-2.5-flash-lite'); ?>">
           <p class="description">
-            <?php esc_html_e('Ex.: gemini-1.5-pro, gemini-1.5-flash, etc.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Ex.: gemini-3-pro-preview, gemini-2.5-flash-lite, etc.', 'plugins-alpha'); ?>
           </p>
         </td>
       </tr>
@@ -432,10 +425,10 @@ class PluginsAlpha_Settings
         <td>
           <select name="pga_settings[orion_posts][text_provider]" id="pga_gp_text_provider">
             <option value="openai" <?php selected($gp_text, 'openai'); ?>>OpenAI</option>
-            <option value="gemini" <?php selected($gp_text, 'gemini'); ?>>Gemini (futuro)</option>
+            <option value="gemini" <?php selected($gp_text, 'gemini'); ?>>Gemini</option>
           </select>
           <p class="description">
-            Usada para gerar títulos, sections, planos etc. (por enquanto só OpenAI está implementado).
+            Usada para gerar títulos, sections, planos etc.
           </p>
         </td>
       </tr>
@@ -612,7 +605,7 @@ class PluginsAlpha_Settings
         <td>
           <select id="pga_st_text_provider" name="pga_settings[stories][text_provider]">
             <option value="openai" <?php selected($text_provider, 'openai'); ?>>OpenAI</option>
-            <option value="gemini" <?php selected($text_provider, 'gemini'); ?>>Gemini (futuro)</option>
+            <option value="gemini" <?php selected($text_provider, 'gemini'); ?>>Gemini</option>
           </select>
           <p class="description">
             Usada para gerar as páginas de Web Stories (texto).

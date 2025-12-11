@@ -67,10 +67,19 @@ class PluginsAlpha_CPT_Posts_Orion
         wp_send_json_error('Post inexistente.');
       }
 
-      // prompt vindo do textarea (opcional)
       $raw_prompt = isset($_POST['prompt']) ? trim((string) wp_unslash($_POST['prompt'])) : '';
 
-      // Se estiver vazio, monta um prompt padrão baseado no conteúdo do post
+      // 🔹 Descobre provider de IMAGEM (Orion settings)
+      $imageProvider = 'pollinations';
+      if (class_exists('PluginsAlpha_Settings')) {
+        $opts       = PluginsAlpha_Settings::get();
+        $orionPosts = $opts['orion_posts'] ?? [];
+        if (!empty($orionPosts['images_provider'])) {
+          $imageProvider = (string) $orionPosts['images_provider'];
+        }
+      }
+
+      // 1) META-PROMPT (texto rico, com título + conteúdo)
       if ($raw_prompt === '') {
         if (!class_exists('PluginsAlpha_Prompts')) {
           wp_send_json_error('Classe de prompts ausente.');
@@ -79,9 +88,7 @@ class PluginsAlpha_CPT_Posts_Orion
         $title   = get_the_title($post_id) ?: '';
         $content = get_post_field('post_content', $post_id) ?: '';
 
-        // limpa HTML e limita um pouco o tamanho para o meta-prompt
         $content = wp_strip_all_tags($content);
-        // corta para ~800 caracteres só pro contexto
         if (function_exists('wp_html_excerpt')) {
           $content = wp_html_excerpt($content, 800, '...');
         } else {
@@ -90,24 +97,43 @@ class PluginsAlpha_CPT_Posts_Orion
           }
         }
 
-        // locale padrão (pode ser fixo 'pt_BR' ou algo vindo das settings)
         $locale = get_locale() ?: 'pt_BR';
 
-        $prompt = PluginsAlpha_Prompts::build_post_thumbnail_regen_prompt(
+        $meta_prompt = PluginsAlpha_Prompts::build_post_thumbnail_regen_prompt(
           $title,
           $content,
-          $locale
+          $locale,
+          $imageProvider
         );
       } else {
-        // usuário digitou algo → usa direto
-        $prompt = $raw_prompt;
+        // Usuário já escreveu o meta-prompt manualmente
+        $meta_prompt = $raw_prompt;
       }
+
+      // 2) IA de TEXTO gera o PROMPT FINAL DE IMAGEM
+      $final_prompt = $meta_prompt;
+
+      if (class_exists('PluginsAlpha_AI')) {
+        // aqui ele vai usar openai/gemini conforme get_text_provider ou args
+        $resolved = PluginsAlpha_AI::image_prompt($meta_prompt, [
+          // se quiser forçar um provider de TEXTO aqui:
+          // 'provider' => 'openai' ou 'gemini'
+        ]);
+
+        if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
+          $final_prompt = $resolved;
+        }
+      }
+
       if (!class_exists('PluginsAlpha_Images')) {
         wp_send_json_error('Classe de imagem ausente.');
       }
 
-      // Gera usando provider configurado (OpenAI, Pollinations, etc.)
-      $thumb_id = PluginsAlpha_Images::generate_by_settings($prompt, $post_id);
+      // 3) Gera a thumbnail com o provider de IMAGEM configurado
+      $thumb_id = PluginsAlpha_Images::generate_by_settings(
+        $final_prompt, // ou $prompt, dependendo do que você deixou
+        $post_id
+      );
 
       if (is_wp_error($thumb_id)) {
         wp_send_json_error($thumb_id->get_error_message());
@@ -115,34 +141,20 @@ class PluginsAlpha_CPT_Posts_Orion
 
       $thumb_id = (int) $thumb_id;
       if ($thumb_id <= 0) {
-        wp_send_json_error('Falha ao gerar a miniatura (ID inválido).');
+        wp_send_json_error('Falha ao gerar a nova thumbnail.');
       }
 
-      // Define como thumbnail do post
+      // 🔥 FORÇA trocar a imagem destacada do post
+      delete_post_thumbnail($post_id);          // opcional, mas ajuda a garantir
       set_post_thumbnail($post_id, $thumb_id);
 
-      // guarda prompt e provider pra referência
-      update_post_meta($post_id, '_pga_image_prompt', $prompt);
-
-      // se quiser salvar o provider real:
-      if (class_exists('PluginsAlpha_Settings')) {
-        $opts       = PluginsAlpha_Settings::get();
-        $imgSettings = $opts['apis']['images'] ?? [];
-        $provider   = isset($imgSettings['provider']) ? (string)$imgSettings['provider'] : 'pollinations';
-        update_post_meta($post_id, '_pga_image_provider', $provider);
-      }
-
-      // HTML atualizado do box de imagem destacada
-      if (!function_exists('_wp_post_thumbnail_html')) {
-        require_once ABSPATH . 'wp-admin/includes/post.php';
-      }
-
-      $thumb_html = _wp_post_thumbnail_html($thumb_id, $post_id);
+      // se quiser já devolver a nova URL pro JS atualizar na hora
+      $new_thumb_url = get_the_post_thumbnail_url($post_id, 'full');
 
       wp_send_json_success([
-        'thumb_id'   => $thumb_id,
-        'thumb_html' => $thumb_html,
-        'prompt'     => $prompt,
+        'thumb_id'  => $thumb_id,
+        'thumb_url' => $new_thumb_url,
+        'message'   => 'Thumbnail regenerada com sucesso.',
       ]);
     });
   }

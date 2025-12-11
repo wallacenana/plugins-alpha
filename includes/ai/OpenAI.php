@@ -12,20 +12,29 @@ class PluginsAlpha_OpenAI
                 'key'          => trim(get_option('alpha_orion_posts_openai_key', '')),
                 'model_text'   => get_option('alpha_orion_posts_model_text', 'gpt-4o-mini'),
                 'model_image'  => get_option('alpha_orion_posts_model_image', 'gpt-image-1'),
-                'temperature'  => floatval(get_option('alpha_orion_posts_temperature', 0.6)),
-                'max_tokens'   => intval(get_option('alpha_orion_posts_max_tokens', 6000)),
+                'temperature'  => (float) get_option('alpha_orion_posts_temperature', 0.6),
+                'max_tokens'   => (int) get_option('alpha_orion_posts_max_tokens', 6000),
                 'timeout'      => 60,
             ];
         }
+
         $opt = PluginsAlpha_Settings::get();
+        $oa  = $opt['apis']['openai'] ?? [];
+
         return [
-            'key'          => trim($opt['apis']['openai']['key'] ?? ''),
-            'model_text'   => $opt['apis']['openai']['model_text']  ?? 'gpt-4o-mini',
-            'model_image'  => $opt['apis']['openai']['model_image'] ?? 'gpt-image-1',
-            'temperature'  => floatval($opt['apis']['openai']['temperature'] ?? 0.6),
-            'max_tokens'   => intval($opt['apis']['openai']['max_tokens'] ?? 6000),
+            'key'          => trim((string) ($oa['key'] ?? '')),
+            'model_text'   => (string) ($oa['model_text']  ?? 'gpt-4o-mini'),
+            'model_image'  => (string) ($oa['model_image'] ?? 'gpt-image-1'),
+            'temperature'  => (float)  ($oa['temperature'] ?? 0.6),
+            'max_tokens'   => (int)    ($oa['max_tokens']  ?? 6000),
             'timeout'      => 60,
         ];
+    }
+
+    public static function is_configured(): bool
+    {
+        $c = self::cfg();
+        return $c['key'] !== '';
     }
 
     public static function outline(string $prompt)
@@ -97,21 +106,25 @@ class PluginsAlpha_OpenAI
     public static function complete(string $prompt, array $schema = [])
     {
         $c = self::cfg();
-        if (!$c['key']) return new WP_Error('pga_no_key', 'Chave OpenAI não configurada.');
+        // aqui já assumimos que $c['key'] existe, porque o AI.php garantiu isso
 
         $defaultSchema = [
-            'title'             => 'string',
+            'title'              => 'string',
             'titles_suggestions' => ['string'],
-            'content'           => 'string',
-            'meta_title'        => 'string',
-            'meta_description'  => 'string',
-            'image_alt'         => 'string',
-            'links'             => ['internal' => ['string'], 'external' => ['string']],
+            'content'            => 'string',
+            'meta_title'         => 'string',
+            'meta_description'   => 'string',
+            'image_alt'          => 'string',
+            'links'              => [
+                'internal' => ['string'],
+                'external' => ['string'],
+            ],
         ];
         $schema = $schema ?: $defaultSchema;
 
-        $system = "Você é um gerador de artigos SEO. Responda SOMENTE em JSON UTF-8 válido, sem markdown. " .
-            "O campo 'content' deve ser HTML SEM <h1>. Schema: " . json_encode($schema, JSON_UNESCAPED_UNICODE);
+        $system = "Você é um gerador de artigos SEO. Responda SOMENTE em JSON UTF-8 válido, sem markdown. "
+            . "O campo 'content' deve ser HTML SEM <h1>. Schema: "
+            . json_encode($schema, JSON_UNESCAPED_UNICODE);
 
         $body = [
             'model'       => $c['model_text'],
@@ -153,8 +166,6 @@ class PluginsAlpha_OpenAI
                 ]
             );
 
-            error_log('[PGA_OPENAI_HTTP] code=' . $code . ' msg=' . $msg . ' body=' . substr((string)$raw, 0, 300));
-
             return $err;
         }
 
@@ -168,8 +179,15 @@ class PluginsAlpha_OpenAI
                 'Falha ao decodificar JSON do modelo.',
                 ['snippet' => substr($txt, 0, 800)]
             );
-            error_log('[PGA_OPENAI_PARSE] ' . substr($txt, 0, 300));
             return $err;
+        }
+
+        // outline pode ser qualquer estrutura de array que o prompt definir.
+        // Aqui só garantimos que, se vier, passamos pra frente como array.
+        // Não fazemos "limpeza" pra não quebrar o formato.
+        $outline = [];
+        if (isset($parsed['outline']) && is_array($parsed['outline'])) {
+            $outline = $parsed['outline'];
         }
 
         return [
@@ -183,6 +201,133 @@ class PluginsAlpha_OpenAI
                 'internal' => array_values(array_filter((array)($parsed['links']['internal'] ?? []))),
                 'external' => array_values(array_filter((array)($parsed['links']['external'] ?? []))),
             ],
+            'outline'            => $outline,
+        ];
+    }
+
+    /**
+     * Gera páginas de Web Stories usando a OpenAI (Responses API).
+     *
+     * @param string $prompt Prompt final (já montado pelo PluginsAlpha_Prompts)
+     * @param array  $args   ['model' => '...', 'temperature' => 0.4, 'max_tokens' => 6000, ...]
+     *
+     * @return array|WP_Error
+     *   Sucesso: ['pages' => [...], 'raw_json' => '...']
+     */
+    public static function generate_story_pages(string $prompt, array $args = [])
+    {
+        $c = self::cfg();
+        if (!$c['key']) {
+            return new WP_Error('alpha_ai_key', 'Configure sua OpenAI API Key nas Configurações.');
+        }
+
+        $model       = isset($args['model']) ? (string) $args['model'] : (string) $c['model_text'];
+        $temperature = isset($args['temperature'])
+            ? (float) $args['temperature']
+            : (float) $c['temperature'];
+        $max_tokens  = isset($args['max_tokens'])
+            ? (int) $args['max_tokens']
+            : 6000;
+
+        $payload = [
+            'model' => $model,
+            'input' => [
+                [
+                    'role'    => 'user',
+                    'content' => [
+                        [
+                            'type' => 'input_text',
+                            'text' => $prompt,
+                        ],
+                    ],
+                ],
+            ],
+            'text' => [
+                'format' => [
+                    'type' => 'json_object',
+                ],
+            ],
+            'temperature'       => $temperature,
+            'max_output_tokens' => $max_tokens,
+        ];
+
+        $res = wp_remote_post(
+            'https://api.openai.com/v1/responses',
+            [
+                'timeout' => $c['timeout'],
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $c['key'],
+                    'Content-Type'  => 'application/json',
+                ],
+                'body'    => wp_json_encode($payload),
+            ]
+        );
+
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        $code = wp_remote_retrieve_response_code($res);
+        $body = wp_remote_retrieve_body($res);
+
+        if (200 !== $code) {
+            return new WP_Error(
+                'alpha_ai_http',
+                'OpenAI retornou ' . $code . ': ' .  $body
+            );
+        }
+
+        $obj = json_decode((string) $body, true);
+        if (!is_array($obj)) {
+            return new WP_Error('alpha_ai_json', 'Resposta da OpenAI não é um JSON válido no topo.');
+        }
+
+        $status = $obj['status'] ?? ($obj['output'][0]['status'] ?? '');
+        if ($status && $status !== 'completed') {
+            return new WP_Error(
+                'alpha_ai_incomplete',
+                'OpenAI não conseguiu concluir o JSON (status: ' . $status . ').'
+            );
+        }
+
+        $json_text = '';
+        if (!empty($obj['output'][0]['content'])) {
+            foreach ($obj['output'][0]['content'] as $chunk) {
+                if (!empty($chunk['text'])) {
+                    $json_text .= $chunk['text'];
+                }
+                if (!empty($chunk['raw'])) {
+                    $json_text .= $chunk['raw'];
+                }
+            }
+        } elseif (!empty($obj['output_text'])) {
+            $json_text = $obj['output_text'];
+        }
+
+        $data = json_decode($json_text, true);
+
+        if (!$data && preg_match('/\{.*\}/s', (string) $json_text, $m)) {
+            $data = json_decode($m[0], true);
+        }
+
+        if (!$data || empty($data['pages']) || !is_array($data['pages'])) {
+            return new WP_Error('alpha_ai_parse', 'Não consegui interpretar o JSON de páginas.');
+        }
+
+        $pages = [];
+        foreach ($data['pages'] as $p) {
+            $pages[] = [
+                'heading'  => isset($p['heading']) ? (string) $p['heading'] : '',
+                'body'     => isset($p['body']) ? (string) $p['body'] : '',
+                'cta_text' => isset($p['cta_text']) ? (string) $p['cta_text'] : '',
+                'cta_url'  => isset($p['cta_url']) ? (string) $p['cta_url'] : '',
+                'prompt'   => isset($p['prompt']) ? (string) $p['prompt'] : '',
+            ];
+        }
+
+        return [
+            'pages'    => $pages,
+            'raw_json' => $json_text,
         ];
     }
 
@@ -235,46 +380,6 @@ class PluginsAlpha_OpenAI
         $titles = array_values(array_filter(array_map('trim', $parsed['titles'])));
         if (!$titles) return new WP_Error('pga_no_titles', 'Sem títulos retornados.');
         return $titles;
-    }
-
-
-    // ---- Gera imagem e devolve base64 ----
-    public static function image_base64(string $prompt, string $size = '1200x675')
-    {
-        $c = self::cfg();
-        if (!$c['key']) return new WP_Error('pga_no_key', 'Chave OpenAI não configurada.');
-
-        $payload = [
-            'model'            => $c['model_image'], // gpt-image-1 ou dall-e-3 (se sua conta ainda usar)
-            'prompt'           => $prompt,
-            'size'             => $size,
-            'n'                => 1,
-            'response_format'  => 'b64_json',
-        ];
-
-        $args = [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $c['key'],
-                'Content-Type'  => 'application/json',
-            ],
-            'body'    => wp_json_encode($payload),
-            'timeout' => $c['timeout'],
-        ];
-
-        $res  = wp_remote_post('https://api.openai.com/v1/images/generations', $args);
-        if (is_wp_error($res)) return $res;
-
-        $code = wp_remote_retrieve_response_code($res);
-        $raw  = wp_remote_retrieve_body($res);
-        if ($code !== 200) {
-            $msg = 'HTTP ' . $code;
-            $j = json_decode($raw, true);
-            if (isset($j['error']['message'])) $msg = $j['error']['message'];
-            return new WP_Error('pga_openai_img', $msg, ['http_code' => $code]);
-        }
-
-        $j = json_decode($raw, true);
-        return $j['data'][0]['b64_json'] ?? new WP_Error('pga_openai_img_empty', 'Resposta de imagem vazia.');
     }
 
     public static function meta_description(string $prompt)

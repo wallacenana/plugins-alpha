@@ -332,12 +332,13 @@ class PluginsAlpha_Images
             );
         }
 
-        // orienta vertical pros stories, horizontal pro resto
+        // vertical pra stories, horizontal pro resto
         $orientation = ($context === 'story') ? 'portrait' : 'landscape';
 
-        // busca sempre várias imagens e varia página + índice
+        // 🔹 Query já vem "otimizada" pelo Prompts (poucas palavras)
+        // busca várias imagens na PRIMEIRA página e varia pelo índice
         $search_query = trim($prompt);
-        $page         = wp_rand(1, 5); // páginas 1..5 dão bastante variação
+        $page         = 1; // evita cair em páginas vazias
 
         $endpoint = add_query_arg(
             [
@@ -383,13 +384,52 @@ class PluginsAlpha_Images
             );
         }
 
-        // 🎯 ESCOLHE UM RESULTADO ALEATÓRIO ENTRE OS RETORNADOS
-        $idx    = wp_rand(0, count($results) - 1);
-        $chosen = $results[$idx];
+        // Normaliza índice
+        $results = array_values($results);
 
-        $src     = $chosen['src'] ?? [];
-        $img_url = $src['landscape']
-            ?? $src['portrait']
+        // 🔹 Evita repetir a MESMA foto para o MESMO post
+        $last_id = (int) get_post_meta($post_id, '_pga_last_pexels_photo_id', true);
+
+        $idx       = wp_rand(0, count($results) - 1);
+        $maxTries  = min(5, count($results));
+        $chosen    = null;
+        $chosen_id = 0;
+
+        for ($i = 0; $i < $maxTries; $i++) {
+            $c = $results[$idx] ?? null;
+
+            if (!is_array($c)) {
+                $idx = ($idx + 1) % count($results);
+                continue;
+            }
+
+            $photo_id = isset($c['id']) ? (int) $c['id'] : 0;
+
+            // se for diferente da última, usamos essa
+            if ($photo_id && $photo_id !== $last_id) {
+                $chosen    = $c;
+                $chosen_id = $photo_id;
+                break;
+            }
+
+            // senão, tenta o próximo índice
+            $idx = ($idx + 1) % count($results);
+        }
+
+        // se mesmo assim não escolheu (ex.: só uma foto ou todas repetidas), pega qualquer uma
+        if (!$chosen) {
+            $chosen = $results[0];
+            $chosen_id = isset($chosen['id']) ? (int) $chosen['id'] : 0;
+        }
+
+        // salva pra evitar repetir na próxima chamada
+        if ($chosen_id > 0) {
+            update_post_meta($post_id, '_pga_last_pexels_photo_id', $chosen_id);
+        }
+
+        $src = $chosen['src'] ?? [];
+
+        $img_url = $src[$orientation] // portrait/landscape conforme orientação
             ?? $src['large2x']
             ?? $src['large']
             ?? $src['medium']

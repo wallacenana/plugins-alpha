@@ -161,7 +161,6 @@ class PluginsAlpha_StoriesRest
         }
 
         $alt = !empty($page['heading']) ? $page['heading'] : $prompt;
-        error_log($prompt);
         // Usa o sistema global (decide OpenAI/Pollinations etc.)
         $att_id = PluginsAlpha_Images::generate_story_by_settings(
             $prompt,

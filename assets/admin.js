@@ -725,48 +725,48 @@
   }
 
 
-    function pgaMarkKeywordDoneGlobally(rawKw) {
-      const kw = (rawKw || '').trim();
-      if (!kw) return;
-    
-      let foundAnywhere = false;
-    
-      $('#pga_gen_container .pga-gen-box').each(function () {
-        const $box = $(this);
-        const $ta  = $box.find('.pga_keywords').first();
-        if (!$ta.length) return;
-    
-        const orig = $ta.val() || '';
-        if (!orig) return;
-    
-        const lines = orig
-          .split('\n')
-          .map(l => l.trim())
-          .filter(l => l.length > 0);
-    
-        const idx = lines.indexOf(kw);
-        if (idx === -1) return; // não é deste grupo
-    
-        // remove a keyword deste grupo
-        lines.splice(idx, 1);
-        $ta.val(lines.join('\n'));
-    
-        foundAnywhere = true;
-      });
-    
-      if (foundAnywhere) {
-        // lista global de “concluídas”
-        const $done = $('#pga_kw_done');
-        if ($done.length) {
-          const li = document.createElement('li');
-          li.textContent = kw;
-          $done.append(li);
-        }
-    
-        // persiste no localStorage
-        pgaSaveBoxesToLocal();
+  function pgaMarkKeywordDoneGlobally(rawKw) {
+    const kw = (rawKw || '').trim();
+    if (!kw) return;
+
+    let foundAnywhere = false;
+
+    $('#pga_gen_container .pga-gen-box').each(function () {
+      const $box = $(this);
+      const $ta = $box.find('.pga_keywords').first();
+      if (!$ta.length) return;
+
+      const orig = $ta.val() || '';
+      if (!orig) return;
+
+      const lines = orig
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 0);
+
+      const idx = lines.indexOf(kw);
+      if (idx === -1) return; // não é deste grupo
+
+      // remove a keyword deste grupo
+      lines.splice(idx, 1);
+      $ta.val(lines.join('\n'));
+
+      foundAnywhere = true;
+    });
+
+    if (foundAnywhere) {
+      // lista global de “concluídas”
+      const $done = $('#pga_kw_done');
+      if ($done.length) {
+        const li = document.createElement('li');
+        li.textContent = kw;
+        $done.append(li);
       }
+
+      // persiste no localStorage
+      pgaSaveBoxesToLocal();
     }
+  }
 
   // ============================================================
   // ========== BLOCO: GERADOR (keywords/plan/generate) ==========
@@ -1022,18 +1022,18 @@
     $(document).off('click.pgaGenerateBox').on('click.pgaGenerateBox', '.pga_generate_box', function () {
       const $box = $(this).closest('.pga-gen-box');
       if (!$box.length) return;
-    
+
       (async () => {
         pgaActivateBox($box);
         savePrefsToLocal();
-    
+
         const titleText = $box.find('.pga-gen-title').text().trim() || 'Grupo atual';
-    
+
         const res = await generateForActiveBox({ groupTitle: titleText });
         if (!res) return;
-    
+
         const html = buildSummaryHtml(res.okCount, res.failCount, res.editLinks, res.failedKeywords);
-    
+
         await Swal.fire({
           icon: res.failCount ? 'warning' : 'success',
           title: 'Finalizado',
@@ -1059,7 +1059,7 @@
         skipKeywordWarning = false,
         groupTitle = ''
       } = options;
-    
+
       const prefs = collectPrefs();
       const kwList = textareaToArray($('#pga_keywords').val());
 
@@ -1264,69 +1264,104 @@
       }
 
       async function generateExtraLongPost(job, opts = {}) {
-          const onStatus = typeof opts.onStatus === 'function' ? opts.onStatus : () => {};
-        
-          // 1) OUTLINE -------------------------------------------------
-          onStatus('Gerando outline…');
-        
-          const outlineRes = await fetchJSON(`${REST}/orion/outline`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-WP-Nonce': NONCE
-            },
-            body: JSON.stringify({
-              keyword: job.keyword,
-              keywords: [job.keyword],
-              length: job.length,
-              locale: job.locale,
-              template: job.template_key,
-              template_key: job.template_key,
-              publish_time: job.publish_time,
-              category_id: job.category_id,
-              post_type: 'posts_orion',
-            }),
-            silent: true
-          });
-        
-          if (!outlineRes || outlineRes.code) {
-            throw new Error(outlineRes?.message || 'Erro ao gerar esboço');
-          }
-        
-          const postId   = outlineRes.post_id;
-          const sections = outlineRes.sections || [];
-          const errors   = [];
-        
-          // 2) SEÇÕES ---------------------------------------------------
-          const totalSections = sections.length;
-          let doneSections    = 0;
-        
-          for (const section of sections) {
-            const sid = section.id;
-        
-            onStatus(`Gerando seções… (${doneSections}/${totalSections})`);
-        
-            const secRes = await pgaFetchSectionWithRetry({
-              post_id: postId,
-              section_id: sid,
-            });
-        
-            if (!secRes.ok) {
-              errors.push(`Falha definitiva na seção ${sid} do post ${postId}`);
-            }
-        
-            doneSections++;
-          }
-        
+        const onStatus = typeof opts.onStatus === 'function' ? opts.onStatus : () => { };
+
+        // 1) OUTLINE -------------------------------------------------
+        onStatus('Gerando outline…');
+
+        const outlineRes = await fetchJSON(`${REST}/orion/outline`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-WP-Nonce': NONCE
+          },
+          body: JSON.stringify({
+            keyword: job.keyword,
+            keywords: [job.keyword],
+            length: job.length,
+            locale: job.locale,
+            template: job.template_key,
+            template_key: job.template_key,
+            publish_time: job.publish_time,
+            category_id: job.category_id,
+            post_type: 'posts_orion',
+          }),
+          silent: true
+        });
+
+        if (!outlineRes || outlineRes.code) {
+          throw new Error(outlineRes?.message || 'Erro ao gerar esboço');
+        }
+
+        const postId = outlineRes.post_id;
+        const sections = outlineRes.sections || [];
+        const errors = [];
+
+        // 2) SEÇÕES ---------------------------------------------------
+        const totalSections = sections.length;
+        let doneSections = 0;
+
+        for (const section of sections) {
+          const sid = section.id;
+
           onStatus(`Gerando seções… (${doneSections}/${totalSections})`);
-        
-          // 3) FINALIZE (SEM IMAGEM) -----------------------------------
-          onStatus('Finalizando conteúdo…');
-        
-          const il       = job.internal_links || {};
-          const rawManual = il.manual_ids;
-        
-          const finRes = await fetchJSON(`${REST}/orion/finalize`, {
+
+          const secRes = await pgaFetchSectionWithRetry({
+            post_id: postId,
+            section_id: sid,
+          });
+
+          if (!secRes.ok) {
+            errors.push(`Falha definitiva na seção ${sid} do post ${postId}`);
+          }
+
+          doneSections++;
+        }
+
+        onStatus(`Gerando seções… (${doneSections}/${totalSections})`);
+
+        // 3) FINALIZE (SEM IMAGEM) -----------------------------------
+        onStatus('Finalizando conteúdo…');
+
+        const il = job.internal_links || {};
+        const rawManual = il.manual_ids;
+
+        const finRes = await fetchJSON(`${REST}/orion/finalize`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-WP-Nonce': NONCE
+          },
+          body: JSON.stringify({
+            post_id: postId,
+            keyword: job.keyword || '',
+            internal_links: {
+              mode: il.mode || 'none',
+              max: typeof il.max === 'number'
+                ? il.max
+                : (parseInt(il.max || '0', 10) || 0),
+              // se vier string, mantém; se vier array, junta:
+              manual_ids: Array.isArray(rawManual)
+                ? rawManual.join(',')
+                : (rawManual ? String(rawManual) : ''),
+            },
+            // ⚠️ DIZ PRO BACKEND NÃO GERAR IMAGEM AQUI
+            skip_images: true,
+          }),
+          silent: true
+        });
+
+        if (finRes && finRes.code) {
+          throw new Error(finRes.message || 'Erro ao finalizar post');
+        }
+
+        // 4) IMAGEM EM ENDPOINT SEPARADO ------------------------------
+        onStatus('Gerando imagem destacada…');
+
+        let imgRes = null;
+
+        try {
+          imgRes = await fetchJSON(`${REST}/orion/image`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1335,61 +1370,26 @@
             body: JSON.stringify({
               post_id: postId,
               keyword: job.keyword || '',
-              internal_links: {
-                mode: il.mode || 'none',
-                max: typeof il.max === 'number'
-                  ? il.max
-                  : (parseInt(il.max || '0', 10) || 0),
-                // se vier string, mantém; se vier array, junta:
-                manual_ids: Array.isArray(rawManual)
-                  ? rawManual.join(',')
-                  : (rawManual ? String(rawManual) : ''),
-              },
-              // ⚠️ DIZ PRO BACKEND NÃO GERAR IMAGEM AQUI
-              skip_images: true,
+              locale: job.locale,
+              template: job.template_key,
             }),
             silent: true
           });
-        
-          if (finRes && finRes.code) {
-            throw new Error(finRes.message || 'Erro ao finalizar post');
-          }
-        
-          // 4) IMAGEM EM ENDPOINT SEPARADO ------------------------------
-          onStatus('Gerando imagem destacada…');
-        
-          let imgRes = null;
-        
-          try {
-            imgRes = await fetchJSON(`${REST}/orion/image`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-WP-Nonce': NONCE
-              },
-              body: JSON.stringify({
-                post_id: postId,
-                keyword: job.keyword || '',
-                locale: job.locale,
-                template: job.template_key,
-              }),
-              silent: true
-            });
-          } catch (e) {
-            console.warn('Falha ao gerar imagem para o post', postId, e);
-            onStatus('Conteúdo pronto. Imagem falhou (pode tentar depois).');
-          }
-        
-          if (imgRes && !imgRes.error) {
-            onStatus('Conteúdo e imagem gerados com sucesso.');
-          }
-        
-          return {
-            ...finRes,
-            image: imgRes,
-            section_errors: errors,
-          };
+        } catch (e) {
+          console.warn('Falha ao gerar imagem para o post', postId, e);
+          onStatus('Conteúdo pronto. Imagem falhou (pode tentar depois).');
         }
+
+        if (imgRes && !imgRes.error) {
+          onStatus('Conteúdo e imagem gerados com sucesso.');
+        }
+
+        return {
+          ...finRes,
+          image: imgRes,
+          section_errors: errors,
+        };
+      }
 
 
 
@@ -1421,43 +1421,43 @@
           allowEscapeKey: false,
           showConfirmButton: false,
           didOpen: async () => {
-            const $group  = document.getElementById('pga_group');
+            const $group = document.getElementById('pga_group');
             const $status = document.getElementById('pga_prog');
-            const $bar    = document.getElementById('pga_progbar');
-            const $cur    = document.getElementById('pga_current');
-        
+            const $bar = document.getElementById('pga_progbar');
+            const $cur = document.getElementById('pga_current');
+
             if ($group && groupTitle) {
               $group.textContent = groupTitle;
             }
-        
+
             okCount = 0;
             failCount = 0;
             editLinks.length = 0;
             failedKeywords.length = 0;
-        
+
             for (let i = 0; i < jobs.length; i++) {
               const job = jobs[i];
-              const kw  = getJobKeyword(job);
-        
+              const kw = getJobKeyword(job);
+
               try {
                 const result = await generateExtraLongPost(job, {
                   onStatus: msg => {
                     if ($cur) $cur.textContent = msg;
                   }
                 });
-        
+
                 const r = result && result.res ? result.res : result;
-        
+
                 if (!r || r.error) {
                   failCount++;
                   if (kw) failedKeywords.push(kw);
                 } else {
                   okCount++;
                   if (kw) pgaMarkKeywordDoneGlobally(kw);
-        
+
                   if (r.edit || r.post_id || r.view_link) {
                     let editUrl = '';
-        
+
                     if (typeof r.edit === 'string' && r.edit.indexOf('http') === 0) {
                       editUrl = r.edit;
                     } else {
@@ -1467,7 +1467,7 @@
                         editUrl = `${base}/wp-admin/post.php?post=${postId}&action=edit`;
                       }
                     }
-        
+
                     if (editUrl) {
                       const labelId = r.post_id || r.edit;
                       editLinks.push(
@@ -1483,16 +1483,16 @@
                   error: e && e.message ? e.message : 'Erro desconhecido',
                 });
               }
-        
+
               const done = i + 1;
-              const pct  = Math.round((done / jobs.length) * 100);
-        
+              const pct = Math.round((done / jobs.length) * 100);
+
               if ($status) $status.textContent = `Progresso: ${done} de ${jobs.length}`;
-              if ($bar)    $bar.style.width = pct + '%';
-        
+              if ($bar) $bar.style.width = pct + '%';
+
               await new Promise(r => setTimeout(r, 150));
             }
-        
+
             Swal.close();
           }
         });
@@ -1583,17 +1583,17 @@
       let allEditLinks = [];
 
       for (const g of groups) {
-      if (g.templateKey !== 'modelar' && g.kwCount === 0) continue;
-    
-      pgaActivateBox(g.$box);
-      savePrefsToLocal();
-    
-      const res = await generateForActiveBox({
+        if (g.templateKey !== 'modelar' && g.kwCount === 0) continue;
+
+        pgaActivateBox(g.$box);
+        savePrefsToLocal();
+
+        const res = await generateForActiveBox({
           skipKeywordWarning: true,
-          groupTitle: g.titleText 
+          groupTitle: g.titleText
         });
 
-      if (!res) continue
+        if (!res) continue
 
         totalOk += res.okCount;
         totalFail += res.failCount;
