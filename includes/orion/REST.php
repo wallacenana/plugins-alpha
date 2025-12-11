@@ -270,15 +270,98 @@ class PluginsAlpha_REST
             'callback' => [__CLASS__, 'keywords_clear'],
         ]);
 
-        // --- self test da OpenAI (para tela de Configurações)
         register_rest_route('pga/v1', '/selftest', [
-            'methods'  => ['GET', 'POST'], // mantém GET por compat, mas vamos usar POST
+            'methods'  => ['GET', 'POST'],
             'permission_callback' => function () {
                 return current_user_can('manage_options');
             },
             'callback' => [__CLASS__, 'selftest'],
         ]);
+
+        register_rest_route('pga/v1', '/youtube/selftest', [
+            'methods'  => ['GET', 'POST'],
+            'permission_callback' => function () {
+                return current_user_can('manage_options');
+            },
+            'callback' => [__CLASS__, 'youtube_selftest'],
+        ]);
     }
+
+    private static function ensure_youtube_key()
+    {
+        if (!class_exists('PluginsAlpha_Settings')) {
+            return new WP_Error(
+                'pga_youtube_no_settings',
+                'PluginsAlpha_Settings não encontrado para ler a chave do YouTube.'
+            );
+        }
+
+        $opt = PluginsAlpha_Settings::get();
+        $key = trim($opt['apis']['youtube']['key'] ?? '');
+
+        if ($key === '') {
+            return new WP_Error(
+                'pga_youtube_no_key',
+                'Nenhuma chave da API do YouTube configurada. Vá em Plugins Alpha → Configurações → YouTube API.',
+                ['status' => 400]
+            );
+        }
+
+        return $key;
+    }
+
+    public static function youtube_selftest($req)
+    {
+        $v = self::verify_nonce($req);
+        if (is_wp_error($v)) return $v;
+
+        $key = self::ensure_youtube_key();
+        if (is_wp_error($key)) {
+            return $key;
+        }
+
+        // Teste bem leve: tenta buscar 1 vídeo fixo
+        $url = add_query_arg([
+            'part' => 'id',
+            'id'   => 'dQw4w9WgXcQ', // qualquer ID válido
+            'key'  => $key,
+        ], 'https://www.googleapis.com/youtube/v3/videos');
+
+        $res = wp_remote_get($url, [
+            'timeout' => 10,
+        ]);
+
+        if (is_wp_error($res)) {
+            return new WP_Error(
+                'pga_youtube_http',
+                $res->get_error_message(),
+                ['status' => 500]
+            );
+        }
+
+        $code = wp_remote_retrieve_response_code($res);
+        $body = json_decode(wp_remote_retrieve_body($res), true);
+
+        if ($code !== 200) {
+            $msg = 'YouTube retornou HTTP ' . $code;
+            if (!empty($body['error']['message'])) {
+                $msg = $body['error']['message'];
+            }
+
+            return new WP_Error(
+                'pga_youtube_api',
+                $msg,
+                ['status' => $code]
+            );
+        }
+
+        // Se chegou aqui, a chave é válida para consultas básicas
+        return [
+            'ok'     => true,
+            'sample' => 'YouTube API funcionando.',
+        ];
+    }
+
     public static function permission()
     {
         return current_user_can('edit_posts');
@@ -900,9 +983,10 @@ class PluginsAlpha_REST
             $tpl    = self::clean($p['template_key'] ?? 'article');
             $length = self::clean($p['length'] ?? 'short');
 
-            $isModelar = ($tpl === 'modelar');
+            // modelar URL e modelar YouTube
+            $isModelar = in_array($tpl, ['modelar', 'modelar_youtube'], true);
 
-            if ($tpl === 'modelar') {
+            if ($tpl === 'modelar' || $tpl === 'modelar_youtube') {
                 $kw_in = array_map(function ($u) {
                     $u = trim($u);
 
@@ -921,6 +1005,13 @@ class PluginsAlpha_REST
 
                     return esc_url_raw($u);
                 }, $kw_in);
+            }
+
+            if ($tpl === 'modelar_youtube') {
+                $ytKey = self::ensure_youtube_key();
+                if (is_wp_error($ytKey)) {
+                    return $ytKey;
+                }
             }
 
             // VALIDAÇÃO

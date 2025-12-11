@@ -1070,7 +1070,7 @@
         words: ['por exemplo', 'em seguida', 'depois', 'antes', 'no entanto', 'portanto', 'assim', 'então']
       };
 
-      // === 0) VALIDA LICENÇA + CHAVE API ANTES DE QUALQUER COISA ===
+      // === 0) VAL IDA LICENÇA + CHAVE API ANTES DE QUALQUER COISA ===
       try {
         const st = await fetchJSON(`${REST}/selftest`, {
           method: 'GET',
@@ -1103,6 +1103,47 @@
 
         await Swal.fire({ icon: 'error', title, text: msg });
         return;
+      }
+
+      if (prefs.template_key === 'modelar_youtube') {
+        // 1) Garante que há pelo menos uma URL de YouTube nas keywords
+        const hasYoutubeUrl = kwList.some((line) => {
+          const v = String(line || '').trim().toLowerCase();
+          return v.includes('youtube.com/watch') || v.includes('youtu.be/');
+        });
+
+        if (!hasYoutubeUrl) {
+          await Swal.fire({
+            icon: 'warning',
+            title: 'URLs do YouTube necessárias',
+            text: 'Para “Modelar vídeo do YouTube”, insira pelo menos 1 URL completa de vídeo do YouTube nas palavras-chave (uma por linha).'
+          });
+          return;
+        }
+
+        // 2) Valida a chave da API do YouTube via REST
+        try {
+          const yt = await fetchJSON(`${REST}/youtube/selftest`, {
+            method: 'GET',
+            headers: { 'X-WP-Nonce': NONCE }
+          });
+
+          if (yt && yt.ok === false) {
+            await Swal.fire({
+              icon: 'error',
+              title: 'Chave do YouTube necessária',
+              text: yt.message || 'Configure sua chave da API do YouTube na tela de configurações do Plugins Alpha.'
+            });
+            return;
+          }
+        } catch (e) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Erro ao validar YouTube',
+            text: (e && e.message) ? e.message : 'Não foi possível validar a chave da API do YouTube.'
+          });
+          return;
+        }
       }
 
       if (prefs.template_key !== "modelar") {

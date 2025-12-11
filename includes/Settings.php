@@ -113,6 +113,14 @@ class PluginsAlpha_Settings
         'key'        => sanitize_text_field($gem['key'] ?? ''),
         'model_text' => sanitize_text_field($gem['model_text'] ?? 'gemini-1.5-pro'),
       ];
+
+      /**
+       * YouTube API
+       */
+      $yt = $in['apis']['youtube'] ?? [];
+      $out['apis']['youtube'] = [
+        'key' => sanitize_text_field($yt['key'] ?? ''),
+      ];
     }
 
     /*
@@ -126,7 +134,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($gp['text_provider'])
         : 'openai'; // default
 
-      $allowed_text_prov = ['openai', 'gemini']; 
+      $allowed_text_prov = ['openai', 'gemini'];
       if (!in_array($text_prov, $allowed_text_prov, true)) {
         $text_prov = 'openai';
       }
@@ -290,20 +298,51 @@ class PluginsAlpha_Settings
   private static function render_tab_core(array $o): void
   {
     $apis = $o['apis']['openai'] ?? [];
-    $pex = $o['apis']['pexels'] ?? [];
-    $uns = $o['apis']['unsplash'] ?? [];
-    $gem = $o['apis']['gemini'] ?? [];
-
+    $pex  = $o['apis']['pexels'] ?? [];
+    $uns  = $o['apis']['unsplash'] ?? [];
+    $gem  = $o['apis']['gemini'] ?? [];
+    $yt   = $o['apis']['youtube'] ?? [];
   ?>
-    <h2 class="title">OpenAI (global)</h2>
+    <h2 class="title">OpenAI</h2>
     <table class="form-table" role="presentation">
       <tr>
-        <th scope="row"><label for="pga_openai_key">API Key</label></th>
-        <td><input name="pga_settings[apis][openai][key]" id="pga_openai_key" type="password" class="regular-text" placeholder="sk-..." value="<?php echo esc_attr($apis['key'] ?? ''); ?>"></td>
+        <th scope="row">
+          <label for="pga_openai_key">API Key</label>
+        </th>
+        <td>
+          <p class="description">
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][openai][key]"
+            id="pga_openai_key"
+            type="password"
+            class="regular-text"
+            placeholder="sk-..."
+            value="<?php echo esc_attr($apis['key'] ?? ''); ?>">
+        </td>
       </tr>
       <tr>
-        <th scope="row"><label for="pga_openai_model">Modelo</label></th>
-        <td><input name="pga_settings[apis][openai][model_text]" id="pga_openai_model" type="text" class="regular-text" value="<?php echo esc_attr($apis['model_text'] ?? 'gpt-4o-mini'); ?>"></td>
+        <th scope="row">
+          <label for="pga_openai_model">Modelo</label>
+        </th>
+        <td>
+
+          <input
+            name="pga_settings[apis][openai][model_text]"
+            id="pga_openai_model"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($apis['model_text'] ?? 'gpt-4o-mini'); ?>">
+          <p class="description">
+            <?php esc_html_e('Ex.: gpt-4.1-mini, gpt-4.1, o3-mini, etc.', 'plugins-alpha'); ?>
+          </p>
+          <a href="https://platform.openai.com/docs/models" target="_blank" rel="noopener noreferrer">
+            <?php esc_html_e('Ver modelos.', 'plugins-alpha'); ?>
+          </a>
+        </td>
       </tr>
       <tr>
         <th scope="row"><label for="pga_openai_temp">Temperatura</label></th>
@@ -314,6 +353,7 @@ class PluginsAlpha_Settings
         <td><input name="pga_settings[apis][openai][max_tokens]" id="pga_openai_maxtok" type="number" class="small-text" value="<?php echo esc_attr($apis['max_tokens'] ?? 6000); ?>"></td>
       </tr>
     </table>
+
     <h2 class="title"><?php esc_html_e('Gemini (Google AI – textos)', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
@@ -321,14 +361,20 @@ class PluginsAlpha_Settings
           <label for="pga_gemini_key"><?php esc_html_e('API Key', 'plugins-alpha'); ?></label>
         </th>
         <td>
-          <input name="pga_settings[apis][gemini][key]"
+          <p class="description">
+            <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][gemini][key]"
             id="pga_gemini_key"
             type="text"
             class="regular-text"
             value="<?php echo esc_attr($gem['key'] ?? ''); ?>">
-          <p class="description">
-            <?php esc_html_e('Chave da API Gemini (para uso futuro em geração de textos).', 'plugins-alpha'); ?>
-          </p>
+          <button type="button" class="button button-secondary pga-selftest-btn" data-provider="gemini">
+            <?php esc_html_e('Testar conexão', 'plugins-alpha'); ?>
+          </button>
         </td>
       </tr>
       <tr>
@@ -336,17 +382,23 @@ class PluginsAlpha_Settings
           <label for="pga_gemini_model"><?php esc_html_e('Modelo de texto', 'plugins-alpha'); ?></label>
         </th>
         <td>
-          <input name="pga_settings[apis][gemini][model_text]"
+          <input
+            name="pga_settings[apis][gemini][model_text]"
             id="pga_gemini_model"
             type="text"
             class="regular-text"
-            value="<?php echo esc_attr($gem['model_text'] ?? 'gemini-2.5-flash-lite'); ?>">
+            value="<?php echo esc_attr($gem['model_text'] ?? 'gemini-1.5-flash-001'); ?>">
           <p class="description">
-            <?php esc_html_e('Ex.: gemini-3-pro-preview, gemini-2.5-flash-lite, etc.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Ex.: gemini-1.5-flash-001 (mais barato), gemini-1.5-pro, etc.', 'plugins-alpha'); ?>
+            <br>
+            <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Ver modelos.', 'plugins-alpha'); ?>
+            </a>
           </p>
         </td>
       </tr>
     </table>
+
     <h2 class="title"><?php esc_html_e('Pexels (banco de imagens)', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
@@ -354,17 +406,24 @@ class PluginsAlpha_Settings
           <label for="pga_pexels_key"><?php esc_html_e('API Key Pexels', 'plugins-alpha'); ?></label>
         </th>
         <td>
-          <input name="pga_settings[apis][pexels][key]"
+          <p class="description">
+            <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][pexels][key]"
             id="pga_pexels_key"
             type="text"
             class="regular-text"
             value="<?php echo esc_attr($pex['key'] ?? ''); ?>">
-          <p class="description">
-            <?php esc_html_e('Chave da API do Pexels. Uso gratuito com limites de requisições.', 'plugins-alpha'); ?>
-          </p>
+          <button type="button" class="button button-secondary pga-selftest-btn" data-provider="pexels">
+            <?php esc_html_e('Testar conexão', 'plugins-alpha'); ?>
+          </button>
         </td>
       </tr>
     </table>
+
     <h2 class="title"><?php esc_html_e('Unsplash (banco de imagens)', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
@@ -372,39 +431,55 @@ class PluginsAlpha_Settings
           <label for="pga_unsplash_key"><?php esc_html_e('Access Key Unsplash', 'plugins-alpha'); ?></label>
         </th>
         <td>
-          <input name="pga_settings[apis][unsplash][access_key]"
+          <p class="description">
+            <a href="https://unsplash.com/developers" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][unsplash][access_key]"
             id="pga_unsplash_key"
             type="text"
             class="regular-text"
             value="<?php echo esc_attr($uns['access_key'] ?? ''); ?>">
-          <p class="description">
-            <?php esc_html_e('Access Key da API Unsplash. Uso gratuito com limites de requisições.', 'plugins-alpha'); ?>
-          </p>
+          <button type="button" class="button button-secondary pga-selftest-btn" data-provider="unsplash">
+            <?php esc_html_e('Testar conexão', 'plugins-alpha'); ?>
+          </button>
         </td>
       </tr>
     </table>
 
-    <script>
-      (function($) {
-        function pgaToggleImageRows() {
-          var prov = $('#pga_img_provider').val();
-          if (prov === 'openai') {
-            $('.pga-img-openai-row').show();
-          } else {
-            $('.pga-img-openai-row').hide();
-          }
-        }
-        $(document).on('change', '#pga_img_provider', pgaToggleImageRows);
-        $(pgaToggleImageRows);
-      })(jQuery);
-    </script>
+    <h2 class="title"><?php esc_html_e('YouTube API', 'plugins-alpha'); ?></h2>
+    <table class="form-table" role="presentation">
+      <tr>
+        <th scope="row">
+          <label for="pga_youtube_key"><?php esc_html_e('API Key do YouTube', 'plugins-alpha'); ?></label>
+        </th>
+        <td>
+          <p class="description">
+            <a href="https://developers.google.com/youtube/v3/getting-started" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][youtube][key]"
+            id="pga_youtube_key"
+            type="text"
+            class="regular-text"
+            placeholder="AIza..."
+            value="<?php echo esc_attr($yt['key'] ?? ''); ?>">
+          <button type="button" class="button button-secondary pga-selftest-btn" data-provider="youtube">
+            <?php esc_html_e('Testar conexão ', 'plugins-alpha'); ?>
+          </button>
+        </td>
+      </tr>
+    </table>
   <?php
   }
 
+
   private static function render_tab_orion_posts(array $o): void
   {
-    $gp_provider      = $o['orion_posts']['images_provider'] ?? 'inherit';
-    $gp_defaults = $o['orion_posts']['defaults'] ?? [];
     $gp_text     = $o['orion_posts']['text_provider'] ?? 'openai';
     $gp_img      = $o['orion_posts']['images_provider'] ?? 'pollinations';
 

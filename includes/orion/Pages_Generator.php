@@ -77,6 +77,7 @@ class PluginsAlpha_Pages_Generator
                         <!--<option value="list">Lista</option>-->
                         <option value="news">Notícia</option>
                         <option value="modelar">Modelar URL</option>
+                        <option value="modelar_youtube">Modelar vídeo do YouTube</option>
                       </select>
                     </div>
 
@@ -426,6 +427,11 @@ class PluginsAlpha_Pages_Generator
     $url     = '';
     $keyword = '';
 
+    // 🔹 Aqui a diferença: em MODELAR, keywordRaw é a URL
+    // E em MODELAR_YOUTUBE também, mas vamos buscar dados via API.
+    $url     = '';
+    $keyword = '';
+
     if ($template === 'modelar') {
       $url = $keywordRaw;
 
@@ -442,6 +448,33 @@ class PluginsAlpha_Pages_Generator
         $host = $host ?: $url;
         $keyword = 'Artigo baseado em ' . $host;
       }
+    } elseif ($template === 'modelar_youtube') {
+      $url = $keywordRaw;
+
+      if ($url === '') {
+        return new WP_Error('pga_no_kw', 'URL do YouTube vazia.');
+      }
+
+      if (!class_exists('PluginsAlpha_Youtube')) {
+        return new WP_Error(
+          'pga_youtube_missing_class',
+          'Classe PluginsAlpha_Youtube não encontrada.'
+        );
+      }
+
+      $yt = PluginsAlpha_Youtube::fetch_video_data($url);
+      if (is_wp_error($yt)) {
+        return $yt;
+      }
+
+      // título do artigo = título do vídeo (pode ajustar depois)
+      $keyword = trim($yt['title'] ?? '');
+      if ($keyword === '') {
+        $keyword = 'Artigo baseado em vídeo do YouTube';
+      }
+
+      // injeta os dados do vídeo no jobArgs, para o provider/prompt se quiser usar
+      $jobArgs['youtube'] = $yt;
     } else {
       // templates normais → keyword normal
       $keyword = $keywordRaw;
@@ -537,20 +570,33 @@ class PluginsAlpha_Pages_Generator
     }
 
     // 2) OUTLINE – se for modelar, passa SÓ a URL
-    if ($template === 'modelar')
+    // 2) OUTLINE – se for modelar URL ou modelar YouTube, tratamos diferente
+    if ($template === 'modelar') {
       $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt_modelar(
         $url,
         $chosenTitle,
         $length,
         $locale
       );
-    else
+    } elseif ($template === 'modelar_youtube') {
+      $yt = $jobArgs['youtube'] ?? [];
+
+      $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt_modelar_youtube(
+        $url,
+        $yt,
+        $chosenTitle,
+        $length,
+        $locale
+      );
+    } else {
       $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt(
         $keyword,
         $chosenTitle,
         $length,
         $locale
       );
+    }
+
 
 
     $outline = PluginsAlpha_AI::outline($outlinePrompt, $jobArgs);

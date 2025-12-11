@@ -553,6 +553,81 @@ class PluginsAlpha_Prompts
      * ------------------------------------------------------------------ */
 
     /**
+     * Prompt de outline para "Modelar vídeo do YouTube".
+     *
+     * - Recebe URL e um array $video com dados do YouTube::fetch_video_data().
+     */
+    public static function build_outline_prompt_modelar_youtube(
+        string $url,
+        array $video,
+        string $articleTitle,
+        string $length,
+        string $locale
+    ): string {
+        // Podemos reutilizar o mesmo prompt-base do outline_modelar
+        $tpl    = self::get_prompt_for('outline_modelar');
+        $locale = $locale ?: 'pt_BR';
+
+        [$minWords, $maxWords] = self::length_to_range($length);
+        $cfg         = self::outline_config($length);
+        $minSections = $cfg['min_sections'];
+        $maxSections = $cfg['max_sections'];
+
+        $videoTitle       = (string)($video['title'] ?? '');
+        $videoDescription = (string)($video['description'] ?? '');
+        $channelTitle     = (string)($video['channel_title'] ?? '');
+        $tags             = (array)($video['tags'] ?? []);
+
+        $vars = [
+            'url'             => $url,
+            'articleTitle'    => $articleTitle,
+            'locale'          => $locale,
+            'min_words'       => (string)$minWords,
+            'max_words'       => (string)$maxWords,
+            'min_sections'    => (string)$minSections,
+            'max_sections'    => (string)$maxSections,
+            // extras opcionais para usar no prompt se quiser
+            'video_title'     => $videoTitle,
+            'video_desc'      => $videoDescription,
+            'video_channel'   => $channelTitle,
+            'video_tags_csv'  => implode(', ', $tags),
+        ];
+
+        $base = self::replace_vars($tpl, $vars);
+
+        // Cola um bloco extra deixando CLARO que é um VÍDEO
+        $base .= "\n\n";
+        $base .= "Informações importantes do VÍDEO do YouTube (NÃO mencione que está modelando um vídeo):\n";
+        $base .= "- Título do vídeo: {$videoTitle}\n";
+        $base .= "- Canal: {$channelTitle}\n";
+        if ($videoDescription !== '') {
+            $base .= "- Trechos relevantes da descrição do vídeo:\n";
+            $base .= "  " . mb_substr($videoDescription, 0, 800) . "\n";
+        }
+        if (!empty($tags)) {
+            $base .= "- Principais tags do vídeo: " . implode(', ', $tags) . "\n";
+        }
+
+        // Mantém o mesmo JSON de saída do outline normal/modelar
+        $base .= "\n\n";
+        $base .= "Responda APENAS com um JSON UTF-8 válido no formato:\n";
+        $base .= "{\n";
+        $base .= '  "sections": [' . "\n";
+        $base .= '    {' . "\n";
+        $base .= '      "id": "1",' . "\n";
+        $base .= '      "heading": "Título da seção H2",' . "\n";
+        $base .= '      "level": "h2",' . "\n";
+        $base .= '      "children": [' . "\n";
+        $base .= '        {"id": "1.1", "heading": "Subtópico H3", "level": "h3"}' . "\n";
+        $base .= '      ]' . "\n";
+        $base .= '    }' . "\n";
+        $base .= '  ]' . "\n";
+        $base .= "}\n";
+
+        return $base;
+    }
+
+    /**
      * Prompt de CONTEÚDO (article, review_roundup, review_single, news, howto, faq).
      *
      * @param string $template  article|review_roundup|review_single|news|howto|faq
@@ -1090,7 +1165,9 @@ class PluginsAlpha_Prompts
         $txt .= "- Use listas não ordenadas (<ul><li>) quando fizer sentido (passo a passo, checklist, dicas etc).\n";
         $txt .= "- Use <p>, <ul>, <li>, <strong> etc. em HTML puro.\n";
         $txt .= "- Trechos importantes do texto devem estar em negrito.\n";
-        $txt .= "- No mínimo 40% do conteúdo deve ter palavras de transição, como: mas, por isso, entretanto, isso, quando, em resumo e outras similares, sem perder a voz ativa.\n\n";
+        $txt .= "- No mínimo 40% do conteúdo deve ter palavras de transição, como: mas, por isso, entretanto, isso, quando, 
+        em resumo e outras similares, sem perder a voz ativa.\n\n";
+        $txt .= "- Todo H2, HJ e demais, não devem ser capitalizados por completo, somente a primeira palavras ou em nomes, se houver (isso é importante)\n\n";
 
         $txt .= "Regras críticas sobre a frase chave (quando existir):\n";
         $txt .= "- Esta seção deve conter ao menos uma vez a frase chave de foco.\n";
