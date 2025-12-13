@@ -16,24 +16,16 @@ class PluginsAlpha_License
      */
     public static function api_base(): string
     {
-        $base = self::PGA_LICENSE_API_BASE
-            ?? 'https://pluginsalpha.com/wp-json/pga-admin/v1';
-
+        $base = self::PGA_LICENSE_API_BASE ?? 'https://pluginsalpha.com/wp-json/pga-admin/v1';
         $base = rtrim($base, '/');
-        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound	
         return apply_filters('plugins_alpha/license_api_base', $base);
     }
 
     public static function init(): void
     {
-        // submenu no dashboard Plugins Alpha
         add_action('admin_menu', [self::class, 'menu']);
-
-        // ações de formulário
         add_action('admin_post_pga_activate_license', [self::class, 'handle_activate']);
         add_action('admin_post_pga_deactivate_license', [self::class, 'handle_deactivate']);
-
-        // cron diário
         add_action(self::CRON_HOOK, [self::class, 'cron_check']);
     }
 
@@ -57,18 +49,133 @@ class PluginsAlpha_License
         if (!is_array($opt)) $opt = [];
 
         return [
-            'license_key' => (string)($opt['license_key'] ?? ''),
-            'purchase_id' => (string)($opt['purchase_id'] ?? ''),
+            'license_key'  => (string)($opt['license_key'] ?? ''),
+            'purchase_id'  => (string)($opt['purchase_id'] ?? ''), // legado
+            'purchase_ids' => is_array($opt['purchase_ids'] ?? null) ? $opt['purchase_ids'] : [],
+
+            'purchase_id_orion'   => (string)($opt['purchase_id_orion'] ?? ''),
+            'purchase_id_stories' => (string)($opt['purchase_id_stories'] ?? ''),
+
             'email'       => (string)($opt['email'] ?? ''),
             'status'      => (string)($opt['status'] ?? 'inactive'),
+
             'plan'        => (string)($opt['plan'] ?? ''),
+            'expires_at'  => $opt['expires_at'] ?? null,
+
             'modules'     => is_array($opt['modules'] ?? null) ? $opt['modules'] : [],
+            'products'    => is_array($opt['products'] ?? null) ? $opt['products'] : [],
+            'licenses'    => is_array($opt['licenses'] ?? null) ? $opt['licenses'] : [],
+
             'domains_used' => is_array($opt['domains_used'] ?? null) ? $opt['domains_used'] : [],
             'max_domains' => (int)($opt['max_domains'] ?? 1),
-            'expires_at'  => $opt['expires_at'] ?? null,
+
             'last_check'  => $opt['last_check'] ?? null,
         ];
     }
+
+    private static function view_data(array $lic): array
+    {
+        // Purchase IDs (prioriza novo)
+        $purchaseIds = [];
+        if (!empty($lic['purchase_ids']) && is_array($lic['purchase_ids'])) {
+            $purchaseIds = array_values(array_filter(array_map('strval', $lic['purchase_ids'])));
+        } elseif (!empty($lic['purchase_id'])) {
+            $purchaseIds = [(string)$lic['purchase_id']];
+        }
+
+        // Agregação via licenses[] (novo formato)
+        $plans = [];
+        $products = is_array($lic['products'] ?? null) ? $lic['products'] : [];
+        $modules  = is_array($lic['modules'] ?? null) ? $lic['modules'] : [];
+        $domainUsedCount = 0;
+        $domainMaxSum = 0;
+
+        $expiresCandidates = []; // timestamps
+        $hasLifetime = false;
+
+        $licenses = is_array($lic['licenses'] ?? null) ? $lic['licenses'] : [];
+        foreach ($licenses as $row) {
+            if (empty($row['ok']) || empty($row['license']) || !is_array($row['license'])) continue;
+            $L = $row['license'];
+
+            // plano (se vier)
+            if (!empty($L['plan'])) $plans[] = (string)$L['plan'];
+
+            // expiração (se vier)
+            if (!empty($L['expires_at'])) {
+                $ts = strtotime((string)$L['expires_at']);
+                if ($ts) $expiresCandidates[] = $ts;
+            }
+            if (!empty($L['plan']) && (string)$L['plan'] === 'lifetime') {
+                $hasLifetime = true;
+            }
+
+            // domínios (se vier)
+            if (isset($L['max_domains'])) $domainMaxSum += max(0, (int)$L['max_domains']);
+            if (!empty($L['domains_used']) && is_array($L['domains_used'])) {
+                $domainUsedCount += count($L['domains_used']);
+            }
+
+            // módulos/produtos também podem vir por licença (se existir no seu admin)
+            if (!empty($L['modules']) && is_array($L['modules'])) {
+                $modules = array_values(array_unique(array_merge($modules, $L['modules'])));
+            }
+            if (!empty($L['products']) && is_array($L['products'])) {
+                $products = array_values(array_unique(array_merge($products, $L['products'])));
+            }
+        }
+
+        // Se o admin está mandando prod_ dentro de "modules", separa:
+        $realModules = [];
+        $prodIdsFromModules = [];
+        foreach ($modules as $m) {
+            $m = (string)$m;
+            if (strpos($m, 'prod_') === 0) $prodIdsFromModules[] = $m;
+            else $realModules[] = $m;
+        }
+        $modules = array_values(array_unique($realModules));
+        $products = array_values(array_unique(array_merge($products, $prodIdsFromModules)));
+
+        // Plano exibido: lista única (ou —)
+        $plans = array_values(array_unique(array_filter(array_map('strval', $plans))));
+        $planText = '—';
+        if ($hasLifetime) {
+            $planText = 'lifetime';
+        } elseif (!empty($plans)) {
+            $planText = implode(', ', $plans);
+        } elseif (!empty($lic['plan'])) {
+            $planText = (string)$lic['plan'];
+        }
+
+        // Expira: se lifetime -> Vitalício; senão menor expiração
+        $expiresText = '—';
+        if ($hasLifetime) {
+            $expiresText = 'Vitalício';
+        } else {
+            $minTs = !empty($expiresCandidates) ? min($expiresCandidates) : 0;
+            if ($minTs) {
+                $expiresText = date_i18n('d/m/Y H:i', $minTs);
+            } elseif (!empty($lic['expires_at'])) {
+                $ts = strtotime((string)$lic['expires_at']);
+                if ($ts) $expiresText = date_i18n('d/m/Y H:i', $ts);
+            }
+        }
+
+        // Domínios: se não veio por licença, cai no legado
+        $used = $domainUsedCount > 0 ? $domainUsedCount : (is_array($lic['domains_used']) ? count($lic['domains_used']) : 0);
+        $max  = $domainMaxSum > 0 ? $domainMaxSum : (!empty($lic['max_domains']) ? (int)$lic['max_domains'] : 1);
+
+        return [
+            'purchase_ids_text' => !empty($purchaseIds) ? implode(', ', $purchaseIds) : '—',
+            'plan_text'         => $planText,
+            'expires_text'      => $expiresText,
+            'domains_text'      => "{$used} / {$max}",
+            'modules'           => $modules,
+            'products'          => $products,
+        ];
+    }
+
+
 
     // ===================== API simplificada para outros módulos (Webhook etc.) =====================
 
@@ -109,24 +216,16 @@ class PluginsAlpha_License
 
     public static function is_active(?array $lic = null): bool
     {
-        if ($lic === null) {
-            $lic = self::get_state();
-        }
+        if ($lic === null) $lic = self::get_state();
 
-        if (($lic['status'] ?? '') !== 'active') {
-            return false;
-        }
+        if (($lic['status'] ?? '') !== 'active') return false;
 
         if (!empty($lic['expires_at'])) {
-            $ts = strtotime($lic['expires_at']);
-            if ($ts && $ts < time()) {
-                return false;
-            }
+            $ts = strtotime((string)$lic['expires_at']);
+            if ($ts && $ts < time()) return false;
         }
-
         return true;
     }
-
 
     /**
      * Verifica se o módulo (ex.: 'alpha_stories') está liberado para este site.
@@ -145,9 +244,7 @@ class PluginsAlpha_License
         $url = home_url('/');
         $url = preg_replace('#^https?://#i', '', $url);
         $slash = strpos($url, '/');
-        if ($slash !== false) {
-            $url = substr($url, 0, $slash);
-        }
+        if ($slash !== false) $url = substr($url, 0, $slash);
         return strtolower(trim($url));
     }
 
@@ -160,49 +257,140 @@ class PluginsAlpha_License
     {
         $lic = self::get_state();
 
+        // pega ids separados (novo) + legado
+        $purchase_orion   = (string)($lic['purchase_id_orion'] ?? '');
+        $purchase_stories = (string)($lic['purchase_id_stories'] ?? '');
+        $purchase_legacy  = (string)($lic['purchase_id'] ?? '');
+
+        $purchase_ids = array_values(array_filter(array_unique(array_map('trim', [
+            $purchase_orion,
+            $purchase_stories,
+            $purchase_legacy,
+        ]))));
+
         // Se nem tem licença salva, não faz nada
-        if (empty($lic['purchase_id']) && empty($lic['license_key'])) {
+        if (empty($purchase_ids) && empty($lic['license_key'])) {
             return;
         }
 
         $domain = self::current_domain();
 
         $body = [
-            'email'         => $lic['email'] ?? '',
-            'purchase_id'   => $lic['purchase_id'] ?? '',
-            'license_key'   => $lic['license_key'] ?? '',
-            'domain'        => $domain,
-            'site_url'      => home_url('/'),
-            'site_name'     => get_bloginfo('name'),
-            'wp_version'    => get_bloginfo('version'),
-            'php_version'   => PHP_VERSION,
-            'plugin'        => 'plugins-alpha',
+            'email'          => $lic['email'] ?? '',
+            // novo formato
+            'purchase_ids'   => $purchase_ids,
+            // compat legado (se o servidor ainda aceitar/usar)
+            'purchase_id'    => $purchase_legacy,
+            'license_key'    => $lic['license_key'] ?? '',
+            'domain'         => $domain,
+            'site_url'       => home_url('/'),
+            'site_name'      => get_bloginfo('name'),
+            'wp_version'     => get_bloginfo('version'),
+            'php_version'    => PHP_VERSION,
+            'plugin'         => 'plugins-alpha',
             'plugin_version' => '1.0.1',
+            // dica: você pode mandar um flag pro server não "consumir slot" no cron,
+            // se você implementar isso depois:
+            // 'mode' => 'check',
         ];
 
         $res = self::remote_call('/client/activate', $body);
+
+        if (is_array($res) && isset($res['ok']) && $res['ok'] === false) {
+            $msg = (string)($res['error'] ?? $res['message'] ?? 'Falha ao ativar licença.');
+            if (wp_doing_ajax()) {
+                wp_send_json_error(['message' => $msg, 'data' => $res], 400);
+            }
+            self::redirect_with_error($msg);
+        }
 
         if (is_wp_error($res)) {
             return;
         }
 
-        if (empty($res['ok']) || empty($res['license']) || !is_array($res['license'])) {
+        if (empty($res['ok'])) {
             return;
         }
 
-        $l = $res['license'];
+        // --- NOVO: resposta agregada (licenses[])
+        $licenses = [];
+        if (!empty($res['licenses']) && is_array($res['licenses'])) {
+            $licenses = $res['licenses'];
+        }
+
+        $any_ok = false;
+        $domains_used = $lic['domains_used'] ?? [];
+        $max_domains  = (int)($lic['max_domains'] ?? 1);
+        $expires_at   = $lic['expires_at'] ?? null;
+        $plan         = (string)($lic['plan'] ?? '');
+
+        // tenta puxar alguns campos de uma licença "ok" (a primeira ok)
+        foreach ($licenses as $r) {
+            if (!empty($r['ok']) && !empty($r['license']) && is_array($r['license'])) {
+                $any_ok = true;
+
+                $l = $r['license'];
+
+                if (is_array($l['domains_used'] ?? null)) {
+                    $domains_used = $l['domains_used'];
+                }
+                if (isset($l['max_domains'])) {
+                    $max_domains = (int)$l['max_domains'];
+                }
+                if (!empty($l['expires_at'])) {
+                    $expires_at = $l['expires_at'];
+                }
+                if (!empty($l['plan'])) {
+                    $plan = (string)$l['plan'];
+                }
+
+                break;
+            }
+        }
+
+        // compat: se o servidor ainda retornar o formato antigo {license:{}}
+        if (empty($licenses) && !empty($res['license']) && is_array($res['license'])) {
+            $any_ok = true;
+            $l = $res['license'];
+
+            if (is_array($l['domains_used'] ?? null)) {
+                $domains_used = $l['domains_used'];
+            }
+            if (isset($l['max_domains'])) {
+                $max_domains = (int)$l['max_domains'];
+            }
+            if (!empty($l['expires_at'])) {
+                $expires_at = $l['expires_at'];
+            }
+            if (!empty($l['plan'])) {
+                $plan = (string)$l['plan'];
+            }
+        }
+
+        // módulos agregados (preferencial)
+        $modules = $lic['modules'] ?? [];
+        if (!empty($res['modules']) && is_array($res['modules'])) {
+            $modules = $res['modules'];
+        } elseif (!empty($res['license']['modules']) && is_array($res['license']['modules'])) {
+            $modules = $res['license']['modules'];
+        }
 
         $opt = [
-            'license_key' => (string)($l['license_key'] ?? $lic['license_key']),
-            'purchase_id' => (string)($l['purchase_id'] ?? $lic['purchase_id']),
-            'email'       => (string)($l['email'] ?? $lic['email']),
-            'status'      => (string)($l['status'] ?? $lic['status']),
-            'plan'        => (string)($l['plan'] ?? ($lic['plan'] ?? '')),
-            'modules'     => is_array($l['modules'] ?? null) ? $l['modules'] : ($lic['modules'] ?? []),
-            'domains_used' => is_array($l['domains_used'] ?? null) ? $l['domains_used'] : ($lic['domains_used'] ?? []),
-            'max_domains' => (int)($l['max_domains'] ?? ($lic['max_domains'] ?? 1)),
-            'expires_at'  => $l['expires_at'] ?? ($lic['expires_at'] ?? null),
+            'license_key'         => (string)($lic['license_key'] ?? ''),
+            'purchase_id'         => $purchase_legacy, // mantém por compat
+            'purchase_id_orion'   => $purchase_orion,
+            'purchase_id_stories' => $purchase_stories,
+            'email'               => (string)($lic['email'] ?? ''),
+            'status'      => $any_ok ? 'active' : (string)($lic['status'] ?? 'inactive'),
+            'plan'        => $plan,
+            'modules'     => is_array($modules) ? $modules : [],
+            'domains_used' => is_array($domains_used) ? $domains_used : [],
+            'max_domains' => $max_domains > 0 ? $max_domains : 1,
+            'expires_at'  => $expires_at,
             'last_check'  => current_time('mysql', true),
+
+            // opcional: salvar debug do retorno agregado
+            // 'last_results' => $licenses,
         ];
 
         update_option(self::OPTION_KEY, $opt);
@@ -233,78 +421,11 @@ class PluginsAlpha_License
             wp_die(esc_html__('Sem permissão.', 'plugins-alpha'));
         }
 
-        // 1) Processa envio do formulário de licença (POST)
-        if (isset($_POST['pga_license_submit'])) {
-
-            // verifica nonce
-            $nonce = isset($_POST['pga_license_nonce'])
-                ? sanitize_text_field(wp_unslash($_POST['pga_license_nonce']))
-                : '';
-
-            if (! $nonce || ! wp_verify_nonce($nonce, 'pga_license_save')) {
-                wp_die(
-                    esc_html__(
-                        'Falha na verificação de segurança. Recarregue a página e tente novamente.',
-                        'plugins-alpha'
-                    )
-                );
-            }
-
-            // sanitiza campos
-            $email       = isset($_POST['email'])
-                ? sanitize_email(wp_unslash($_POST['email']))
-                : '';
-
-            $purchase_id = isset($_POST['purchase_id'])
-                ? sanitize_text_field(wp_unslash($_POST['purchase_id']))
-                : '';
-
-            $license_key = isset($_POST['license_key'])
-                ? sanitize_text_field(wp_unslash($_POST['license_key']))
-                : '';
-
-            // aqui você coloca a SUA lógica atual de salvar/validar licença
-            // por exemplo:
-            // self::save_state( $email, $purchase_id, $license_key );
-
-            $error_msg = '';
-
-            // se quiser uma validação mínima, pode fazer algo assim:
-            if ('' === $email || '' === $license_key) {
-                $error_msg = __('Informe e-mail e chave da licença.', 'plugins-alpha');
-            }
-
-            // se houve erro, redireciona com ?error=
-            if ($error_msg) {
-                $url = add_query_arg(
-                    array(
-                        'page'  => 'plugins-alpha-license',
-                        'error' => rawurlencode($error_msg),
-                    ),
-                    admin_url('admin.php')
-                );
-
-                wp_safe_redirect(esc_url_raw($url));
-                exit;
-            }
-
-            // se deu tudo certo, redireciona com ?updated=1
-            $url = add_query_arg(
-                array(
-                    'page'    => 'plugins-alpha-license',
-                    'updated' => 1,
-                ),
-                admin_url('admin.php')
-            );
-
-            wp_safe_redirect(esc_url_raw($url));
-            exit;
-        }
 
         // 2) Carrega estado atual
         $lic    = self::get_state();
         $domain = self::current_domain();
-        $api    = self::api_base();
+        $view = self::view_data($lic);
 
         $status_label = self::is_active()
             ? __('Ativa', 'plugins-alpha')
@@ -334,17 +455,6 @@ class PluginsAlpha_License
                 esc_html__('Licença atualizada com sucesso.', 'plugins-alpha') .
                 '</p></div>';
         }
-
-        $expires_text = '—';
-        if (! empty($lic['expires_at'])) {
-            $expires_text = mysql2date('d/m/Y H:i', $lic['expires_at']);
-        }
-        if (isset($lic['plan']) && 'lifetime' === $lic['plan']) {
-            $expires_text = __('Vitalício', 'plugins-alpha');
-        }
-
-        $used = is_array($lic['domains_used']) ? count($lic['domains_used']) : 0;
-        $max  = ! empty($lic['max_domains']) ? (int) $lic['max_domains'] : 1;
 
         // === daqui pra baixo fica o teu HTML da tela de licença ===
 ?>
@@ -380,24 +490,10 @@ class PluginsAlpha_License
                                 <td><code><?php echo esc_html($lic['email'] ?: '—'); ?></code></td>
                             </tr>
                             <tr>
-                                <th><?php esc_html_e('ID da compra', 'plugins-alpha'); ?></th>
-                                <td><code><?php echo esc_html($lic['purchase_id'] ?: '—'); ?></code></td>
-                            </tr>
-                            <tr>
-                                <th><?php esc_html_e('Plano', 'plugins-alpha'); ?></th>
-                                <td><code><?php echo esc_html($lic['plan'] ?: '—'); ?></code></td>
-                            </tr>
-
-                            <tr>
-                                <th><?php esc_html_e('Expira em', 'plugins-alpha'); ?></th>
-                                <td><code><?php echo esc_html($expires_text); ?></code></td>
-                            </tr>
-                            <tr>
                                 <th><?php esc_html_e('Domínios usados', 'plugins-alpha'); ?></th>
-                                <td><code><?php echo esc_html("{$used} / {$max}"); ?></code></td>
+                                <td><code><?php echo esc_html($view['domains_text']); ?></code></td>
                             </tr>
                         </table>
-
 
 
                         <?php if (!empty($lic['modules'])): ?>
@@ -436,36 +532,65 @@ class PluginsAlpha_License
                                 <tr>
                                     <th><label for="pga_email"><?php esc_html_e('E-mail da compra', 'plugins-alpha'); ?></label></th>
                                     <td>
-                                        <input type="email" name="email" id="pga_email" class="regular-text"
-                                            value="<?php echo esc_attr($lic['email'] ?? ''); ?>" required>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th><label for="pga_purchase_id"><?php esc_html_e('ID da compra / Transação', 'plugins-alpha'); ?></label></th>
-                                    <td>
-                                        <input type="text" name="purchase_id" id="pga_purchase_id" class="regular-text"
-                                            value="<?php echo esc_attr($lic['purchase_id'] ?? ''); ?>" required>
+                                        <input type="email"
+                                            name="email"
+                                            id="pga_email"
+                                            class="regular-text"
+                                            value="<?php echo esc_attr($lic['email'] ?? ''); ?>"
+                                            required>
                                         <p class="description">
-                                            <?php esc_html_e('Use o código HP... ou outro identificador da compra enviado pela Hotmart.', 'plugins-alpha'); ?>
+                                            <?php esc_html_e('O mesmo e-mail usado na compra (Hotmart / Stripe).', 'plugins-alpha'); ?>
                                         </p>
                                     </td>
                                 </tr>
+
                                 <tr>
+                                    <th><label for="pga_purchase_orion"><?php esc_html_e('ID da compra — Órion', 'plugins-alpha'); ?></label></th>
+                                    <td>
+                                        <input type="text"
+                                            name="purchase_id_orion"
+                                            id="pga_purchase_orion"
+                                            class="regular-text"
+                                            value="<?php echo esc_attr($lic['purchase_id_orion'] ?? ''); ?>">
+                                        <p class="description">
+                                            <?php esc_html_e('Informe o ID da compra para o módulo Alpha Órion (deixe em branco se não tiver).', 'plugins-alpha'); ?>
+                                        </p>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <th><label for="pga_purchase_stories"><?php esc_html_e('ID da compra — Stories', 'plugins-alpha'); ?></label></th>
+                                    <td>
+                                        <input type="text"
+                                            name="purchase_id_stories"
+                                            id="pga_purchase_stories"
+                                            class="regular-text"
+                                            value="<?php echo esc_attr($lic['purchase_id_stories'] ?? ''); ?>">
+                                        <p class="description">
+                                            <?php esc_html_e('Informe o ID da compra para o módulo Alpha Stories (deixe em branco se não tiver).', 'plugins-alpha'); ?>
+                                        </p>
+                                    </td>
+                                </tr>
+
+                                <!-- <tr>
                                     <th><label for="pga_license_key"><?php esc_html_e('Chave de licença (opcional)', 'plugins-alpha'); ?></label></th>
                                     <td>
-                                        <input type="text" name="license_key" id="pga_license_key" class="regular-text"
+                                        <input type="text"
+                                            name="license_key"
+                                            id="pga_license_key"
+                                            class="regular-text"
                                             value="<?php echo esc_attr($lic['license_key'] ?? ''); ?>">
                                         <p class="description">
-                                            <?php esc_html_e('Se o painel Plugins Alpha gerar uma chave própria, use-a aqui. Senão, deixe em branco.', 'plugins-alpha'); ?>
+                                            <?php esc_html_e('Se o painel Plugins Alpha gerar uma chave própria, use aqui. Caso contrário, pode deixar em branco.', 'plugins-alpha'); ?>
                                         </p>
                                     </td>
-                                </tr>
+                                </tr> -->
                             </table>
 
                             <?php submit_button(
                                 self::is_active()
-                                    ? esc_html__('Revalidar licença neste domínio', 'plugins-alpha')
-                                    : esc_html__('Ativar licença neste domínio', 'plugins-alpha'),
+                                    ? esc_html__('Revalidar licenças neste domínio', 'plugins-alpha')
+                                    : esc_html__('Ativar licenças neste domínio', 'plugins-alpha'),
                                 'primary'
                             ); ?>
                         </form>
@@ -608,107 +733,100 @@ class PluginsAlpha_License
 
     public static function handle_activate(): void
     {
-        if (!current_user_can('manage_options')) wp_die('Sem permissão.');
+        if (!current_user_can('manage_options')) {
+            wp_die('Sem permissão.');
+        }
         check_admin_referer('pga_activate_license');
 
-        $email = isset($_POST['email'])
-            ? sanitize_email(wp_unslash($_POST['email']))
-            : '';
+        $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : '';
 
-        $purchase_id = isset($_POST['purchase_id'])
-            ? sanitize_text_field(wp_unslash($_POST['purchase_id']))
-            : '';
+        $purchase_orion = isset($_POST['purchase_id_orion']) ? sanitize_text_field(wp_unslash($_POST['purchase_id_orion'])) : '';
+        $purchase_stories = isset($_POST['purchase_id_stories']) ? sanitize_text_field(wp_unslash($_POST['purchase_id_stories'])) : '';
 
-        $license_key = isset($_POST['license_key'])
-            ? sanitize_text_field(wp_unslash($_POST['license_key']))
-            : '';
+        $license_key = isset($_POST['license_key']) ? sanitize_text_field(wp_unslash($_POST['license_key'])) : '';
 
+        $purchase_ids = array_values(array_unique(array_filter([
+            $purchase_orion,
+            $purchase_stories,
+        ], function ($v) {
+            return is_string($v) && trim($v) !== '';
+        })));
 
-        if (!$email || !$purchase_id) {
-            $msg = __('E-mail e ID da compra são obrigatórios.', 'plugins-alpha');
-            if (wp_doing_ajax()) {
-                wp_send_json_error(['message' => $msg], 400);
-            }
-            self::redirect_with_error($msg);
+        if (!$email || empty($purchase_ids)) {
+            self::redirect_with_error(__('Informe o e-mail e pelo menos um ID de compra (Órion ou Stories).', 'plugins-alpha'));
         }
 
         $domain = self::current_domain();
 
         $body = [
-            'email'         => $email,
-            'purchase_id'   => $purchase_id,
-            'license_key'   => $license_key,
-            'domain'        => $domain,
-            'site_url'      => home_url('/'),
-            'site_name'     => get_bloginfo('name'),
-            'wp_version'    => get_bloginfo('version'),
-            'php_version'   => PHP_VERSION,
-            'plugin'        => 'plugins-alpha',
+            'email'          => $email,
+            'purchase_ids'   => $purchase_ids,
+            'license_key'    => $license_key,
+            'domain'         => $domain,
+            'site_url'       => home_url('/'),
+            'site_name'      => get_bloginfo('name'),
+            'wp_version'     => get_bloginfo('version'),
+            'php_version'    => PHP_VERSION,
+            'plugin'         => 'plugins-alpha',
             'plugin_version' => '1.0.1',
         ];
 
         $res = self::remote_call('/client/activate', $body);
 
-        // ERRO
+        // 0) Erro de transporte / resposta inválida (WP_Error)
         if (is_wp_error($res)) {
-            $msg  = $res->get_error_message();
-            $data = $res->get_error_data();
-            if (wp_doing_ajax()) {
-                wp_send_json_error([
-                    'message' => $msg,
-                    'data'    => $data,
-                ], 400);
+            self::redirect_with_error($res->get_error_message());
+        }
+
+        // 1) Resposta sem ok => erro
+        if (!is_array($res) || empty($res['ok'])) {
+            // tenta extrair msg dos padrões do WP REST: { code, message, data:{...} }
+            $msg = (string)($res['message'] ?? __('Falha ao ativar licença.', 'plugins-alpha'));
+
+            // se tiver results detalhado (seu caso), pega a 1a msg
+            if (!empty($res['data']['results'][0]['message'])) {
+                $msg = (string)$res['data']['results'][0]['message'];
             }
 
             self::redirect_with_error($msg);
         }
 
-        // Esperamos algo tipo: { ok: true, license: {...}, message: '...' }
-        if (empty($res['ok']) || empty($res['license']) || !is_array($res['license'])) {
-            $msg = isset($res['message']) ? (string)$res['message'] : __('Erro ao ativar licença (resposta inesperada).', 'plugins-alpha');
-            if (wp_doing_ajax()) {
-                wp_send_json_error(['message' => $msg, 'data' => $res], 400);
-            }
+        // 2) NOVO FORMATO preferido: { ok:true, modules:[], products:[], licenses:[] }
+        if (!empty($res['licenses']) && is_array($res['licenses'])) {
+            $opt = [
+                'email'       => (string)($res['email'] ?? $email),
+                'status'      => 'active',
+                'plan'        => '',
 
-            self::redirect_with_error($msg);
+                'modules'     => is_array($res['modules'] ?? null) ? array_values(array_unique($res['modules'])) : [],
+                'products'    => is_array($res['products'] ?? null) ? array_values(array_unique($res['products'])) : [],
+                'licenses'    => $res['licenses'],
+
+                'domains_used' => [],
+                'max_domains'  => 0,
+                'expires_at'   => null,
+
+                'purchase_ids' => $purchase_ids,
+
+                'license_key'         => $license_key,
+                'purchase_id_orion'   => $purchase_orion,
+                'purchase_id_stories' => $purchase_stories,
+
+                'last_check' => current_time('mysql', true),
+            ];
+
+            update_option(self::OPTION_KEY, $opt);
+
+            wp_safe_redirect(add_query_arg(
+                ['page' => 'plugins-alpha-license', 'updated' => 1],
+                admin_url('admin.php')
+            ));
+            exit;
         }
 
-        $l = $res['license'];
-
-        $opt = [
-            'license_key' => (string)($l['license_key'] ?? $license_key),
-            'purchase_id' => (string)($l['purchase_id'] ?? $purchase_id),
-            'email'       => (string)($l['email'] ?? $email),
-            'status'      => (string)($l['status'] ?? 'active'),
-            'plan'        => (string)($l['plan'] ?? ''),
-            'modules'     => is_array($l['modules'] ?? null) ? $l['modules'] : [],
-            'domains_used' => is_array($l['domains_used'] ?? null) ? $l['domains_used'] : [],
-            'max_domains' => (int)($l['max_domains'] ?? 1),
-            'expires_at'  => $l['expires_at'] ?? null,
-            'last_check'  => current_time('mysql', true),
-        ];
-
-        update_option(self::OPTION_KEY, $opt);
-
-        if (wp_doing_ajax()) {
-            wp_send_json_success([
-                'message' => $res['message'] ?? __('Licença ativada com sucesso.', 'plugins-alpha'),
-                'license' => $opt,
-            ]);
-        }
-
-        $location = add_query_arg(
-            [
-                'page'    => 'plugins-alpha-license',
-                'updated' => 1,
-            ],
-            admin_url('admin.php')
-        );
-
-        wp_safe_redirect($location);
-        exit;
+        // 3) Se ok=true mas não veio licenses[] => considera erro de formato (pra não dar “sucesso fake”)
+        self::redirect_with_error(__('Resposta inesperada do servidor de licenças.', 'plugins-alpha'));
     }
-
 
     public static function handle_deactivate(): void
     {
@@ -718,82 +836,94 @@ class PluginsAlpha_License
         $lic    = self::get_state();
         $domain = self::current_domain();
 
+        $purchase_ids = [];
+        if (!empty($lic['purchase_ids']) && is_array($lic['purchase_ids'])) {
+            $purchase_ids = $lic['purchase_ids'];
+        } elseif (!empty($lic['purchase_id'])) {
+            $purchase_ids = [(string)$lic['purchase_id']];
+        }
+
         $body = [
-            'email'       => $lic['email'],
-            'purchase_id' => $lic['purchase_id'],
-            'license_key' => $lic['license_key'],
-            'domain'      => $domain,
+            'email'        => (string)($lic['email'] ?? ''),
+            'purchase_ids' => $purchase_ids,
+            'license_key'  => (string)($lic['license_key'] ?? ''),
+            'domain'       => $domain,
         ];
 
         $res = self::remote_call('/client/deactivate', $body);
 
+        // independente do retorno, remove local
         delete_option(self::OPTION_KEY);
 
-        $location = add_query_arg(
-            [
-                'page'    => 'plugins-alpha-license',
-                'updated' => 1,
-            ],
+        wp_safe_redirect(add_query_arg(
+            ['page' => 'plugins-alpha-license', 'updated' => 1],
             admin_url('admin.php')
-        );
-
-        wp_safe_redirect($location);
+        ));
         exit;
     }
+
+    // ===================== HTTP =====================
 
     private static function remote_call(string $endpoint, array $body)
     {
         $base = self::api_base();
-        $url  = $base . $endpoint;
+        $url  = rtrim($base, '/') . $endpoint;
+
         $args = [
             'timeout' => 15,
             'headers' => [
                 'Content-Type' => 'application/json',
+                'Accept'       => 'application/json',
             ],
-            'body'    => wp_json_encode($body),
+            'body' => wp_json_encode($body, JSON_UNESCAPED_UNICODE),
         ];
 
         $response = wp_remote_post($url, $args);
 
+        // erro de transporte
         if (is_wp_error($response)) {
-            return new WP_Error(
+            return new \WP_Error(
                 'pga_license_http',
                 sprintf(
-                    esc_html('Erro ao conectar ao servidor de licença: %s', 'plugins-alpha'),
+                    __('Erro ao conectar ao servidor de licença: %s', 'plugins-alpha'),
                     $response->get_error_message()
-                )
+                ),
+                ['transport' => true]
             );
         }
 
-        $code = wp_remote_retrieve_response_code($response);
-        $raw  = wp_remote_retrieve_body($response);
-        $json = json_decode($raw, true);
+        $code = (int) wp_remote_retrieve_response_code($response);
+        $raw  = (string) wp_remote_retrieve_body($response);
 
-        // Se não veio JSON ou código não é 2xx, gera um erro mais informativo
-        if ($code < 200 || $code >= 300 || !is_array($json)) {
-            $snippet = mb_substr($raw, 0, 300);
-            $msg = __('Resposta inválida do servidor de licença.', 'plugins-alpha') . ' (HTTP ' . $code . ')';
+        // tenta JSON sempre
+        $json = null;
+        if ($raw !== '') $json = json_decode($raw, true);
 
-            return new WP_Error(
-                'pga_license_bad_response',
-                $msg,
-                [
-                    'code'        => $code,
-                    'body_snippet' => $snippet,
-                    'raw'         => $raw,
-                ]
-            );
+        // se veio JSON, devolve (mesmo 403/400)
+        if (is_array($json)) {
+            $json['_http_code'] = $code;
+            return $json;
         }
-        return $json;
+
+        // sem JSON => resposta inválida
+        $snippet = mb_substr($raw, 0, 300);
+        $msg = __('Resposta inválida do servidor de licença.', 'plugins-alpha') . ' (HTTP ' . $code . ')';
+
+        return new \WP_Error(
+            'pga_license_bad_response',
+            $msg,
+            ['code' => $code, 'body_snippet' => $snippet, 'raw' => $raw]
+        );
     }
 
+    // ===================== Redirect helpers =====================
 
     private static function redirect_with_error(string $msg): void
     {
         $location = add_query_arg(
             [
-                'page'    => 'plugins-alpha-license',
-                'updated' => 1,
+                'page'  => 'plugins-alpha-license',
+                'error' => rawurlencode($msg),
             ],
             admin_url('admin.php')
         );
