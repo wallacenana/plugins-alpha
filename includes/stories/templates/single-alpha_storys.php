@@ -42,8 +42,15 @@ $pages      = is_array($pages) ? $pages : [];
 
 $alpha_storys_publisher   = get_post_meta($post->ID, '_alpha_storys_publisher', true) ?: (alpha_opt('publisher_name') ?: get_bloginfo('name'));
 
-$alpha_logo_id    = (int) get_post_meta($post->ID, '_alpha_storys_logo_id', true);
-$alpha_logo_src   = $alpha_logo_id ? wp_get_attachment_image_url($alpha_logo_id, 'full') : (PluginsAlpha_Helpers::alpha_get_publisher_logo_url() ?: '');
+$alpha_logo_id  = (int) get_post_meta($post->ID, '_alpha_storys_logo_id', true);
+$default_logo_id = (int) PluginsAlpha_Helpers::stories_logo_id();
+
+$effective_logo_id = $alpha_logo_id ?: $default_logo_id;
+
+$alpha_logo_src = $effective_logo_id
+  ? (wp_get_attachment_image_url($effective_logo_id, 'thumbnail') ?: '')
+  : (PluginsAlpha_Helpers::stories_logo_url() ?: '');
+
 
 $alpha_ga_id      = PluginsAlpha_Helpers::alpha_get_ga4_id();
 $alpha_ga_enable  = !empty($alpha_ga_id);
@@ -102,9 +109,6 @@ if (!$poster) {
 if (!$poster) {
   $poster = get_stylesheet_directory_uri() . '/assets/story-poster-fallback.jpg';
 }
-if (!$alpha_logo_src) {
-  $alpha_logo_src = $poster;
-}
 
 // Ao menos 1 página
 if (count($pages) === 0) {
@@ -118,15 +122,6 @@ if (count($pages) === 0) {
 }
 
 // cores e estilo: meta do post > configs stories > fallback
-$bg_color = get_post_meta($post->ID, '_alpha_storys_background_color', true);
-if (!$bg_color) {
-  $bg_color = PluginsAlpha_Helpers::alpha_opt('background_color', '#000000');
-}
-
-$txt_color = get_post_meta($post->ID, '_alpha_storys_text_color', true);
-if (!$txt_color) {
-  $txt_color = PluginsAlpha_Helpers::alpha_opt('text_color', '#ffffff');
-}
 
 $style = get_post_meta($post->ID, '_alpha_storys_style', true);
 if (!$style) {
@@ -138,10 +133,21 @@ if (!$font) {
   $font = PluginsAlpha_Helpers::alpha_opt('default_font', 'inter');
 }
 
-$accent = get_post_meta($post->ID, '_alpha_storys_accent_color', true);
-if (!$accent) {
-  $accent = PluginsAlpha_Helpers::alpha_opt('accent_color', '#ffffff');
+$bg_color = (string) get_post_meta($post->ID, '_alpha_storys_background_color', true);
+if ($bg_color === '') {
+  $bg_color = (string) PluginsAlpha_Helpers::stories_opt('background_color', '#000000');
 }
+
+$txt_color = (string) get_post_meta($post->ID, '_alpha_storys_text_color', true);
+if ($txt_color === '') {
+  $txt_color = (string) PluginsAlpha_Helpers::stories_opt('text_color', '#ffffff');
+}
+
+$accent = (string) get_post_meta($post->ID, '_alpha_storys_accent_color', true);
+if ($accent === '') {
+  $accent = (string) PluginsAlpha_Helpers::stories_opt('accent_color', '#ffffff');
+}
+
 
 // Mapeia Google Fonts
 function alpha_font_href($font)
@@ -543,6 +549,39 @@ $font_family = $font === 'system'
     }
 
     /* opcional: você já tem .overlay; ela escurece por cima do blur */
+    .brand {
+      position: absolute;
+      z-index: 10;
+    }
+
+    .brand .logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, .12);
+      border: 1px solid rgba(255, 255, 255, .18);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+    }
+
+    .brand .logo amp-img,
+    .brand .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .brand .name {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .2px;
+      color: <?php echo esc_html($txt_color); ?>;
+      text-shadow: 0 6px 24px rgba(0, 0, 0, .45);
+      max-width: 210px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   </style>
 </head>
 
@@ -557,6 +596,8 @@ $font_family = $font === 'system'
     <?php if ($alpha_ga_enable): ?>
       <amp-story-auto-analytics gtag-id="<?php echo esc_attr($alpha_ga_id); ?>"></amp-story-auto-analytics>
     <?php endif;
+
+
 
     $i = 1;
     foreach ($pages as $p):
@@ -640,6 +681,7 @@ $font_family = $font === 'system'
       $anim_h2_split   = $anim ? ' animate-in="fade-in"       animate-in-delay="0.12s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
       $anim_p_split    = $anim ? ' animate-in="fly-in-bottom" animate-in-delay="0.22s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
     ?>
+
       <amp-story-page
         id="p<?php echo (int)$i; ?>"
         <?php if ($autoplay): ?>auto-advance-after="<?php echo (int)$dur; ?>s" <?php endif; ?>>
@@ -672,7 +714,7 @@ $font_family = $font === 'system'
             <div class="bg-solid"></div>
           </amp-story-grid-layer>
 
-          <amp-story-grid-layer template="vertical" class="layer-content-top" style="padding:0;display:block!important">
+          <amp-story-grid-layer template="vertical" class="layer-content-top" style="padding:0;display:block">
             <div class="hero" <?php echo esc_attr($anim_card_div); ?>>
               <?php if ($img): ?>
                 <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
@@ -757,7 +799,21 @@ $font_family = $font === 'system'
             </amp-story-page-outlink>
           <?php endif; ?>
         <?php endif; ?>
-
+        <?php if ($alpha_logo_src): ?>
+          <amp-story-grid-layer template="fill">
+            <div class="brand" style="padding-top: 30px; padding-left: 18px;">
+              <div class="logo">
+                <amp-img
+                  src="<?php echo esc_url($alpha_logo_src); ?>"
+                  width="36"
+                  height="36"
+                  layout="responsive"
+                  alt="<?php echo esc_attr($alpha_storys_publisher); ?>">
+                </amp-img>
+              </div>
+            </div>
+          </amp-story-grid-layer>
+        <?php endif; ?>
       </amp-story-page>
 
     <?php

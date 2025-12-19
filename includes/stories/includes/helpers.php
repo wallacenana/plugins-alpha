@@ -244,6 +244,29 @@ class PluginsAlpha_Helpers
     return $blocks;
   }
 
+  public static function stories_opt(string $key, $default = null)
+  {
+    $opts = get_option('pga_settings', []);
+    $st   = is_array($opts['stories'] ?? null) ? $opts['stories'] : [];
+    return array_key_exists($key, $st) ? $st[$key] : $default;
+  }
+
+  public static function stories_logo_id(): int
+  {
+    return (int) self::stories_opt('publisher_logo_id', 0);
+  }
+
+  public static function stories_logo_url(): string
+  {
+    $id = self::stories_logo_id();
+    if ($id > 0) {
+      $url = wp_get_attachment_image_url($id, 'full');
+      return $url ? $url : '';
+    }
+    return '';
+  }
+
+
   /** =========================
    *  IA: gerar e salvar conteúdo
    *  ========================= */

@@ -10,13 +10,36 @@ class PluginsAlpha_Stories_MetaBox
   {
     add_action('add_meta_boxes',        [self::class, 'add_box']);
     add_action('save_post_alpha_storys', [self::class, 'save'], 10, 2);
+    add_action('admin_enqueue_scripts', function ($hook) {
+      // post.php = editar, post-new.php = novo
+      if ($hook !== 'post.php' && $hook !== 'post-new.php') return;
+
+      // (opcional) limita ao teu post type
+      $screen = get_current_screen();
+      if (!$screen) return;
+
+      // se teu metabox é em um CPT específico, ex:
+      // if ($screen->post_type !== 'web-story' && $screen->post_type !== 'pga_story') return;
+
+      // ✅ isso carrega o wp.media e dependências
+      wp_enqueue_media();
+
+      // teu JS do picker
+      wp_enqueue_script(
+        'pga-metabox-media',
+        plugins_url('../../../assets/metabox-media.js', __FILE__),
+        ['jquery'],
+        '1.0.1',
+        true
+      );
+    });
   }
 
   public static function add_box(): void
   {
     add_meta_box(
       'alpha_storys_sidebar_meta',
-      __('Web Story deste conteúdo', 'plugins-alpha'),
+      __('Opções', 'plugins-alpha'),
       [self::class, 'render'],
       'alpha_storys',
       'side',
@@ -28,24 +51,68 @@ class PluginsAlpha_Stories_MetaBox
   {
     wp_nonce_field(self::NONCE, self::NONCE);
 
-    // metas (com defaults)
-    $enabled     = true; // na tela de alpha_storys SEMPRE habilitado
-    $autoplay    = (int)  get_post_meta($post->ID, '_storys_autoplay', true);
-    $duration    = (string) get_post_meta($post->ID, '_storys_duration', true) ?: '7';
-    $show_ctrl   = (int)  get_post_meta($post->ID, '_storys_show_controls', true);
+    // SETTINGS (fallback)
+    $opt = get_option('pga_settings', []);
+    $st  = is_array($opt['stories'] ?? null) ? $opt['stories'] : [];
 
-    $style       = (string) get_post_meta($post->ID, '_storys_style', true) ?: 'clean';
-    $font        = (string) get_post_meta($post->ID, '_storys_font',  true) ?: 'plusjakarta';
+    $set_autoplay  = isset($st['autoplay']) ? (string) $st['autoplay'] : '';   // '1'|'0'|''
+    $set_duration  = isset($st['duration']) ? (string) $st['duration'] : '';
+    $set_show_ctrl = isset($st['show_controls']) ? (string) $st['show_controls'] : '';
 
-    $bg_color    = (string) get_post_meta($post->ID, '_storys_background_color', true) ?: '#ffffff';
-    $text_color  = (string) get_post_meta($post->ID, '_storys_text_color',       true) ?: '#ffffff';
-    $accent      = (string) get_post_meta($post->ID, '_storys_accent_color',     true) ?: '#cc0000';
+    $set_style = isset($st['default_style']) ? (string) $st['default_style'] : '';
+    $set_font  = isset($st['default_font'])  ? (string) $st['default_font']  : '';
 
-    $poster_id   = (int) get_post_meta($post->ID, '_storys_poster',          true);
-    $logo_id     = (int) get_post_meta($post->ID, '_storys_publisher_logo',  true);
+    $set_bg     = isset($st['background_color']) ? (string) $st['background_color'] : '';
+    $set_txt    = isset($st['text_color'])       ? (string) $st['text_color']       : '';
+    $set_accent = isset($st['accent_color'])     ? (string) $st['accent_color']     : '';
 
-    $poster_url  = $poster_id ? wp_get_attachment_image_url($poster_id, 'full') : '';
-    $logo_url    = $logo_id   ? wp_get_attachment_image_url($logo_id,   'full') : '';
+    $default_logo_id = (int) ($st['publisher_logo_id'] ?? 0);
+
+    // META (cru) — não forçar default aqui
+    $m_autoplay  = get_post_meta($post->ID, '_storys_autoplay', true);         // ''|'1'|'0'
+    $m_duration  = get_post_meta($post->ID, '_storys_duration', true);         // ''|'7' etc
+    $m_show_ctrl = get_post_meta($post->ID, '_storys_show_controls', true);    // ''|'1'|'0'
+
+    $m_style = get_post_meta($post->ID, '_storys_style', true);                // ''|'clean'...
+    $m_font  = get_post_meta($post->ID, '_storys_font', true);
+
+    $m_bg     = get_post_meta($post->ID, '_storys_background_color', true);    // ''|'#...'
+    $m_txt    = get_post_meta($post->ID, '_storys_text_color', true);
+    $m_accent = get_post_meta($post->ID, '_storys_accent_color', true);
+
+    // ===== Efetivos (para UI/preview) =====
+    // bools: meta tem prioridade quando NÃO está vazio
+    $autoplay  = ($m_autoplay !== '' && $m_autoplay !== null) ? (int)$m_autoplay
+      : (($set_autoplay !== '' && $set_autoplay !== null) ? (int)$set_autoplay : 1);
+
+    $show_ctrl = ($m_show_ctrl !== '' && $m_show_ctrl !== null) ? (int)$m_show_ctrl
+      : (($set_show_ctrl !== '' && $set_show_ctrl !== null) ? (int)$set_show_ctrl : 1);
+
+    // strings
+    $duration = ($m_duration !== '' && $m_duration !== null) ? (string)$m_duration
+      : ($set_duration !== '' ? (string)$set_duration : '7');
+
+    $style = ($m_style !== '' && $m_style !== null) ? (string)$m_style
+      : ($set_style !== '' ? (string)$set_style : 'clean');
+
+    $font  = ($m_font !== '' && $m_font !== null) ? (string)$m_font
+      : ($set_font !== '' ? (string)$set_font : 'plusjakarta');
+
+    // cores: sanitiza e só usa fallback manual se settings também não tiver
+    $bg_color   = sanitize_hex_color($m_bg) ?: (sanitize_hex_color($set_bg) ?: '#ffffff');
+    $text_color = sanitize_hex_color($m_txt) ?: (sanitize_hex_color($set_txt) ?: '#111111');
+    $accent     = sanitize_hex_color($m_accent) ?: (sanitize_hex_color($set_accent) ?: '#1C5CF4');
+
+    // ===== Logo =====
+    $meta_id = (int) get_post_meta($post->ID, '_alpha_storys_logo_id', true);
+
+    $opt = get_option('pga_settings', []);
+    $default_id = (int) ($opt['stories']['publisher_logo_id'] ?? 0);
+
+    $effective_id  = $meta_id ?: $default_id;
+    $effective_url = $effective_id ? wp_get_attachment_image_url($effective_id, 'full') : '';
+
+
 ?>
     <style>
       .alpha-field {
@@ -128,11 +195,11 @@ class PluginsAlpha_Stories_MetaBox
       <select name="storys_style" id="storys_style">
         <?php
         $choices = [
-          'top'       => 'Image top (imagem no topo)',
-          'clean'     => 'Clean (fundo com imagem, texto central)',
-          'dark-left' => 'Dark Left (overlay escuro, texto à esquerda)',
-          'card'      => 'Card (imagem em cartão, texto abaixo)',
-          'split'     => 'Split (imagem esquerda, texto direita)',
+          'top'       => 'Image top',
+          'clean'     => 'Clean',
+          'dark-left' => 'Dark Left',
+          'card'      => 'Card',
+          'split'     => 'Split',
         ];
         foreach ($choices as $val => $lab) {
           printf(
@@ -175,52 +242,49 @@ class PluginsAlpha_Stories_MetaBox
         <input type="color" class="alpha-color" name="storys_background_color"
           value="<?php echo esc_attr($bg_color); ?>">
       </div>
+    </div>
+    <div class="alpha-row">
       <div class="alpha-field">
         <label><?php esc_html_e('Cor do texto', 'plugins-alpha'); ?></label>
         <input type="color" class="alpha-color" name="storys_text_color"
           value="<?php echo esc_attr($text_color); ?>">
       </div>
     </div>
-
-    <div class="alpha-field">
-      <label><?php esc_html_e('Cor de destaque', 'plugins-alpha'); ?></label>
-      <input type="color" class="alpha-color" name="storys_accent_color"
-        value="<?php echo esc_attr($accent); ?>">
+    <div class="alpha-row">
+      <div class="alpha-field">
+        <label><?php esc_html_e('Cor de destaque', 'plugins-alpha'); ?></label>
+        <input type="color" class="alpha-color" name="storys_accent_color"
+          value="<?php echo esc_attr($accent); ?>">
+      </div>
     </div>
 
     <div class="alpha-sep"></div>
-
     <div class="alpha-field">
-      <label><?php esc_html_e('Capa (1080x1920)', 'plugins-alpha'); ?></label>
-      <img id="alpha_storys_poster_preview" class="alpha-thumb"
-        src="<?php echo esc_url($poster_url ?: ''); ?>"
-        style="<?php echo $poster_url ? '' : 'display:none'; ?>">
-      <input type="hidden" id="storys_poster" name="storys_poster" value="<?php echo (int)$poster_id; ?>">
-      <button type="button" class="button" data-alpha-media-target="storys_poster">
-        <?php esc_html_e('Selecionar imagem', 'plugins-alpha'); ?>
-      </button>
-      <button type="button" class="button" data-alpha-media-clear="storys_poster" style="margin-left:6px;">
-        <?php esc_html_e('Remover', 'plugins-alpha'); ?>
-      </button>
-      <p class="alpha-help">
-        <?php esc_html_e('Dica: use imagem vertical 1080x1920', 'plugins-alpha'); ?>
-      </p>
-    </div>
+      <label><?php esc_html_e('Logo do Publisher', 'plugins-alpha'); ?></label>
 
-    <div class="alpha-field">
-      <label><?php esc_html_e('Logo do Publisher (96x96)', 'plugins-alpha'); ?></label>
       <img id="alpha_storys_logo_preview" class="alpha-thumb"
-        src="<?php echo esc_url($logo_url ?: ''); ?>"
-        style="<?php echo $logo_url ? '' : 'display:none'; ?>">
-      <input type="hidden" id="storys_publisher_logo" name="storys_publisher_logo"
-        value="<?php echo (int)$logo_id; ?>">
-      <button type="button" class="button" data-alpha-media-target="storys_publisher_logo">
-        <?php esc_html_e('Selecionar imagem', 'plugins-alpha'); ?>
+        src="<?php echo esc_url($effective_url ?: ''); ?>"
+        style="<?php echo $effective_url ? '' : 'display:none'; ?>">
+      <input type="hidden"
+        id="alpha_storys_logo_id"
+        name="alpha_storys_logo_id"
+        value="<?php echo (int) $meta_id; ?>">
+      <button type="button" class="button"
+        data-alpha-media-target="alpha_storys_logo_id"
+        data-alpha-preview="alpha_storys_logo_preview">
+        Selecionar imagem
       </button>
-      <button type="button" class="button" data-alpha-media-clear="storys_publisher_logo" style="margin-left:6px;">
+
+
+      <button type="button" class="button"
+        data-alpha-media-clear="alpha_storys_logo_id"
+        data-alpha-preview="alpha_storys_logo_preview"
+        style="margin-left:6px;">
         <?php esc_html_e('Remover', 'plugins-alpha'); ?>
       </button>
+
     </div>
+
 <?php
   }
 
@@ -278,27 +342,55 @@ class PluginsAlpha_Stories_MetaBox
     $font = sanitize_text_field($font_raw);
 
     // cores
-    $bg_raw = isset($_POST['storys_background_color'])
-      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-      ? wp_unslash($_POST['storys_background_color'])
-      : '#ffffff';
-    $bg = sanitize_text_field($bg_raw);
 
-    $txt_raw = isset($_POST['storys_text_color'])
-      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-      ? wp_unslash($_POST['storys_text_color'])
-      : '#ffffff';
-    $txt = sanitize_text_field($txt_raw);
+    $bg = isset($_POST['storys_background_color'])
+      ? sanitize_hex_color(wp_unslash($_POST['storys_background_color']))
+      : null;
 
-    $accent_raw = isset($_POST['storys_accent_color'])
-      // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-      ? wp_unslash($_POST['storys_accent_color'])
-      : '#cc0000';
-    $accent = sanitize_text_field($accent_raw);
+    $txt = isset($_POST['storys_text_color'])
+      ? sanitize_hex_color(wp_unslash($_POST['storys_text_color']))
+      : null;
+
+    $accent = isset($_POST['storys_accent_color'])
+      ? sanitize_hex_color(wp_unslash($_POST['storys_accent_color']))
+      : null;
+
+
+    // bg
+    if ($bg) {
+      update_post_meta($post_id, '_alpha_storys_background_color', $bg);
+    } else {
+      delete_post_meta($post_id, '_alpha_storys_background_color');
+    }
+
+    // text
+    if ($txt) {
+      update_post_meta($post_id, '_alpha_storys_text_color', $txt);
+    } else {
+      delete_post_meta($post_id, '_alpha_storys_text_color');
+    }
+
+    // accent
+    if ($accent) {
+      update_post_meta($post_id, '_alpha_storys_accent_color', $accent);
+    } else {
+      delete_post_meta($post_id, '_alpha_storys_accent_color');
+    }
 
 
     $poster_id = isset($_POST['storys_poster']) ? (int) $_POST['storys_poster'] : 0;
-    $logo_id   = isset($_POST['storys_publisher_logo']) ? (int) $_POST['storys_publisher_logo'] : 0;
+    // Logo do Publisher (override por post)
+    $logo_id = isset($_POST['alpha_storys_logo_id'])
+      ? absint(wp_unslash($_POST['alpha_storys_logo_id']))
+      : 0;
+
+    if ($logo_id > 0) {
+      update_post_meta($post_id, '_alpha_storys_logo_id', $logo_id);
+    } else {
+      // se vazio, remove override e volta a usar o settings
+      delete_post_meta($post_id, '_alpha_storys_logo_id');
+    }
+
 
     update_post_meta($post_id, '_storys_enable',           $enabled);
     update_post_meta($post_id, '_storys_autoplay',         $autoplay);
@@ -313,7 +405,6 @@ class PluginsAlpha_Stories_MetaBox
     update_post_meta($post_id, '_storys_accent_color',     $accent);
 
     update_post_meta($post_id, '_storys_poster',           $poster_id);
-    update_post_meta($post_id, '_storys_publisher_logo',   $logo_id);
 
     // gera/atualiza páginas a partir do próprio conteúdo
     if ($enabled) {
@@ -331,7 +422,6 @@ class PluginsAlpha_Stories_MetaBox
         update_post_meta($storys_id, '_alpha_storys_source_post', $post_id);
         update_post_meta($storys_id, '_alpha_storys_pages',       $pages);
         update_post_meta($storys_id, '_alpha_storys_publisher',   sanitize_text_field($publisher));
-        update_post_meta($storys_id, '_alpha_storys_logo_id',     $logo_id);
 
         // estilos / cores / playback replicados com prefixo _alpha_
         update_post_meta($storys_id, '_alpha_storys_background_color', $bg);

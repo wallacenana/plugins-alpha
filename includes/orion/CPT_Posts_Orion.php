@@ -189,7 +189,7 @@ class PluginsAlpha_CPT_Posts_Orion
         class="button button-primary" 
         id="pga_regen_thumb_btn"
         data-post="' . esc_attr($post->ID) . '">
-        Gerar nova imagem com IA
+        Gerar nova thumb
     </button>';
 
     echo '<div id="pga_regen_thumb_status" style="margin-top:8px;font-size:12px;color:#555;"></div>';

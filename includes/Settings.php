@@ -10,6 +10,24 @@ class PluginsAlpha_Settings
   {
     // registra option + sanitização única
     add_action('admin_init', [self::class, 'register']);
+    add_action('admin_enqueue_scripts', function($hook){
+      // Ajuste a condição pra bater na sua página.
+      // Ex.: admin.php?page=plugins-alpha-settings
+      if (empty($_GET['page']) || $_GET['page'] !== 'plugins-alpha-settings') return;
+
+      // ESSENCIAL: carrega o wp.media
+      wp_enqueue_media();
+
+      // Seu JS
+      wp_enqueue_script(
+        'pga-admin-media',
+        plugins_url('../assets/admin-media.js', __FILE__), // ajuste o caminho
+        ['jquery'],
+        '1.0.0',
+        true
+      );
+    });
+
   }
 
   public static function register(): void
@@ -372,9 +390,9 @@ class PluginsAlpha_Settings
             type="text"
             class="regular-text"
             value="<?php echo esc_attr($gem['key'] ?? ''); ?>">
-          <button type="button" class="button button-secondary pga-selftest-btn" data-provider="gemini">
-            <?php esc_html_e('Testar conexão', 'plugins-alpha'); ?>
-          </button>
+          <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="gemini">
+            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); ?>
+          </button> -->
         </td>
       </tr>
       <tr>
@@ -417,9 +435,9 @@ class PluginsAlpha_Settings
             type="text"
             class="regular-text"
             value="<?php echo esc_attr($pex['key'] ?? ''); ?>">
-          <button type="button" class="button button-secondary pga-selftest-btn" data-provider="pexels">
-            <?php esc_html_e('Testar conexão', 'plugins-alpha'); ?>
-          </button>
+          <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="pexels">
+            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); ?>
+          </button> -->
         </td>
       </tr>
     </table>
@@ -442,9 +460,9 @@ class PluginsAlpha_Settings
             type="text"
             class="regular-text"
             value="<?php echo esc_attr($uns['access_key'] ?? ''); ?>">
-          <button type="button" class="button button-secondary pga-selftest-btn" data-provider="unsplash">
-            <?php esc_html_e('Testar conexão', 'plugins-alpha'); ?>
-          </button>
+          <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="unsplash">
+            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); ?>
+          </button> -->
         </td>
       </tr>
     </table>
@@ -468,9 +486,9 @@ class PluginsAlpha_Settings
             class="regular-text"
             placeholder="AIza..."
             value="<?php echo esc_attr($yt['key'] ?? ''); ?>">
-          <button type="button" class="button button-secondary pga-selftest-btn" data-provider="youtube">
-            <?php esc_html_e('Testar conexão ', 'plugins-alpha'); ?>
-          </button>
+          <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="youtube">
+            <?php //esc_html_e('Testar conexão ', 'plugins-alpha'); ?>
+          </button> -->
         </td>
       </tr>
     </table>
@@ -545,11 +563,11 @@ class PluginsAlpha_Settings
     <h2 class="title">Publisher</h2>
     <table class="form-table" role="presentation">
       <tr>
-        <th scope="row"><label for="pga_st_pub_name">Nome do publisher</label></th>
+        <th scope="row"><label for="pga_st_pub_name">Nome do blog</label></th>
         <td><input name="pga_settings[stories][publisher_name]" id="pga_st_pub_name" type="text" class="regular-text" value="<?php echo esc_attr($st['publisher_name'] ?? get_bloginfo('name')); ?>"></td>
       </tr>
       <tr>
-        <th scope="row">Logo (96x96)</th>
+        <th scope="row">Logo</th>
         <td>
           <div style="margin-bottom:8px;">
             <img id="pga_st_logo_prev" src="<?php echo esc_url($logo_url ?: ''); ?>" style="max-width:96px;height:auto;<?php echo $logo_url ? '' : 'display:none'; ?>">
