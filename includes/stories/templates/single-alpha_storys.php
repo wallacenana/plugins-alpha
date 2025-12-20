@@ -778,7 +778,21 @@ $font_family = $font === 'system'
             <?php endif; ?>
           </amp-story-grid-layer>
         <?php endif; ?>
-
+        <?php if ($alpha_logo_src): ?>
+          <amp-story-grid-layer template="fill">
+            <div class="brand" style="padding-top: 30px; padding-left: 18px;">
+              <div class="logo">
+                <amp-img
+                  src="<?php echo esc_url($alpha_logo_src); ?>"
+                  width="36"
+                  height="36"
+                  layout="responsive"
+                  alt="<?php echo esc_attr($alpha_storys_publisher); ?>">
+                </amp-img>
+              </div>
+            </div>
+          </amp-story-grid-layer>
+        <?php endif; ?>
         <!-- CTA fica igual -->
         <?php if ($cta_url): ?>
           <?php if ($cta_type === 'button' && !$is_first): ?>
@@ -798,21 +812,6 @@ $font_family = $font === 'system'
               <a href="<?php echo esc_url($cta_url); ?>" target="_blank" rel="noreferrer"><?php echo esc_html($cta_text); ?></a>
             </amp-story-page-outlink>
           <?php endif; ?>
-        <?php endif; ?>
-        <?php if ($alpha_logo_src): ?>
-          <amp-story-grid-layer template="fill">
-            <div class="brand" style="padding-top: 30px; padding-left: 18px;">
-              <div class="logo">
-                <amp-img
-                  src="<?php echo esc_url($alpha_logo_src); ?>"
-                  width="36"
-                  height="36"
-                  layout="responsive"
-                  alt="<?php echo esc_attr($alpha_storys_publisher); ?>">
-                </amp-img>
-              </div>
-            </div>
-          </amp-story-grid-layer>
         <?php endif; ?>
       </amp-story-page>
 
