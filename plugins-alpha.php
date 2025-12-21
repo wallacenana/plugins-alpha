@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Plugin Name: Plugins Alpha
+ * Plugin Name: Alpha Suite
  * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Alpha Órion, Alpha Stories e muito mais.
  * Version: 2.0.8
  * Author: Wallace Tavares

@@ -10,7 +10,7 @@ class PluginsAlpha_Settings
   {
     // registra option + sanitização única
     add_action('admin_init', [self::class, 'register']);
-    add_action('admin_enqueue_scripts', function($hook){
+    add_action('admin_enqueue_scripts', function ($hook) {
       // Ajuste a condição pra bater na sua página.
       // Ex.: admin.php?page=plugins-alpha-settings
       if (empty($_GET['page']) || $_GET['page'] !== 'plugins-alpha-settings') return;
@@ -27,7 +27,6 @@ class PluginsAlpha_Settings
         true
       );
     });
-
   }
 
   public static function register(): void
@@ -391,7 +390,8 @@ class PluginsAlpha_Settings
             class="regular-text"
             value="<?php echo esc_attr($gem['key'] ?? ''); ?>">
           <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="gemini">
-            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); ?>
+            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); 
+            ?>
           </button> -->
         </td>
       </tr>
@@ -436,7 +436,8 @@ class PluginsAlpha_Settings
             class="regular-text"
             value="<?php echo esc_attr($pex['key'] ?? ''); ?>">
           <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="pexels">
-            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); ?>
+            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); 
+            ?>
           </button> -->
         </td>
       </tr>
@@ -461,7 +462,8 @@ class PluginsAlpha_Settings
             class="regular-text"
             value="<?php echo esc_attr($uns['access_key'] ?? ''); ?>">
           <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="unsplash">
-            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); ?>
+            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); 
+            ?>
           </button> -->
         </td>
       </tr>
@@ -487,7 +489,8 @@ class PluginsAlpha_Settings
             placeholder="AIza..."
             value="<?php echo esc_attr($yt['key'] ?? ''); ?>">
           <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="youtube">
-            <?php //esc_html_e('Testar conexão ', 'plugins-alpha'); ?>
+            <?php //esc_html_e('Testar conexão ', 'plugins-alpha'); 
+            ?>
           </button> -->
         </td>
       </tr>
@@ -544,6 +547,122 @@ class PluginsAlpha_Settings
         </td>
       </tr>
     </table>
+    <?php
+    $tpls = class_exists('PluginsAlpha_Orion_Templates')
+      ? PluginsAlpha_Orion_Templates::get_all()
+      : [];
+    ?>
+
+    <h2 class="title">Modelos de conteúdo</h2>
+    <p class="description">Escolha quais modelos aparecem no gerador. Você pode criar modelos custom.</p>
+
+    <table class="widefat striped" id="pga-orion-templates-table" style="max-width:920px;">
+      <thead>
+        <tr>
+          <th style="width:220px;">Slug</th>
+          <th>Nome</th>
+          <th style="width:120px;">Ativo</th>
+          <th style="width:120px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($tpls as $slug => $row):
+          $is_builtin = !empty($row['builtin']);
+        ?>
+          <tr data-builtin="<?php echo $is_builtin ? '1' : '0'; ?>">
+            <td>
+              <code><?php echo esc_html($slug); ?></code>
+              <input type="hidden" name="pga_orion_templates[<?php echo esc_attr($slug); ?>][builtin]" value="<?php echo $is_builtin ? '1' : '0'; ?>">
+            </td>
+            <td>
+              <input class="regular-text"
+                name="pga_orion_templates[<?php echo esc_attr($slug); ?>][label]"
+                value="<?php echo esc_attr($row['label'] ?? $slug); ?>"
+                <?php echo $is_builtin ? 'readonly' : ''; ?> />
+              <?php if ($is_builtin): ?>
+                <p class="description">Modelo nativo (não pode ser removido).</p>
+              <?php endif; ?>
+            </td>
+            <td>
+              <label>
+                <input type="checkbox"
+                  name="pga_orion_templates[<?php echo esc_attr($slug); ?>][enabled]"
+                  value="1"
+                  <?php checked(!empty($row['enabled'])); ?>
+                  <?php echo $is_builtin ? 'disabled' : ''; ?> />
+                Ativo
+              </label>
+              <?php if ($is_builtin): ?>
+                <input type="hidden" name="pga_orion_templates[<?php echo esc_attr($slug); ?>][enabled]" value="1">
+              <?php endif; ?>
+            </td>
+            <td>
+              <?php if (!$is_builtin): ?>
+                <button type="button" class="button pga-remove-tpl-row">Remover</button>
+              <?php else: ?>
+                <span class="description">—</span>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+
+      <tfoot>
+        <tr>
+          <td colspan="4">
+            <button type="button" class="button button-secondary" id="pga-add-tpl-row">Adicionar modelo</button>
+            <span class="description" style="margin-left:8px;">Ex.: receitas, review, modelar_url...</span>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <script>
+      (function($) {
+        function slugify(s) {
+          return (s || '')
+            .toString()
+            .trim()
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/\s+/g, '_')
+            .replace(/_+/g, '_');
+        }
+
+        $('#pga-add-tpl-row').on('click', function(e) {
+          e.preventDefault();
+
+          var name = prompt('Nome do modelo (ex: Receitas):');
+          if (!name) return;
+
+          var slug = slugify(name);
+          if (!slug) return;
+
+          // evita duplicado
+          if ($('#pga-orion-templates-table tbody code').filter(function() {
+              return $(this).text() === slug;
+            }).length) {
+            alert('Já existe um modelo com esse slug.');
+            return;
+          }
+
+          var row =
+            '<tr data-builtin="0">' +
+            '<td><code>' + slug + '</code></td>' +
+            '<td><input class="regular-text" name="pga_orion_templates[' + slug + '][label]" value="' + $('<div>').text(name).html() + '"></td>' +
+            '<td><label><input type="checkbox" name="pga_orion_templates[' + slug + '][enabled]" value="1" checked> Ativo</label></td>' +
+            '<td><button type="button" class="button pga-remove-tpl-row">Remover</button></td>' +
+            '</tr>';
+
+          $('#pga-orion-templates-table tbody').append(row);
+        });
+
+        $('#pga-orion-templates-table').on('click', '.pga-remove-tpl-row', function(e) {
+          e.preventDefault();
+          $(this).closest('tr').remove();
+        });
+      })(jQuery);
+    </script>
 
   <?php
 

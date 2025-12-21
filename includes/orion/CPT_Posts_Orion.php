@@ -182,7 +182,8 @@ class PluginsAlpha_CPT_Posts_Orion
     echo '<p>Use IA para gerar ou substituir a imagem destacada deste Órion Post.</p>';
 
     echo '<p><label for="pga_regen_thumb_prompt"><strong>Prompt da imagem</strong></label><br />';
-    echo '<textarea id="pga_regen_thumb_prompt" rows="3" style="width:100%;" placeholder="Ex.: Ilustração realista de um gato usando coleira com rastreador, fundo claro, estilo fotográfico, 16:9."></textarea></p>';
+    echo '<textarea id="pga_regen_thumb_prompt" rows="3" style="width:100%;" placeholder="Ex.: Ilustração realista de 
+    um gato usando coleira com rastreador, fundo claro, estilo fotográfico, 16:9."></textarea></p>';
 
     echo '<button 
         type="button" 
