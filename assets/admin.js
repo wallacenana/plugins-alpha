@@ -139,7 +139,7 @@
     $box.toggleClass('pga-collapse--open');
 
     const isOpen = $box.hasClass('pga-collapse--open');
-    $(this).find('.dashicons')
+    $(this).find('.pga-collapse-chevron')
       .toggleClass('dashicons-arrow-up-alt2', isOpen)
       .toggleClass('dashicons-arrow-down-alt2', !isOpen);
   });
@@ -261,7 +261,6 @@
       const $box = $(this).closest('.pga-gen-box');
       pgaSyncLinkOptionsForBox($box);
       pgaUpdateBoxTitle($box);
-      pgaSaveBoxesToLocal();
     }
   );
 
@@ -384,19 +383,6 @@
 
       $box.attr('data-gen', n);
 
-      // primeiro aberto, restantes fechados
-      if (n === 1) {
-        $box.addClass('pga-collapse--open');
-        $box.find('.dashicons')
-          .addClass('dashicons-arrow-up-alt2')
-          .removeClass('dashicons-arrow-down-alt2');
-      } else {
-        $box.removeClass('pga-collapse--open');
-        $box.find('.dashicons')
-          .removeClass('dashicons-arrow-up-alt2')
-          .addClass('dashicons-arrow-down-alt2');
-      }
-
       // IDs só no primeiro grupo
       if (n > 1) {
         $box.find('#pga_keywords').removeAttr('id');
@@ -455,10 +441,6 @@
     $clone.find('#pga_generate_keywords').removeAttr('id');
     $clone.find('#pga_save_this_colapse').removeAttr('id');
 
-    // seta ícone para "fechado"
-    $clone.find('.dashicons')
-      .removeClass('dashicons-arrow-up-alt2')
-      .addClass('dashicons-arrow-down-alt2');
 
     // reseta link interno
     $clone.find('.pga_link_mode').val('none');
@@ -564,9 +546,9 @@
 
   function pgaMaxLinksForLength(len) {
     switch (len) {
-      case 'short': return 3;
-      case 'medium': return 6;
-      case 'long': return 8;
+      case 'short': return 5;
+      case 'medium': return 8;
+      case 'long': return 10;
       case 'extra-long': return 15;
       default: return 3;
     }
@@ -725,48 +707,41 @@
   }
 
 
-  function pgaMarkKeywordDoneGlobally(rawKw) {
+  function pgaMarkKeywordDoneInBox(rawKw, boxEl) {
     const kw = (rawKw || '').trim();
-    if (!kw) return;
+    if (!kw || !boxEl) return false;
 
-    let foundAnywhere = false;
+    const $box = $(boxEl);
+    const $ta = $box.find('.pga_keywords').first();
+    if (!$ta.length) return false;
 
-    $('#pga_gen_container .pga-gen-box').each(function () {
-      const $box = $(this);
-      const $ta = $box.find('.pga_keywords').first();
-      if (!$ta.length) return;
+    const orig = $ta.val() || '';
+    if (!orig) return false;
 
-      const orig = $ta.val() || '';
-      if (!orig) return;
+    const lines = orig
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
 
-      const lines = orig
-        .split('\n')
-        .map(l => l.trim())
-        .filter(l => l.length > 0);
+    // match case-insensitive
+    const idx = lines.findIndex(l => l.localeCompare(kw, undefined, { sensitivity: 'accent' }) === 0);
+    if (idx === -1) return false;
 
-      const idx = lines.indexOf(kw);
-      if (idx === -1) return; // não é deste grupo
+    lines.splice(idx, 1);
+    $ta.val(lines.join('\n'));
 
-      // remove a keyword deste grupo
-      lines.splice(idx, 1);
-      $ta.val(lines.join('\n'));
-
-      foundAnywhere = true;
-    });
-
-    if (foundAnywhere) {
-      // lista global de “concluídas”
-      const $done = $('#pga_kw_done');
-      if ($done.length) {
-        const li = document.createElement('li');
-        li.textContent = kw;
-        $done.append(li);
-      }
-
-      // persiste no localStorage
-      pgaSaveBoxesToLocal();
+    // UI done
+    const $done = $('#pga_kw_done');
+    if ($done.length) {
+      const li = document.createElement('li');
+      li.textContent = kw;
+      $done.append(li);
     }
+
+    pgaSaveBoxesToLocal();
+    return true;
   }
+
 
   // ============================================================
   // ========== BLOCO: GERADOR (keywords/plan/generate) ==========
@@ -775,10 +750,6 @@
     const $kw = $('#pga_keywords');
     const $done = $('#pga_kw_done');
     if (!$kw.length) return;
-
-    $(document).on('keyup', '.pga_keywords', function () {
-      pgaSaveBoxesToLocal();
-    });
 
     function buildSummaryHtml(okCount, failCount, editLinks, failedKeywords) {
       const okHtml = `<p style="margin:0 0 4px; font-size: large"><b>Sucesso:</b> ${okCount}</p>`;
@@ -864,10 +835,6 @@
     async function refreshKeywords() {
       const j = await fetchJSON(`${REST}/keywords`, { headers: { 'X-WP-Nonce': NONCE } });
       $kw.val(arrayToTextarea(j.pending || []));
-
-      $(document).on('keyup', '.pga_keywords', function () {
-        pgaSaveBoxesToLocal();
-      });
 
       renderDone(j.done || []);
     }
@@ -1227,6 +1194,14 @@
         return;
       }
 
+      // ✅ box ativo = o que recebeu #pga_keywords via pgaActivateBox()
+      const activeBoxEl = document.getElementById('pga_keywords')?.closest('.pga-gen-box') || null;
+
+      // anexa referência do grupo em cada job (vem do backend)
+      for (const j of jobs) {
+        j.boxEl = activeBoxEl;
+      }
+
       // === 3) GERAÇÃO ===
       let okCount = 0, failCount = 0;
       let editLinks = [];
@@ -1375,22 +1350,15 @@
           },
           body: JSON.stringify({
             post_id: postId,
-            keyword: job.keyword || '',
             internal_links: {
               mode: il.mode || 'none',
-              max: typeof il.max === 'number'
-                ? il.max
-                : (parseInt(il.max || '0', 10) || 0),
-              // se vier string, mantém; se vier array, junta:
-              manual_ids: Array.isArray(rawManual)
-                ? rawManual.join(',')
-                : (rawManual ? String(rawManual) : ''),
+              max: typeof il.max === 'number' ? il.max : (parseInt(il.max || '0', 10) || 0),
+              manual_ids: Array.isArray(rawManual) ? rawManual.join(',') : (rawManual ? String(rawManual) : ''),
             },
-            // ⚠️ DIZ PRO BACKEND NÃO GERAR IMAGEM AQUI
-            skip_images: true,
           }),
           silent: true
         });
+
 
         if (finRes && finRes.code) {
           throw new Error(finRes.message || 'Erro ao finalizar post');
@@ -1478,7 +1446,7 @@
 
             for (let i = 0; i < jobs.length; i++) {
               const job = jobs[i];
-              const kw = getJobKeyword(job);
+              const kw = (job.keyword || '').trim();
 
               try {
                 const result = await generateExtraLongPost(job, {
@@ -1494,7 +1462,7 @@
                   if (kw) failedKeywords.push(kw);
                 } else {
                   okCount++;
-                  if (kw) pgaMarkKeywordDoneGlobally(kw);
+                  if (kw) pgaMarkKeywordDoneInBox(kw, job.boxEl);
 
                   if (r.edit || r.post_id || r.view_link) {
                     let editUrl = '';
@@ -1778,6 +1746,503 @@
     }
   });
 
+
+  // DUPLICAR GRUPO
+  $(document).on('click', '.pga-copy-box', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const $box = $(this).closest('.pga-gen-box');
+    const $container = $('#pga_gen_container');
+
+    // clona mantendo valores dos inputs
+    const $clone = $box.clone(false, false);
+
+    // gera novo data-gen incremental
+    const gens = $container.find('.pga-gen-box').map(function () {
+      return parseInt($(this).attr('data-gen') || '0', 10) || 0;
+    }).get();
+    const nextGen = (gens.length ? Math.max.apply(null, gens) : 0) + 1;
+
+    $clone.attr('data-gen', String(nextGen));
+    $clone.find('[data-gen]').attr('data-gen', String(nextGen));
+
+    // ids duplicados quebram label/JS: remove IDs internos (mantém classes)
+    $clone.find('[id]').each(function () {
+      const id = $(this).attr('id');
+      // mantém IDs globais se você tiver algum; aqui é tudo por grupo → remove
+      $(this).removeAttr('id');
+    });
+
+    // estado aberto por padrão (opcional)
+    $clone.addClass('pga-collapse--open');
+
+    // insere logo após o atual
+    $box.after($clone);
+
+    // se você tem função que “recalcula título do collapse”, chama aqui:
+    if (typeof window.PGA_updateCollapseTitle === 'function') {
+      window.PGA_updateCollapseTitle($clone);
+    }
+
+    // se você persiste em localStorage, chama seu save geral:
+    if (typeof window.PGA_saveGroupsToStorage === 'function') {
+      window.PGA_saveGroupsToStorage();
+    }
+  });
+
+  $(document).on('click', '.pga_generate_keywords', async function () {
+    const $box = $(this).closest('.pga-gen-box');
+    const $ta = $box.find('.pga_keywords');
+    const cmd = ($ta.val() || '').trim();
+
+    const ok = await Swal.fire({
+      icon: 'question',
+      title: 'Gerar keywords?',
+      text: 'Isso vai substituir o conteúdo do campo por keywords geradas. Tem certeza?',
+      showCancelButton: true,
+      confirmButtonText: 'Gerar',
+      cancelButtonText: 'Cancelar',
+    });
+
+    if (!ok.isConfirmed) return;
+
+    // opcional: evita clique duplo
+    const $btn = $(this);
+    if ($btn.data('loading')) return;
+    $btn.data('loading', 1).prop('disabled', true);
+
+    // ✅ abre o loading ANTES do fetch
+    Swal.fire({
+      title: 'Gerando keywords...',
+      text: 'Aguarde um instante.',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    try {
+      const payload = {
+        command: cmd,
+        locale: ($box.find('.pga_locale').val() || 'pt_BR'),
+        template: ($box.find('.pga_template_key').val() || 'article'),
+        category: ($box.find('.pga_category').val() || ''),
+      };
+
+      const r = await fetch(PGA_CFG.rest + '/orion/keywords', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-WP-Nonce': PGA_CFG.nonce,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok || !j || !j.ok) {
+        throw new Error((j && j.message) ? j.message : 'Falha ao gerar keywords.');
+      }
+
+      $ta.val(j.keywords_text || '');
+
+      // fecha loading e mostra sucesso
+      Swal.close();
+      await Swal.fire({ icon: 'success', title: 'Pronto', text: 'Keywords geradas.' });
+
+      if (typeof window.PGA_saveGroupsToStorage === 'function') {
+        window.PGA_saveGroupsToStorage();
+      }
+      pgaSaveBoxesToLocal();
+
+    } catch (err) {
+      Swal.close();
+      Swal.fire({ icon: 'error', title: 'Erro', text: String(err.message || err) });
+    } finally {
+      $btn.data('loading', 0).prop('disabled', false);
+    }
+  });
+
+  function cfg() {
+    const c = window.PGA_PROMPTS_EXPORT || {};
+    return {
+      ajaxurl: c.ajaxurl || window.ajaxurl || '',
+      nonce: c.nonce || ''
+    };
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, m => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
+  }
+
+  async function safeJson(resp, label) {
+    const txt = await resp.text();
+    try { return JSON.parse(txt); }
+    catch (e) {
+      console.error(label, 'Resposta NÃO é JSON. HTTP=', resp.status, 'CT=', resp.headers.get('content-type'));
+      console.error('Primeiros 800 chars:', txt.slice(0, 800));
+      throw new Error(label + ': Servidor não retornou JSON. Veja o console (Network/Response).');
+    }
+  }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function exportFilename(prefix = 'orion-prompts') {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = pad2(d.getMonth() + 1);
+    const dd = pad2(d.getDate());
+    const hh = pad2(d.getHours());
+    const mi = pad2(d.getMinutes());
+    const ss = pad2(d.getSeconds());
+    return `${prefix}-${yyyy}-${mm}-${dd}_${hh}-${mi}-${ss}.json`;
+  }
+
+  // =========================
+  // EXPORT
+  // =========================
+  document.addEventListener('click', async function (e) {
+    const btn = e.target.closest('#pga-prompts-export');
+    if (!btn) return;
+
+    const { ajaxurl, nonce } = cfg();
+    if (!ajaxurl || !nonce) { alert('Config export ausente (ajaxurl/nonce).'); return; }
+
+    try {
+      if (window.Swal) {
+        Swal.fire({ title: 'Exportando…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+      }
+
+      const r = await fetch(ajaxurl + '?action=pga_orion_prompts_export', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body: new URLSearchParams({ _ajax_nonce: nonce })
+      });
+
+      const j = await safeJson(r, 'EXPORT');
+      if (!r.ok || !j.success) throw new Error(j?.data?.message || 'Falha no export.');
+
+      const blob = new Blob([JSON.stringify(j.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (j.data?._meta?.filename) ? String(j.data._meta.filename) : exportFilename('orion-prompts');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      if (window.Swal) Swal.close();
+    } catch (err) {
+      if (window.Swal) Swal.fire({ icon: 'error', title: 'Erro', text: String(err.message || err) });
+      else alert(String(err.message || err));
+    }
+  });
+
+  // =========================
+  // IMPORT (picker)
+  // =========================
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('#pga-prompts-import');
+    if (!btn) return;
+
+    const input = document.getElementById('pga-prompts-import-file');
+    if (!input) return;
+
+    input.value = '';
+    input.click();
+  });
+
+  // =========================
+  // IMPORT (prepare + modal + apply)
+  // =========================
+  document.getElementById('pga-prompts-import-file')?.addEventListener('change', async function () {
+    const file = this.files?.[0];
+    if (!file) return;
+
+    const { ajaxurl, nonce } = cfg();
+    if (!ajaxurl || !nonce) { alert('Config import ausente (ajaxurl/nonce).'); return; }
+
+    try {
+      if (window.Swal) {
+        Swal.fire({ title: 'Lendo arquivo…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+      }
+
+      // 1) PREPARE
+      const fd = new FormData();
+      fd.append('action', 'pga_orion_prompts_import_prepare');
+      fd.append('_ajax_nonce', nonce);
+      fd.append('file', file);
+
+      const r = await fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: fd });
+      const j = await safeJson(r, 'IMPORT_PREPARE');
+
+      if (!r.ok || !j.success) throw new Error(j?.data?.message || 'Falha ao ler o JSON.');
+
+      const token = j.data?.token || '';
+      const items = Array.isArray(j.data?.items) ? j.data.items : [];
+      if (!token) throw new Error('Token não retornado no prepare.');
+      if (!items.length) throw new Error('Nada importável encontrado no arquivo.');
+
+      // 2) MODAL
+      // items: [{key, type:'template|prompt', tpl, stage, hasExisting, size}]
+
+      // agrupa por tpl
+      const groups = {};
+      for (const it of items) {
+        const tpl = it.tpl || 'unknown';
+        groups[tpl] = groups[tpl] || [];
+        groups[tpl].push(it);
+      }
+
+      // ordena templates (article primeiro)
+      const order = Object.keys(groups).sort((a, b) => {
+        const prio = { article: 0, modelar_youtube: 1 };
+        const pa = (prio[a] ?? 99), pb = (prio[b] ?? 99);
+        if (pa !== pb) return pa - pb;
+        return a.localeCompare(b);
+      });
+
+      // cria HTML com <details> (colapse nativo, leve)
+      const htmlGroups = order.map((tpl, gi) => {
+        const list = groups[tpl];
+
+        const tplKey = `tplgrp:${tpl}`;
+        const headerExists = list.some(x => x.hasExisting);
+        const headerMeta = headerExists
+          ? `<span style="color:#b45309;margin-left:6px">tem itens existentes</span>`
+          : `<span style="color:#15803d;margin-left:6px">novo</span>`;
+
+        // lista interna (prompts)
+        const inner = list.map((it, idx) => {
+          // você pode esconder a linha "template" e só mostrar prompts
+          if (it.type === 'template') return '';
+
+          const meta = it.hasExisting ? `já existe` : `novo`;
+          const metaColor = it.hasExisting ? '#b45309' : '#15803d';
+          const small = it.size ? ` <span style="color:#666">(${Number(it.size)} chars)</span>` : '';
+
+          return `
+      <label style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f1f1f1">
+        <input type="checkbox" class="pga-import-item" data-key="${escapeHtml(it.key)}" checked style="margin-top:3px">
+        <div style="line-height:1.2">
+          <div>
+            <code>${escapeHtml(it.stage)}</code>
+            — <span style="color:${metaColor}">${meta}</span>${small}
+          </div>
+        </div>
+      </label>
+    `;
+        }).join('');
+
+        return `
+    <div style="border:1px solid #eee;border-radius:12px;padding:10px;margin:10px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <label style="display:flex;gap:10px;align-items:center">
+          <input type="checkbox" class="pga-import-tpl-all" data-tpl="${escapeHtml(tpl)}" checked>
+          <b>${escapeHtml(tpl)}</b>
+          ${headerMeta}
+        </label>
+
+        <small style="color:#666">${list.filter(x => x.type === 'prompt').length} prompts</small>
+      </div>
+
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer;color:#111">ver itens</summary>
+        <div style="margin-top:8px;max-height:260px;overflow:auto;padding-right:6px">
+          ${inner || `<div style="color:#666">Nenhum prompt encontrado neste modelo.</div>`}
+        </div>
+      </details>
+    </div>
+  `;
+      }).join('');
+
+      const modalHtml = `
+  <div style="text-align:left">
+    <div style="margin-bottom:10px;color:#444;font-size:13px">
+      Selecione o(s) modelo(s) para importar. Você pode abrir e desmarcar stages específicos.
+    </div>
+
+    <div style="max-height:380px;overflow:auto">
+      ${htmlGroups}
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <label style="display:flex;gap:8px;align-items:center;font-size:13px">
+        <input type="checkbox" id="pga-import-overwrite" />
+        Sobrescrever itens existentes
+      </label>
+
+      <button type="button" class="button" id="pga-import-select-all">Marcar tudo</button>
+      <button type="button" class="button" id="pga-import-select-none">Desmarcar tudo</button>
+    </div>
+  </div>
+`;
+
+
+      let res;
+      if (window.Swal) {
+        res = await Swal.fire({
+          title: 'Importar (seleção)',
+          html: modalHtml,
+          width: 760,
+          showCancelButton: true,
+          confirmButtonText: 'Importar selecionados',
+          cancelButtonText: 'Cancelar',
+          focusConfirm: false,
+          didOpen: () => {
+            // marcar/desmarcar geral
+            document.getElementById('pga-import-select-all')?.addEventListener('click', () => {
+              document.querySelectorAll('.pga-import-item, .pga-import-tpl-all').forEach(cb => cb.checked = true);
+            });
+            document.getElementById('pga-import-select-none')?.addEventListener('click', () => {
+              document.querySelectorAll('.pga-import-item, .pga-import-tpl-all').forEach(cb => cb.checked = false);
+            });
+
+            // marcar/desmarcar por template
+            document.querySelectorAll('.pga-import-tpl-all').forEach(cbTpl => {
+              cbTpl.addEventListener('change', () => {
+                const tpl = cbTpl.getAttribute('data-tpl');
+                if (!tpl) return;
+
+                // marca/desmarca todos os itens daquele tpl
+                // (como a key é pr:TPL:stage, a gente filtra por prefixo)
+                document.querySelectorAll('.pga-import-item').forEach(cb => {
+                  const key = cb.getAttribute('data-key') || '';
+                  if (key.startsWith(`pr:${tpl}:`)) {
+                    cb.checked = cbTpl.checked;
+                  }
+                });
+              });
+            });
+          },
+
+          preConfirm: () => {
+            const keys = Array.from(document.querySelectorAll('.pga-import-item'))
+              .filter(cb => cb.checked)
+              .map(cb => cb.getAttribute('data-key'))
+              .filter(Boolean);
+
+            const overwrite = !!document.getElementById('pga-import-overwrite')?.checked;
+
+            if (!keys.length) {
+              Swal.showValidationMessage('Selecione ao menos 1 item.');
+              return false;
+            }
+            return { keys, overwrite };
+          }
+        });
+      } else {
+        res = { isConfirmed: true, value: { keys: [items[0].key], overwrite: false } };
+      }
+
+      if (!res.isConfirmed) return;
+
+      // 3) APPLY
+      if (window.Swal) {
+        Swal.fire({ title: 'Importando…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+      }
+
+      const body = new URLSearchParams();
+      body.set('action', 'pga_orion_prompts_import_apply');
+      body.set('_ajax_nonce', nonce);
+      body.set('token', token);
+      body.set('overwrite', res.value.overwrite ? '1' : '0');
+      body.set('keys', JSON.stringify(res.value.keys || []));
+
+      const r2 = await fetch(ajaxurl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body
+      });
+
+      const j2 = await safeJson(r2, 'IMPORT_APPLY');
+      if (!r2.ok || !j2.success) throw new Error(j2?.data?.message || 'Falha ao aplicar import.');
+
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Importado!',
+          text: j2.data?.message || 'Itens aplicados.',
+        }).then(() => {
+          window.location.reload();
+        });
+      } else {
+        alert(j2.data?.message || 'Importado!');
+        window.location.reload();
+      }
+
+    } catch (err) {
+      if (window.Swal) Swal.fire({ icon: 'error', title: 'Erro', text: String(err.message || err) });
+      else alert(String(err.message || err));
+    } finally {
+      try { this.value = ''; } catch (e) { }
+    }
+  });
+
+  document.addEventListener('click', async function (e) {
+    const rm = e.target.closest('.pga-remove-tpl-row');
+    if (!rm) return;
+
+    const tr = rm.closest('tr');
+    const slug = tr?.getAttribute('data-slug');
+    if (!slug) return;
+
+    const cfg = window.PGA_PROMPTS_EXPORT || {};
+    const ajaxurl = cfg.ajaxurl || window.ajaxurl || '';
+    const nonce = cfg.nonce || '';
+
+    const go = async () => {
+      const body = new URLSearchParams({
+        action: 'pga_orion_template_delete',
+        _ajax_nonce: nonce,
+        slug
+      });
+
+      const r = await fetch(ajaxurl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body
+      });
+
+      const txt = await r.text();
+      let j;
+      try { j = JSON.parse(txt); } catch (e) { throw new Error('Servidor não retornou JSON.'); }
+
+      if (!r.ok || !j.success) throw new Error(j?.data?.message || 'Falha ao remover.');
+
+      tr.remove();
+    };
+
+    if (window.Swal) {
+      const res = await Swal.fire({
+        title: 'Remover modelo?',
+        text: 'Isso apaga do banco o modelo e TODOS os prompts dele.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Remover de vez',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!res.isConfirmed) return;
+      try {
+        Swal.fire({ title: 'Removendo…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        await go();
+        Swal.fire({ icon: 'success', title: 'Removido', timer: 900, showConfirmButton: false });
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Erro', text: String(err.message || err) });
+      }
+    } else {
+      if (!confirm('Remover do banco este modelo e todos os prompts dele?')) return;
+      try { await go(); } catch (err) { alert(String(err.message || err)); }
+    }
+  });
 
 })(jQuery);
 

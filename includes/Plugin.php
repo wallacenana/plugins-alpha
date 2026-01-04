@@ -9,7 +9,7 @@ class PluginsAlpha_Plugin
     if (class_exists('PluginsAlpha_PermalinkSettings')) PluginsAlpha_PermalinkSettings::init();
     if (class_exists('PluginsAlpha_Settings')) PluginsAlpha_Settings::init();
     if (class_exists('PluginsAlpha_Adminbar')) PluginsAlpha_Adminbar::init();
-    if (class_exists('PluginsAlpha_Orion_Templates')) PluginsAlpha_Orion_Templates::init();
+    if (class_exists('PluginsAlpha_Orion_Migrator')) PluginsAlpha_Orion_Migrator::init();
 
     require_once PGA_PATH . 'includes/stories/autoload.php';
     // Menus e assets

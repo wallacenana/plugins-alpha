@@ -557,11 +557,7 @@ $font_family = $font === 'system'
     .brand .logo {
       width: 36px;
       height: 36px;
-      border-radius: 10px;
       overflow: hidden;
-      background: rgba(255, 255, 255, .12);
-      border: 1px solid rgba(255, 255, 255, .18);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
     }
 
     .brand .logo amp-img,

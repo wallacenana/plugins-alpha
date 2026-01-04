@@ -21,23 +21,29 @@ class PluginsAlpha_Pages_Generator
       }
       ?>
       <h1>Gerador — Alpha Órion</h1>
+      <p>Obs.: Você pode criar modelos personalizados para a sua necessidade e com isso editar também os prompts referente a cada um deles.</p>
       <div class="wrap pga-layout">
         <div class="pga-main">
           <!-- Contêiner de grupos -->
           <div id="pga_gen_container">
 
             <!-- GRUPO 1 (colapse) -->
-            <div class="pga-gen-box pga-collapse pga-collapse--open" data-gen="1">
+            <div class="pga-gen-box pga-collapse" data-gen="1">
               <!-- Cabeçalho do colapse com título dinâmico -->
-              <button
-                type="button"
-                class="button pga-collapse-toggle">
-                <span class="pga-gen-title">
-                  <!-- título inicial (JS vai atualizar sempre que mudar algo) -->
-                  Título
-                </span>
-                <span class="dashicons dashicons-arrow-up-alt2"></span>
-              </button>
+              <div class="pga-collapse-head">
+                <button type="button" class="button pga-collapse-toggle">
+                  <span class="pga-gen-title">Título</span>
+                  <span class="pga-actions-colapse">
+                    <span type="button" class="pga-copy-box" title="Duplicar este grupo" data-tooltip="Duplicar este grupo">
+                      <span class="pga-icon">📋</span>
+                    </span>
+                    <span type="button" class="pga_remove_box" title="Remover este grupo" data-tooltip="Remover este grupo">
+                      <span class="pga-icon">🗑️</span>
+                      <span class="dashicons dashicons-arrow-up-alt2 pga-collapse-chevron" aria-hidden="true"></span>
+                    </span>
+                  </span>
+                </button>
+              </div>
 
               <!-- Corpo do colapse -->
               <div class="pga-collapse-body">
@@ -67,17 +73,21 @@ class PluginsAlpha_Pages_Generator
 
                     <div class="pga-field">
                       <label>Modelo de Post</label>
+                      <?php
+                      $tpls_enabled = class_exists('PluginsAlpha_Orion_Templates')
+                        ? PluginsAlpha_Orion_Templates::get_enabled()
+                        : [
+                          'article' => ['label' => 'Artigo (padrão)'],
+                          'modelar_youtube' => ['label' => 'Modelar vídeo do YouTube'],
+                        ];
+                      ?>
+
                       <select id="pga_template_key" class="pga_template_key">
-                        <option value="discover_article">Discover (artigo)</option>
-                        <option value="faq">FAQ</option>
-                        <option value="review_roundup">Review comparativo (vários)</option>
-                        <option value="review_single">Review (1 produto)</option>
-                        <!--<option value="article">Artigo</option>-->
-                        <option value="howto">Guia / How-to</option>
-                        <!--<option value="list">Lista</option>-->
-                        <option value="news">Notícia</option>
-                        <option value="modelar">Modelar URL</option>
-                        <option value="modelar_youtube">Modelar vídeo do YouTube</option>
+                        <?php foreach ($tpls_enabled as $key => $tpl): ?>
+                          <option value="<?php echo esc_attr($key); ?>">
+                            <?php echo esc_html($tpl['label'] ?? $key); ?>
+                          </option>
+                        <?php endforeach; ?>
                       </select>
                     </div>
 
@@ -170,7 +180,7 @@ class PluginsAlpha_Pages_Generator
                       <?php
                       // últimos posts Orion (ajuste o post_type se for outro)
                       $orion_posts = get_posts([
-                        'post_type'      => 'posts_orion',
+                        'post_type'      => 'post',
                         'post_status'    => 'publish',
                         'numberposts'    => 100,
                         'orderby'        => 'date',
@@ -194,13 +204,6 @@ class PluginsAlpha_Pages_Generator
                     </div>
 
                     <div class="pga-actions-unit pga-icon-buttons">
-                      <button
-                        type="button"
-                        disabled
-                        class="pga_generate_box pga-icon-btn"
-                        data-tooltip="(breve) Gerar sugestão de keywords">
-                        <span class="pga-icon">⚡</span>
-                      </button>
                       <!-- Gerar -->
                       <button
                         type="button"
@@ -216,7 +219,13 @@ class PluginsAlpha_Pages_Generator
                         data-tooltip="Salvar configurações deste grupo">
                         <span class="pga-icon">💾</span>
                       </button>
-
+                      <!-- Gerar kewywords -->
+                      <button
+                        type="button"
+                        class="pga_generate_keywords pga-icon-btn"
+                        data-tooltip="Gerar keywords">
+                        <span class="pga-icon">⚡</span>
+                      </button>
                       <!-- Importar -->
                       <button
                         type="button"
@@ -243,25 +252,14 @@ class PluginsAlpha_Pages_Generator
 
                     </div>
                   </div>
-                  <span
-                    class="pga_remove_box"
-                    aria-label="Remover grupo de geração"
-                    title="Remover este grupo"
-                    data-tooltip="Remover este grupo">
-                    ❌
-                  </span>
-                </div><!-- /.pga-card -->
-              </div><!-- /.pga-collapse-body -->
-
-            </div><!-- /.pga-gen-box -->
-
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-
       </div>
     </div>
     <div class="pga-footer-fixed">
-
       <?php
       echo $chk['ok']
         ? '<button class="button button-primary" id="pga_plan">🪄 Planejar &amp; Gerar</button>'
@@ -321,62 +319,9 @@ class PluginsAlpha_Pages_Generator
 <?php
   }
 
-
-  protected static function generate_meta_description_ai(
-    string $keyword,
-    string $title,
-    string $locale,
-    string $content_html
-  ): string {
-    $keyword = trim($keyword);
-    $title   = trim($title);
-    $locale  = $locale ?: 'pt_BR';
-
-    if ($title === '') {
-      return '';
-    }
-
-    // 1) monta o prompt “inteligente” com contexto
-    $prompt = PluginsAlpha_Prompts::build_meta_description_prompt(
-      $keyword,
-      $title,
-      $locale,
-      $content_html
-    );
-
-    // 2) chama o endpoint dedicado de meta description
-    $resp = PluginsAlpha_AI::meta_description($prompt);
-
-    if (is_wp_error($resp)) {
-      return '';
-    }
-
-    $meta_desc = (string)$resp;
-
-
-    // $resp é a descrição bruta (string)
-    $raw = trim((string)$resp);
-    if ($raw === '') {
-      return '';
-    }
-
-    // 3) sanitiza: sem tags, uma linha só, tamanho ok
-    $raw = wp_strip_all_tags($raw);
-    $raw = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
-    $raw = preg_replace('/\s+/', ' ', $raw); // uma linha só
-
-    // corta entre 130 e 160 chars (segurança de tamanho)
-    if (mb_strlen($raw) > 160) {
-      $raw = mb_substr($raw, 0, 157) . '...';
-    }
-
-    return trim($raw);
-  }
-
   /**
    * $args:
    *  - keywords[]  (usa a 1ª como foco)
-   *  - template    (article|review|news|howto|list)
    *  - locale      (pt_BR|en_US...)
    *  - publish_time  (timestamp futuro)
    *  - category_id   (int)
@@ -385,201 +330,198 @@ class PluginsAlpha_Pages_Generator
 
   public static function create_draft_and_outline(array $args)
   {
-    // keyword pode vir como array ou string com \n (mas no fim usamos só a primeira linha)
+    // 0) item único (primeira linha) 
     $kwSrc = $args['keyword'] ?? $args['keywords'] ?? '';
-
     if (is_array($kwSrc)) {
-      $keywordRaw = trim((string)($kwSrc[0] ?? ''));
+      $raw = trim((string)($kwSrc[0] ?? ''));
     } else {
-      $lines      = preg_split('/\r\n|\r|\n/', (string)$kwSrc);
-      $keywordRaw = trim($lines[0] ?? '');
+      $lines = preg_split('/\r\n|\r|\n/', (string)$kwSrc);
+      $raw = trim((string)($lines[0] ?? ''));
+    }
+    if ($raw === '') {
+      return new WP_Error('pga_no_kw', 'Item (linha 1) vazio.');
     }
 
-    // template pode vir como 'template' ou 'template_key'
-    $template = $args['template']     ?? $args['template_key'] ?? 'discover_article';
-    $length   = $args['length']       ?? 'short';
-    $locale   = $args['locale']       ?? 'pt_BR';
-    $provider = $args['provider'] ?? PluginsAlpha_AI::get_text_provider();
-    $jobArgs = [
-      'provider' => $provider,
-      'template' => $template,
-      'length'   => $length,
-      'locale'   => $locale
-    ];
-    // publish_time vem pronto do plan
+    // 1) parâmetros básicos (sem if por template) 
+    $template = $args['template'] ?? $args['template_key'] ?? 'article';
+    $length = $args['length'] ?? 'short';
+    $locale = $args['locale'] ?? 'pt_BR';
+    $provider = $args['provider'] ?? (class_exists('PluginsAlpha_AI') ? PluginsAlpha_AI::get_text_provider() : '');
+    $jobArgs = ['provider' => $provider, 'template' => $template, 'length' => $length, 'locale' => $locale,];
+
+    // 2) publish_time: NÃO calcula, só recebe e repassa (timestamp ou string) 
     $publish_ts = 0;
     if (!empty($args['publish_time'])) {
-      $raw = $args['publish_time'];
-      if (is_numeric($raw)) {
-        $publish_ts = (int)$raw;
-      } else {
-        $t = strtotime((string)$raw);
-        if ($t !== false) {
-          $publish_ts = $t;
-        }
-      }
+      $publish_ts = is_numeric($args['publish_time']) ? (int)$args['publish_time'] : (int)strtotime((string)$args['publish_time']);
+    }
+    $category_id = (int)($args['category_id'] ?? 0);
+    $post_type = !empty($args['post_type']) ? sanitize_key((string)$args['post_type']) : 'posts_orion';
+
+    // SE LICENÇA FOR VITALÍCIA → força post normal
+    $lic = class_exists('PluginsAlpha_License') ? PluginsAlpha_License::check('alpha_orion') : ['ok' => false];
+    $is_lifetime = !empty($lic['lifetime']) || (!empty($lic['plan']) && $lic['plan'] === 'lifetime');
+
+    if ($is_lifetime && post_type_exists('post')) {
+      $post_type = 'post';
     }
 
-    $category_id = intval($args['category_id'] ?? 0);
-    $post_type   = !empty($args['post_type']) ? sanitize_key($args['post_type']) : 'posts_orion';
+    // 3) contexto neutro: keyword = raw; url = raw se for URL 
+    $keyword = $raw;
+    $url = filter_var($raw, FILTER_VALIDATE_URL) ? $raw : '';
 
-    // 🔹 Aqui a diferença: em MODELAR, keywordRaw é a URL
-    $url     = '';
-    $keyword = '';
-
-    // 🔹 Aqui a diferença: em MODELAR, keywordRaw é a URL
-    // E em MODELAR_YOUTUBE também, mas vamos buscar dados via API.
-    $url     = '';
-    $keyword = '';
-
-    if ($template === 'modelar') {
-      $url = $keywordRaw;
-
-      if ($url === '') {
-        return new WP_Error('pga_no_kw', 'URL vazia.');
-      }
-
-      // tenta derivar um “tema” a partir da URL (só pra título/slug/SEO)
-      $derived = self::derive_keyword_from_url($url);
-      if ($derived !== '') {
-        $keyword = $derived;
-      } else {
-        $host = wp_parse_url($url, PHP_URL_HOST);
-        $host = $host ?: $url;
-        $keyword = 'Artigo baseado em ' . $host;
-      }
-    } elseif ($template === 'modelar_youtube') {
-      $url = $keywordRaw;
-
-      if ($url === '') {
-        return new WP_Error('pga_no_kw', 'URL do YouTube vazia.');
-      }
-
-      if (!class_exists('PluginsAlpha_Youtube')) {
-        return new WP_Error(
-          'pga_youtube_missing_class',
-          'Classe PluginsAlpha_Youtube não encontrada.'
-        );
-      }
-
-      $yt = PluginsAlpha_Youtube::fetch_video_data($url);
-      if (is_wp_error($yt)) {
-        return $yt;
-      }
-
-      // título do artigo = título do vídeo (pode ajustar depois)
-      $keyword = trim($yt['title'] ?? '');
-      if ($keyword === '') {
-        $keyword = 'Artigo baseado em vídeo do YouTube';
-      }
-
-      // injeta os dados do vídeo no jobArgs, para o provider/prompt se quiser usar
-      $jobArgs['youtube'] = $yt;
-    } else {
-      // templates normais → keyword normal
-      $keyword = $keywordRaw;
-      if ($keyword === '') {
-        return new WP_Error('pga_no_kw', 'Keyword vazia.');
-      }
-    }
-
-    // slug seguro
+    // 4) slug base (temporário; depois atualiza com o título final) 
     $slug = sanitize_title($keyword);
     if ($slug === '') {
       $slug = sanitize_title(uniqid('orion_', true));
     }
 
+    // 5) fallback de post_type (mantém teu comportamento) 
     if (!post_type_exists($post_type)) {
       if (post_type_exists('posts_orion')) {
         $post_type = 'posts_orion';
       } elseif (post_type_exists('post_orion')) {
         $post_type = 'post_orion';
       } else {
-        // último fallback só pra não quebrar o fluxo
         $post_type = 'post';
       }
-    }
-
-    $postarr = [
-      'post_type'    => $post_type,
-      'post_status'  => 'draft',
-      'post_title'   => '(Gerando) ' . $keyword,
-      'post_name'    => $slug,
-      'post_content' => '',
-      'post_author'  => get_current_user_id(),
-    ];
-
+    } // 6) cria draft 
+    $postarr = ['post_type' => $post_type, 'post_status' => 'draft', 'post_title' => '(Gerando) ' . $keyword, 'post_name' => $slug, 'post_content' => '', 'post_author' => get_current_user_id(),]; // só aplica se vier publish_time (sem “ajustes”) 
     if ($publish_ts > 0) {
-      $postarr['post_date']     = date('Y-m-d H:i:s', $publish_ts);
+      $postarr['post_date'] = date('Y-m-d H:i:s', $publish_ts);
       $postarr['post_date_gmt'] = gmdate('Y-m-d H:i:s', $publish_ts);
     }
-
     $draft_id = wp_insert_post($postarr, true);
-
-    $draft_id = (int)$draft_id;
-
+    if (is_wp_error($draft_id)) {
+      return $draft_id;
+    }
+    $draft_id = (int)$draft_id; // metas base 
     if ($publish_ts > 0) {
       update_post_meta($draft_id, '_pga_publish_ts', $publish_ts);
     }
     update_post_meta($draft_id, '_pga_job_started', time());
-
     if ($category_id > 0) {
-      wp_set_post_terms($draft_id, [(int)$category_id], 'category', false);
-      update_post_meta($draft_id, '_pga_orion_category_ids', [(int)$category_id]);
+      wp_set_post_terms($draft_id, [$category_id], 'category', false);
+      update_post_meta($draft_id, '_pga_orion_category_ids', [$category_id]);
     }
-    // 1) TÍTULO — aqui já usamos o keyword DERIVADO e, no modelar, passamos a URL pro prompt
-    $titlePrompt = PluginsAlpha_Prompts::build_title_prompt(
-      $keyword,
-      3,
-      5,
-      $locale,
-      $url // vazio nos templates normais; preenchido no modelar
-    );
+
+    if ($template === 'modelar_youtube') {
+      $yt = PluginsAlpha_Youtube::fetch_video_data($url);
+      if (is_wp_error($yt)) return $yt;
+
+      // Aqui "keyword" pode ser:
+      // - o próprio $keyword (se você usa URL no campo)
+      // - OU um assunto derivado
+      // - OU simplesmente $yt['title'] (muita gente prefere isso)
+      $topic = $keyword ?: ($yt['title'] ?? '');
+
+      $titlePrompt = PluginsAlpha_Prompts::build_title_prompt_modelar_youtube(
+        $yt,
+        $topic,
+        3,
+        5,
+        $locale
+      );
+    } else {
+      $titlePrompt = PluginsAlpha_Prompts::build_title_prompt(
+        $template,
+        $keyword,
+        3,
+        5,
+        $locale,
+        $url
+      );
+    }
+
     $titles = PluginsAlpha_AI::titles($titlePrompt, $jobArgs);
     if (is_wp_error($titles)) {
       return self::fail_job($draft_id, $titles, 'titles');
     }
-
-    $chosenTitle = self::pick_best_title($titles, $keyword);
+    $chosenTitle = self::pick_best_title((array)$titles, $keyword);
     if (!$chosenTitle) {
       $chosenTitle = ucfirst($keyword);
     }
 
-    $jobArgs['keyword']      = $keyword;
-    $jobArgs['url']          = $url;
-    $jobArgs['chosen_title'] = $chosenTitle;
+    // atualiza draft title com o título escolhido (importa pro WP/SEO) 
+    wp_update_post(['ID' => $draft_id, 'post_title' => '(Gerando) ' . $chosenTitle,]);
 
-    // Salva base pra próximas chamadas
-    update_post_meta($draft_id, '_pga_outline_length',   $length);
-    update_post_meta($draft_id, '_pga_outline_locale',   $locale);
-    update_post_meta($draft_id, '_pga_outline_keyword',  $keyword);
+    $promptSlug = PluginsAlpha_Prompts::build_slug_prompt(
+      (string)$template,
+      (string)$keyword,
+      (string)$chosenTitle,
+      (string)$locale
+    );
+
+    // chama endpoint dedicado (ou complete, se você não tiver meta_description)
+    $respSlug = PluginsAlpha_AI::slug($promptSlug);
+    // SLUG: aplica no post (update)
+    if (!is_wp_error($respSlug)) {
+      $slugTxt = '';
+
+      if (is_string($respSlug)) {
+        $slugTxt = $respSlug;
+      } elseif (is_array($respSlug)) {
+        $slugTxt = (string)($respSlug['slug'] ?? $respSlug['content'] ?? '');
+      } elseif (is_object($respSlug)) {
+        $slugTxt = (string)($respSlug->slug ?? $respSlug->content ?? '');
+      }
+
+      $slugTxt = trim(wp_strip_all_tags(html_entity_decode($slugTxt, ENT_QUOTES, 'UTF-8')));
+
+      // se vier {"slug":"..."} como texto
+      if ($slugTxt !== '' && $slugTxt[0] === '{') {
+        $j = json_decode($slugTxt, true);
+        if (is_array($j)) {
+          $slugTxt = trim((string)($j['slug'] ?? $j['content'] ?? $slugTxt));
+        }
+      }
+
+      // se vier com prefixo tipo "slug: ..."
+      $slugTxt = preg_replace('/^\s*(slug|post_name)\s*:\s*/i', '', $slugTxt);
+
+      // pega só a primeira linha
+      $slugTxt = preg_split("/\r\n|\r|\n/", $slugTxt)[0] ?? $slugTxt;
+      $slugTxt = trim($slugTxt);
+
+      // sanitiza e fallback
+      $newSlug = sanitize_title($slugTxt);
+      if ($newSlug === '') {
+        $newSlug = sanitize_title($chosenTitle);
+      }
+      if ($newSlug === '') {
+        $newSlug = sanitize_title($keyword);
+      }
+      if ($newSlug === '') {
+        $newSlug = sanitize_title(uniqid('orion_', false));
+      }
+
+      // garante unicidade pro post_type atual
+      $newSlug = wp_unique_post_slug($newSlug, $draft_id, 'draft', $post_type, 0);
+
+      // atualiza post_name
+      wp_update_post([
+        'ID'       => $draft_id,
+        'post_name' => $newSlug,
+      ]);
+
+      update_post_meta($draft_id, '_pga_generated_slug', $newSlug);
+    }
+
+
+    // jobArgs úteis pro provider/prompt 
+    $jobArgs['keyword'] = $keyword;
+    $jobArgs['url'] = $url;
+    $jobArgs['chosen_title'] = $chosenTitle; // salva base do job 
+    update_post_meta($draft_id, '_pga_outline_length', $length);
+    update_post_meta($draft_id, '_pga_outline_locale', $locale);
+    update_post_meta($draft_id, '_pga_outline_keyword', $keyword);
     update_post_meta($draft_id, '_pga_outline_template', $template);
-    update_post_meta($draft_id, '_pga_outline_url',      $url);
-    update_post_meta($draft_id, '_pga_chosen_title',     $chosenTitle);
+    update_post_meta($draft_id, '_pga_outline_url', $url);
+    update_post_meta($draft_id, '_pga_chosen_title', $chosenTitle);
 
-    if ($publish_ts > 0) {
-      update_post_meta($draft_id, '_pga_publish_ts', $publish_ts);
-    }
-
-    update_post_meta($draft_id, '_pga_job_status', 'outline_done');
-
-    // lista completa de "keywords" só se vier como array – aqui tanto faz, não vamos usar extra pra modelar
-    $allKeywords = [];
-    if (is_array($kwSrc)) {
-      $allKeywords = array_values(array_filter(array_map('trim', $kwSrc)));
-    }
-
-    // 2) OUTLINE – se for modelar, passa SÓ a URL
-    // 2) OUTLINE – se for modelar URL ou modelar YouTube, tratamos diferente
-    if ($template === 'modelar') {
-      $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt_modelar(
-        $url,
-        $chosenTitle,
-        $length,
-        $locale
-      );
-    } elseif ($template === 'modelar_youtube') {
-      $yt = $jobArgs['youtube'] ?? [];
+    // 8) OUTLINE (prompt resolve via template) 
+    if ($template === 'modelar_youtube') {
+      $yt = PluginsAlpha_Youtube::fetch_video_data($url);
+      if (is_wp_error($yt)) return $yt; // ou trate como você trata erros no endpoint
 
       $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt_modelar_youtube(
         $url,
@@ -589,85 +531,56 @@ class PluginsAlpha_Pages_Generator
         $locale
       );
     } else {
-      $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt(
-        $keyword,
-        $chosenTitle,
-        $length,
-        $locale
-      );
+      // fluxo normal
+      $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt($template, $keyword, $chosenTitle, $length, $locale, $url);
     }
-
-
 
     $outline = PluginsAlpha_AI::outline($outlinePrompt, $jobArgs);
     if (is_wp_error($outline)) {
       return self::fail_job($draft_id, $outline, 'outline');
     }
 
-    // Se vier { "sections": [...] }, pega só o array interno
+    // Se vier { "sections": [...] }, pega só o array interno 
     $sections = $outline['sections'] ?? $outline;
     if (!is_array($sections)) {
       $sections = [];
     }
 
-    // NORMALIZA as seções pra garantir que TODA seção tenha "id"
+    // 9) NORMALIZA ids (mantém teu padrão) 
     $normalized = [];
-    $h2Index    = 1;
-
+    $h2Index = 1;
     foreach ($sections as $sec) {
       if (!is_array($sec)) {
-        $sec = [
-          'heading' => (string)$sec,
-          'level'   => 'h2',
-        ];
+        $sec = ['heading' => (string)$sec, 'level' => 'h2',];
       }
-
       if (empty($sec['level'])) {
         $sec['level'] = 'h2';
       }
-
       if (empty($sec['id'])) {
         $sec['id'] = (string)$h2Index;
       }
-
       if (!empty($sec['children']) && is_array($sec['children'])) {
         $childIndex = 1;
         foreach ($sec['children'] as $ci => $child) {
           if (!is_array($child)) {
-            $child = [
-              'heading' => (string)$child,
-              'level'   => 'h3',
-            ];
+            $child = ['heading' => (string)$child, 'level' => 'h3',];
           }
-
           if (empty($child['level'])) {
             $child['level'] = 'h3';
           }
-
           if (empty($child['id'])) {
             $child['id'] = $sec['id'] . '.' . $childIndex;
           }
-
           $sec['children'][$ci] = $child;
           $childIndex++;
         }
       }
-
       $normalized[] = $sec;
       $h2Index++;
     }
-
-    update_post_meta($draft_id, '_pga_outline_sections', wp_json_encode($normalized));
+    update_post_meta($draft_id, '_pga_outline_sections', wp_json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     update_post_meta($draft_id, '_pga_job_status', 'outline_done');
-
-    return [
-      'post_id'   => $draft_id,
-      'title'     => $chosenTitle,
-      'sections'  => $normalized,
-      'length'    => $length,
-      'locale'    => $locale,
-      'post_type' => $post_type,
-    ];
+    return ['post_id' => $draft_id, 'title' => $chosenTitle, 'sections' => $normalized, 'length' => $length, 'locale' => $locale, 'post_type' => $post_type,];
   }
 
   /**
@@ -711,98 +624,33 @@ class PluginsAlpha_Pages_Generator
 
   public static function generate_section_content(int $post_id, string $section_id)
   {
-    $post_id = intval($post_id);
-    if (!$post_id || get_post_type($post_id) === null) {
+    $post_id = (int)$post_id;
+    if (!$post_id || !get_post_type($post_id)) {
       return new WP_Error('pga_invalid_post', 'Post inválido.');
     }
 
-    $sections_json = get_post_meta($post_id, '_pga_outline_sections', true);
-    $sections      = json_decode($sections_json, true) ?: [];
+    // --- CONTEXTO BASE ---
+    $sections = json_decode(
+      (string)get_post_meta($post_id, '_pga_outline_sections', true),
+      true
+    ) ?: [];
 
     if (!$sections) {
-      return new WP_Error('pga_no_outline', 'Esboço não encontrado para este post.');
+      return new WP_Error('pga_no_outline', 'Esboço não encontrado.');
     }
 
-    // 🔧 NORMALIZAÇÃO EXTRA — garante heading/id mesmo se o outline antigo não tiver
-    $normalized = [];
-    $h2Index    = 1;
-
-    foreach ($sections as $sec) {
-      // Se vier string simples, transforma em array com heading
-      if (!is_array($sec)) {
-        $sec = [
-          'heading' => (string) $sec,
-          'level'   => 'h2',
-        ];
-      }
-
-      // Se tiver "title" mas não "heading", usa "title"
-      if (empty($sec['heading']) && !empty($sec['title'])) {
-        $sec['heading'] = (string) $sec['title'];
-      }
-      // fallback extra: se tiver "text"
-      if (empty($sec['heading']) && !empty($sec['text'])) {
-        $sec['heading'] = (string) $sec['text'];
-      }
-
-      // Garante level
-      if (empty($sec['level'])) {
-        $sec['level'] = 'h2';
-      }
-
-      // ID da H2
-      if (empty($sec['id'])) {
-        $sec['id'] = (string) $h2Index;
-      }
-
-      // Normaliza children também
-      if (!empty($sec['children']) && is_array($sec['children'])) {
-        $childIndex = 1;
-        foreach ($sec['children'] as $ci => $child) {
-          if (!is_array($child)) {
-            $child = [
-              'heading' => (string) $child,
-              'level'   => 'h3',
-            ];
-          }
-
-          if (empty($child['heading']) && !empty($child['title'])) {
-            $child['heading'] = (string) $child['title'];
-          }
-          if (empty($child['heading']) && !empty($child['text'])) {
-            $child['heading'] = (string) $child['text'];
-          }
-
-          if (empty($child['level'])) {
-            $child['level'] = 'h3';
-          }
-
-          if (empty($child['id'])) {
-            $child['id'] = $sec['id'] . '.' . $childIndex;
-          }
-
-          $sec['children'][$ci] = $child;
-          $childIndex++;
-        }
-      }
-
-      $normalized[] = $sec;
-      $h2Index++;
-    }
-
-    $sections = $normalized;
-
-    $length  = get_post_meta($post_id, '_pga_outline_length',   true) ?: 'short';
-    $locale  = get_post_meta($post_id, '_pga_outline_locale',   true) ?: 'pt_BR';
-    $keyword = get_post_meta($post_id, '_pga_outline_keyword',  true) ?: '';
-    $title   = get_post_meta($post_id, '_pga_chosen_title',     true) ?: $keyword;
-    $url     = get_post_meta($post_id, '_pga_outline_url',      true) ?: '';
+    $template = get_post_meta($post_id, '_pga_outline_template', true) ?: 'article';
+    $length   = get_post_meta($post_id, '_pga_outline_length',   true) ?: 'short';
+    $locale   = get_post_meta($post_id, '_pga_outline_locale',   true) ?: 'pt_BR';
+    $keyword  = get_post_meta($post_id, '_pga_outline_keyword',  true) ?: '';
+    $title    = get_post_meta($post_id, '_pga_chosen_title',     true) ?: $keyword;
+    $url      = get_post_meta($post_id, '_pga_outline_url',      true) ?: '';
 
     if ($keyword === '') {
-      return new WP_Error('pga_no_kw', 'Keyword vazia no outline.');
+      return new WP_Error('pga_no_kw', 'Keyword vazia.');
     }
 
-    // acha a seção pelo id JÁ NORMALIZADO
+    // --- LOCALIZA SEÇÃO ---
     $section = null;
     foreach ($sections as $s) {
       if ((string)($s['id'] ?? '') === (string)$section_id) {
@@ -812,92 +660,63 @@ class PluginsAlpha_Pages_Generator
     }
 
     if (!$section) {
-      return new WP_Error('pga_section_not_found', "Seção {$section_id} não encontrada no esboço.");
+      return new WP_Error('pga_section_not_found', 'Seção não encontrada.');
     }
 
-    // se já tiver conteúdo salvo pra essa seção, não precisa gerar de novo
+    // --- CACHE: NÃO REGERA ---
     $meta_key = '_pga_section_content_' . sanitize_key($section_id);
     $existing = get_post_meta($post_id, $meta_key, true);
     if (!empty($existing)) {
       return [
-        'post_id'     => $post_id,
-        'section_id'  => $section_id,
-        'content'     => $existing,
+        'post_id'    => $post_id,
+        'section_id' => $section_id,
+        'content'    => $existing,
         'alreadyDone' => true,
       ];
     }
-    $sectionsCount = count($sections);
-    // monta prompt da seção
-    $sectionPrompt = PluginsAlpha_Prompts::build_section_prompt(
+
+    // --- PROMPT (TUDO ACONTECE AQUI) ---
+    $prompt = PluginsAlpha_Prompts::build_section_prompt(
+      $template,
       $keyword,
       $title,
       $section,
       $length,
       $locale,
-      $sectionsCount,
-      $url
+      count($sections),
+      $section_id,
+      $url,
     );
-    // aumenta timeout só pra essa chamada
-    $tmpTimeout = function ($t) {
-      return max((int)$t, 120);
-    };
-    add_filter('http_request_timeout', $tmpTimeout, 9999, 1);
 
-    $resp = PluginsAlpha_AI::complete($sectionPrompt);
+    // timeout maior só pra section
+    add_filter('http_request_timeout', fn($t) => max((int)$t, 120), 9999);
 
-    remove_filter('http_request_timeout', $tmpTimeout, 9999);
+    $resp = PluginsAlpha_AI::complete($prompt);
+
+    remove_filter('http_request_timeout', '__return_false', 9999);
 
     if (is_wp_error($resp)) {
-      if ($resp->get_error_code() === 'pga_parse') {
-        $data    = (array) $resp->get_error_data();
-        $snippet = isset($data['snippet']) ? (string) $data['snippet'] : '';
-
-        // se parece HTML de seção, trata como sucesso
-        if ($snippet !== '' && preg_match('/<(h2|h3|p|ul|ol|li)[^>]*>/i', $snippet)) {
-          $resp = [
-            'title'             => '',
-            'titles_suggestions' => [],
-            'content'           => $snippet,
-            'meta_title'        => '',
-            'meta_description'  => '',
-            'image_alt'         => '',
-            'links'             => [
-              'internal' => [],
-              'external' => [],
-            ],
-          ];
-        } else {
-          // não deu pra aproveitar → falha normal
-          return self::fail_job($post_id, $resp, 'section_' . $section_id);
-        }
-      } else {
-        // qualquer outro erro (HTTP, timeout, etc.)
-        return self::fail_job($post_id, $resp, 'section_' . $section_id);
-      }
+      return self::fail_job($post_id, $resp, 'section_' . $section_id);
     }
 
     $content_html = trim((string)($resp['content'] ?? ''));
 
     if ($content_html === '') {
-      return new WP_Error('pga_section_empty', 'Nenhum conteúdo gerado para a seção.');
+      return new WP_Error('pga_section_empty', 'Conteúdo vazio.');
     }
 
-    // salva no meta
+    // --- SALVA ---
     update_post_meta($post_id, $meta_key, $content_html);
 
-    // opcional: guarda primeiros meta_title/description gerados
-    $meta_title = (string)($resp['meta_title'] ?? '');
-    $meta_desc  = (string)($resp['meta_description'] ?? '');
-    $image_alt  = (string)($resp['image_alt'] ?? '');
-
-    if ($meta_title && !get_post_meta($post_id, '_pga_meta_title', true)) {
-      update_post_meta($post_id, '_pga_meta_title', $meta_title);
+    // SEO opcional (primeiro bloco que vier)
+    if (!get_post_meta($post_id, '_pga_meta_title', true) && !empty($resp['meta_title'])) {
+      update_post_meta($post_id, '_pga_meta_title', (string)$resp['meta_title']);
     }
-    if ($meta_desc && !get_post_meta($post_id, '_pga_meta_description', true)) {
-      update_post_meta($post_id, '_pga_meta_description', $meta_desc);
+    if (!get_post_meta($post_id, '_pga_meta_description', true) && !empty($resp['meta_description'])) {
+      update_post_meta($post_id, '_pga_meta_description', (string)$resp['meta_description']);
     }
-    if ($image_alt && !get_post_meta($post_id, '_pga_image_alt', true)) {
-      update_post_meta($post_id, '_pga_image_alt', $image_alt);
+    if (!get_post_meta($post_id, '_pga_image_alt', true) && !empty($resp['image_alt'])) {
+      update_post_meta($post_id, '_pga_image_alt', (string)$resp['image_alt']);
     }
 
     return [
@@ -906,7 +725,6 @@ class PluginsAlpha_Pages_Generator
       'content'    => $content_html,
     ];
   }
-
 
   public static function finalize_from_sections(int $post_id, array $args = [])
   {
@@ -925,7 +743,7 @@ class PluginsAlpha_Pages_Generator
 
     $locale    = get_post_meta($post_id, '_pga_outline_locale',   true) ?: 'pt_BR';
     $keyword   = get_post_meta($post_id, '_pga_outline_keyword',  true) ?: '';
-    $template  = get_post_meta($post_id, '_pga_outline_template', true) ?: 'discover_article';
+    $template  = get_post_meta($post_id, '_pga_outline_template', true) ?: 'article';
     $title     = get_post_meta($post_id, '_pga_chosen_title',     true) ?: $keyword;
     $post_type = get_post_type($post_id) ?: 'posts_orion';
 
@@ -963,8 +781,7 @@ class PluginsAlpha_Pages_Generator
       $content_html = self::apply_internal_links_to_content(
         $content_html,
         $internal,
-        $keyword,
-        $post_id
+        (int) $post_id
       );
     }
 
@@ -973,12 +790,82 @@ class PluginsAlpha_Pages_Generator
     $meta_desc  = get_post_meta($post_id, '_pga_meta_description', true) ?: '';
     $image_alt  = get_post_meta($post_id, '_pga_image_alt',        true) ?: '';
 
+    $meta_desc = trim((string)$meta_desc);
+
+    // se estiver vazio (ou muito fraco), gera
+    // monta prompt padronizado
+    $promptMeta = PluginsAlpha_Prompts::build_meta_description_prompt(
+      (string)$template,
+      (string)$keyword,
+      (string)$title,
+      (string)$locale,
+      (string)$content_html
+    );
+
+    // chama endpoint dedicado (ou complete, se você não tiver meta_description)
+    $respMeta = PluginsAlpha_AI::meta_description($promptMeta);
+
+    if (!is_wp_error($respMeta)) {
+      $raw = trim((string)$respMeta);
+
+      if ($raw !== '') {
+        // sanitiza: sem tags, uma linha só
+        $raw = wp_strip_all_tags($raw);
+        $raw = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
+        $raw = preg_replace('/\s+/', ' ', $raw);
+
+        // limite seguro
+        if (mb_strlen($raw) > 160) {
+          $raw = mb_substr($raw, 0, 157) . '...';
+        }
+
+        // aplica
+        $meta_desc = trim($raw);
+
+        // salva agora (opcional, mas útil)
+        if ($meta_desc !== '') {
+          update_post_meta($post_id, '_pga_meta_description', $meta_desc);
+        }
+      }
+    }
+
+    // fallback forte: se por algum motivo ficou vazio, não quebra o fluxo
+    if ($meta_desc === '') {
+      $meta_desc = '';
+    }
+
     // --- 5) Agenda / criação final do post ---
-    // se veio do REST com generate_image definido, respeita.
-    // se não vier nada, padrão é TRUE (comportamento antigo).
     $generate_image = array_key_exists('generate_image', $args)
       ? !empty($args['generate_image'])
       : true;
+
+    $image_alt = trim((string)$image_alt);
+    $kw = trim((string)$keyword);
+    $ttl = trim((string)$title);
+
+    // se não tiver alt salvo OU se não contém keyword, cria/ajusta
+    if ($kw !== '') {
+      $kw_l = mb_strtolower($kw);
+      $alt_l = mb_strtolower($image_alt);
+
+      if ($image_alt === '' || mb_strpos($alt_l, $kw_l) === false) {
+        // formato simples, sempre válido e com keyword
+        // (você pode trocar o texto fixo depois)
+        $image_alt = $ttl !== '' && mb_strpos(mb_strtolower($ttl), $kw_l) !== false
+          ? $ttl // se o título já contém a keyword, usa o título
+          : ($kw . ' — ' . ($ttl !== '' ? $ttl : 'imagem ilustrativa'));
+
+        // sanitiza e limita (alt não precisa ser grande)
+        $image_alt = wp_strip_all_tags($image_alt);
+        $image_alt = html_entity_decode($image_alt, ENT_QUOTES, 'UTF-8');
+        $image_alt = preg_replace('/\s+/', ' ', $image_alt);
+        if (mb_strlen($image_alt) > 125) {
+          $image_alt = mb_substr($image_alt, 0, 122) . '...';
+        }
+
+        update_post_meta($post_id, '_pga_image_alt', $image_alt);
+      }
+    }
 
     $res = self::do_schedule_post($post_id, [
       'keyword'        => $keyword,
@@ -1013,10 +900,11 @@ class PluginsAlpha_Pages_Generator
    */
   protected static function max_links_for_length(int $wordCount): int
   {
-    if ($wordCount < 600)  return 2;
-    if ($wordCount < 1200) return 4;
-    if ($wordCount < 2000) return 5;
-    return 6;
+    if ($wordCount < 600)  return 5;
+    if ($wordCount < 1200) return 8;
+    if ($wordCount < 2000) return 10;
+    if ($wordCount < 4000) return 15;
+    return 5;
   }
 
   /**
@@ -1028,7 +916,6 @@ class PluginsAlpha_Pages_Generator
   protected static function apply_internal_links_to_content(
     string $html,
     array $opts,
-    string $keyword,
     int $post_id
   ): string {
     $mode = isset($opts['mode']) ? trim((string)$opts['mode']) : 'none';
@@ -1066,7 +953,7 @@ class PluginsAlpha_Pages_Generator
       }
 
       $q = new \WP_Query([
-        'post_type'      => 'posts_orion',
+        'post_type'      => 'post',
         'post__in'       => $ids,
         'posts_per_page' => count($ids),
         'orderby'        => 'post__in',
@@ -1086,8 +973,8 @@ class PluginsAlpha_Pages_Generator
       wp_reset_postdata();
     } elseif ($mode === 'auto' || $mode === 'pillar') {
 
-      // mesmo post_type do post atual
-      $post_type = get_post_type($post_id) ?: 'posts_orion';
+      // seleciona dos posts
+      $post_type = 'post';
 
       // categorias do post atual
       $cat_ids = wp_get_post_terms($post_id, 'category', ['fields' => 'ids']);
@@ -1361,7 +1248,7 @@ class PluginsAlpha_Pages_Generator
       return [];
     }
 
-    $post_type = get_post_type($post_id) ?: 'posts_orion';
+    $post_type = 'post';
 
     // --- MANUAL: usa IDs enviados ---
     if ($mode === 'manual') {
@@ -1501,8 +1388,6 @@ class PluginsAlpha_Pages_Generator
     $keyword      = (string)($args['keyword']      ?? '');
     $title        = (string)($args['title']        ?? '');
     $content_html = (string)($args['content']      ?? '');
-    $locale       = (string)($args['locale']       ?? 'pt_BR');
-    $template     = (string)($args['template']     ?? 'discover_article');
     $publish_ts = (int) get_post_meta($post_id, '_pga_publish_ts', true);
 
     // se por algum motivo não tiver meta (fallback raro)
@@ -1526,7 +1411,6 @@ class PluginsAlpha_Pages_Generator
     $meta_title   = (string)($args['meta_title']   ?? '');
     $meta_desc    = (string)($args['meta_desc']    ?? '');
     $image_alt    = (string)($args['image_alt']    ?? '');
-    $generate_img = !empty($args['generate_image']);
 
     if ($title === '' || $content_html === '') {
       return new WP_Error(
@@ -1623,45 +1507,5 @@ class PluginsAlpha_Pages_Generator
     ]);
 
     return $err;
-  }
-
-
-
-  /**
-   * Transforma um META-PROMPT de imagem (tipo "Você é um gerador de prompts...")
-   * em um único prompt final, pronto pra ser enviado pro provider.
-   */
-  protected static function resolve_image_prompt(string $raw, string $locale = 'pt_BR'): string
-  {
-    $raw = trim($raw);
-    if ($raw === '') {
-      return '';
-    }
-
-    $looks_like_meta =
-      stripos($raw, 'você é um gerador de prompts') !== false ||
-      stripos($raw, 'you are a prompt generator') !== false;
-
-    if (!$looks_like_meta) {
-      return $raw;
-    }
-
-    $prompt_for_ai = $raw . "\n\n" .
-      "Agora, com base em TODAS as instruções acima, responda APENAS com um único prompt " .
-      "de imagem, em {$locale}, em uma única linha, sem aspas, sem explicações, " .
-      "sem quebra de linha extra e sem repetir as regras.";
-
-    if (!class_exists('PluginsAlpha_AI')) {
-      return $raw;
-    }
-    $resp = PluginsAlpha_AI::complete($prompt_for_ai);
-
-    if (is_wp_error($resp)) {
-      return $raw;
-    }
-
-    $content = trim((string)($resp['content'] ?? ''));
-
-    return $content !== '' ? $content : $raw;
   }
 }

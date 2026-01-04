@@ -9,8 +9,8 @@ class PluginsAlpha_AdminMenus
 
     // TOP LEVEL
     add_menu_page(
-      __('Plugins Alpha', 'plugins-alpha'),
-      'Plugins Alpha',
+      __('Alpha Suite', 'plugins-alpha'),
+      'Alpha Suite',
       'edit_posts',
       'plugins-alpha-dashboard',
       ['PluginsAlpha_AdminMenus', 'render_dashboard'],
@@ -21,8 +21,8 @@ class PluginsAlpha_AdminMenus
     // 1) Dashboard (primeiro submenu = o que abre ao clicar no topo)
     add_submenu_page(
       'plugins-alpha-dashboard',
-      __('Plugins Alpha', 'plugins-alpha'),
-      __('Plugins Alpha', 'plugins-alpha'),
+      __('Dashboard', 'plugins-alpha'),
+      __('Dashboard', 'plugins-alpha'),
       'edit_posts',
       'plugins-alpha-dashboard',
       ['PluginsAlpha_AdminMenus', 'render_dashboard']
@@ -70,8 +70,8 @@ class PluginsAlpha_AdminMenus
 
     add_submenu_page(
       'plugins-alpha-dashboard',
-      __('Prompts Órion', 'plugins-alpha'),
-      __('Prompts Órion', 'plugins-alpha'),
+      __('Prompts', 'plugins-alpha'),
+      __('Prompts', 'plugins-alpha'),
       'manage_options',
       'plugins-alpha-orion-prompts',
       ['PluginsAlpha_AdminMenus', 'render_prompts']

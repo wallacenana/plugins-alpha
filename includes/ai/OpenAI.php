@@ -103,38 +103,30 @@ class PluginsAlpha_OpenAI
     }
 
     // ---- Completar texto (retorna array padronizado) ----
-    public static function complete(string $prompt, array $schema = [])
+    public static function complete(string $prompt, array $schema = [], array $opts = [])
     {
         $c = self::cfg();
-        // aqui já assumimos que $c['key'] existe, porque o AI.php garantiu isso
 
-        $defaultSchema = [
-            'title'              => 'string',
-            'titles_suggestions' => ['string'],
-            'content'            => 'string',
-            'meta_title'         => 'string',
-            'meta_description'   => 'string',
-            'image_alt'          => 'string',
-            'links'              => [
-                'internal' => ['string'],
-                'external' => ['string'],
-            ],
-        ];
+        $defaultSchema = ['content' => 'string'];
         $schema = $schema ?: $defaultSchema;
-
-        $system = "Você é um gerador de artigos SEO. Responda SOMENTE em JSON UTF-8 válido, sem markdown. "
-            . "O campo 'content' deve ser HTML SEM <h1>. Schema: "
-            . json_encode($schema, JSON_UNESCAPED_UNICODE);
 
         $body = [
             'model'       => $c['model_text'],
-            'temperature' => $c['temperature'],
-            'max_tokens'  => $c['max_tokens'],
+            'temperature' => $opts['temperature'] ?? $c['temperature'],
+            'max_tokens'  => $opts['max_tokens'] ?? $c['max_tokens'],
+            // ✅ overrides úteis pra diversidade
+            'top_p'              => $opts['top_p'] ?? null,
+            'presence_penalty'   => $opts['presence_penalty'] ?? null,
+            'frequency_penalty'  => $opts['frequency_penalty'] ?? null,
+
             'messages'    => [
-                ['role' => 'system', 'content' => $system],
+                ['role' => 'system', 'content' => 'Você é um gerador de artigos, focado em SEO GEO e E-E-A-T'],
                 ['role' => 'user',   'content' => $prompt],
             ],
         ];
+
+        // remove nulls (OpenAI não curte null em alguns campos)
+        $body = array_filter($body, fn($v) => $v !== null);
 
         $args = [
             'headers' => [
@@ -174,34 +166,22 @@ class PluginsAlpha_OpenAI
 
         $parsed = self::extract_json($txt);
         if (!$parsed) {
-            $err = new WP_Error(
+            // fallback: se vier HTML direto, aceita como content
+            $html = trim($txt);
+
+            if ($html !== '' && (stripos($html, '<p') !== false || stripos($html, '<h2') !== false || stripos($html, '<h3') !== false)) {
+                return ['content' => $html];
+            }
+
+            return new WP_Error(
                 'pga_parse',
                 'Falha ao decodificar JSON do modelo.',
                 ['snippet' => substr($txt, 0, 800)]
             );
-            return $err;
-        }
-
-        // outline pode ser qualquer estrutura de array que o prompt definir.
-        // Aqui só garantimos que, se vier, passamos pra frente como array.
-        // Não fazemos "limpeza" pra não quebrar o formato.
-        $outline = [];
-        if (isset($parsed['outline']) && is_array($parsed['outline'])) {
-            $outline = $parsed['outline'];
         }
 
         return [
-            'title'              => trim((string)($parsed['title'] ?? '')),
-            'titles_suggestions' => array_values(array_filter((array)($parsed['titles_suggestions'] ?? []))),
             'content'            => trim((string)($parsed['content'] ?? '')),
-            'meta_title'         => trim((string)($parsed['meta_title'] ?? '')),
-            'meta_description'   => trim((string)($parsed['meta_description'] ?? '')),
-            'image_alt'          => trim((string)($parsed['image_alt'] ?? '')),
-            'links'              => [
-                'internal' => array_values(array_filter((array)($parsed['links']['internal'] ?? []))),
-                'external' => array_values(array_filter((array)($parsed['links']['external'] ?? []))),
-            ],
-            'outline'            => $outline,
         ];
     }
 
@@ -444,6 +424,68 @@ class PluginsAlpha_OpenAI
         return $desc;
     }
 
+    public static function slug(string $prompt)
+    {
+        $c = self::cfg();
+        if (!$c['key']) {
+            return new WP_Error('pga_no_key', 'Chave OpenAI não configurada.');
+        }
+
+        $system = "Você é um gerador de SLUG para SEO. "
+            . "Responda SOMENTE em JSON UTF-8 válido, sem markdown, "
+            . "no formato {\"content\":\"...\"}.";
+
+        $body = [
+            'model'       => $c['model_text'],
+            'temperature' => $c['temperature'],
+            'max_tokens'  => min(600, $c['max_tokens']),
+            'messages'    => [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user',   'content' => $prompt],
+            ],
+        ];
+
+        $args = [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $c['key'],
+                'Content-Type'  => 'application/json',
+            ],
+            'body'    => wp_json_encode($body),
+            'timeout' => $c['timeout'],
+        ];
+
+        $res  = wp_remote_post('https://api.openai.com/v1/chat/completions', $args);
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        $code = wp_remote_retrieve_response_code($res);
+        $raw  = wp_remote_retrieve_body($res);
+        if ($code !== 200) {
+            $msg = 'HTTP ' . $code;
+            $j = json_decode($raw, true);
+            if (!empty($j['error']['message'])) {
+                $msg = $j['error']['message'];
+            }
+            return new WP_Error('pga_openai_meta_http', $msg, ['http_code' => $code]);
+        }
+
+        $json = json_decode($raw, true);
+        $txt  = (string)($json['choices'][0]['message']['content'] ?? '');
+
+        $parsed = self::extract_json($txt);
+        if (!is_array($parsed) || empty($parsed['content'])) {
+            return new WP_Error('pga_slug', 'Falha ao decodificar Slug.');
+        }
+
+        $desc = trim((string)$parsed['slug']);
+        if ($desc === '') {
+            return new WP_Error('pga_slug_empty', 'Slug vazia.');
+        }
+
+        return $desc;
+    }
+
     /**
      * Gera um PROMPT FINAL de imagem (não o meta-prompt),
      * no estilo do titles(): retorna só a string com o prompt.
@@ -516,19 +558,86 @@ class PluginsAlpha_OpenAI
     // ---- helper para extrair JSON de respostas em texto/markdown ----
     private static function extract_json(string $txt)
     {
+        $txt = trim($txt);
+
+        // 1) se vier em ```json ... ```
         if (preg_match('/```json\s*(.+?)```/is', $txt, $m)) {
-            $a = json_decode(trim($m[1]), true);
-            if (is_array($a)) return $a;
+            $inner = trim($m[1]);
+            $a = json_decode($inner, true);
+            if (is_array($a)) return self::decode_escaped_unicode_recursive($a);
+
+            // tenta sanitizar escapes inválidos e decodificar
+            $inner2 = preg_replace('/\\\\(?!["\\\\\/bfnrtu]|u[0-9a-fA-F]{4})/', '\\\\\\\\', $inner);
+            $a = json_decode($inner2, true);
+            if (is_array($a)) return self::decode_escaped_unicode_recursive($a);
+
+            // fallback: extrai "content" na marra
+            if (preg_match('/"content"\s*:\s*"((?:\\\\.|[^"\\\\])*)"/s', $inner2, $mm)) {
+                $content = stripcslashes($mm[1]);
+                return ['content' => $content];
+            }
         }
-        $a = json_decode(trim($txt), true);
-        if (is_array($a)) return $a;
+
+        // 2) tenta JSON direto
+        $a = json_decode($txt, true);
+        if (is_array($a)) return self::decode_escaped_unicode_recursive($a);
+
+        // 3) tenta com escapes inválidos corrigidos (ex.: \d -> \\d)
+        $txt2 = preg_replace('/\\\\(?!["\\\\\/bfnrtu]|u[0-9a-fA-F]{4})/', '\\\\\\\\', $txt);
+        $a = json_decode($txt2, true);
+        if (is_array($a)) return self::decode_escaped_unicode_recursive($a);
+
+        // 4) tenta recortar o primeiro {...} e repetir as tentativas
         $start = strpos($txt, '{');
-        $end = strrpos($txt, '}');
+        $end   = strrpos($txt, '}');
         if ($start !== false && $end !== false && $end > $start) {
             $chunk = substr($txt, $start, $end - $start + 1);
+
             $a = json_decode($chunk, true);
-            if (is_array($a)) return $a;
+            if (is_array($a)) return self::decode_escaped_unicode_recursive($a);
+
+            $chunk2 = preg_replace('/\\\\(?!["\\\\\/bfnrtu]|u[0-9a-fA-F]{4})/', '\\\\\\\\', $chunk);
+            $a = json_decode($chunk2, true);
+            if (is_array($a)) return self::decode_escaped_unicode_recursive($a);
+
+            if (preg_match('/"content"\s*:\s*"((?:\\\\.|[^"\\\\])*)"/s', $chunk2, $mm)) {
+                $content = stripcslashes($mm[1]);
+                return ['content' => $content];
+            }
         }
+
+        // 5) último fallback: se tiver "content": "..." em qualquer lugar
+        if (preg_match('/"content"\s*:\s*"((?:\\\\.|[^"\\\\])*)"/s', $txt2, $mm)) {
+            $content = stripcslashes($mm[1]);
+            return ['content' => $content];
+        }
+
         return null;
+    }
+
+
+    /**
+     * Recursively decode any JSON-style unicode escapes (e.g. "\\u00e7")
+     * found inside string values of an array/object produced from model output.
+     */
+    private static function decode_escaped_unicode_recursive($val)
+    {
+        if (is_array($val)) {
+            foreach ($val as $k => $v) {
+                $val[$k] = self::decode_escaped_unicode_recursive($v);
+            }
+            return $val;
+        }
+
+        if (!is_string($val)) return $val;
+
+        // Quick check for common pattern like "\u00e7"
+        if (preg_match('/\\\\u[0-9a-fA-F]{4}/', $val)) {
+            // Attempt to decode via json_decode on a quoted string
+            $try = json_decode('"' . addcslashes($val, '"') . '"');
+            if (is_string($try)) return $try;
+        }
+
+        return $val;
     }
 }

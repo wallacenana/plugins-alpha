@@ -171,22 +171,11 @@ class PluginsAlpha_Gemini
     public static function complete(string $prompt, array $schema = [], array $args = [])
     {
         $defaultSchema = [
-            'title'              => 'string',
-            'titles_suggestions' => ['string'],
             'content'            => 'string',
-            'meta_title'         => 'string',
-            'meta_description'   => 'string',
-            'image_alt'          => 'string',
-            'links'              => [
-                'internal' => ['string'],
-                'external' => ['string'],
-            ],
         ];
         $schema = $schema ?: $defaultSchema;
 
-        $system = "Você é um gerador de artigos SEO. Responda SOMENTE em JSON UTF-8 válido, sem markdown. "
-            . "O campo 'content' deve ser HTML SEM <h1>. Schema: "
-            . json_encode($schema, JSON_UNESCAPED_UNICODE);
+        $system = 'Você é um gerador de artigos, focado em SEO GEO e E-E-A-T';
 
         $txt = self::call_gemini($system, $prompt, [
             'model'       => $args['model']       ?? null,
@@ -200,31 +189,23 @@ class PluginsAlpha_Gemini
 
         $parsed = self::extract_json($txt);
         if (!$parsed) {
-            $err = new WP_Error(
+            // fallback: se vier HTML direto, aceita como content
+            $html = trim($txt);
+
+            if ($html !== '' && (stripos($html, '<p') !== false || stripos($html, '<h2') !== false || stripos($html, '<h3') !== false)) {
+                return ['content' => $html];
+            }
+
+            return new WP_Error(
                 'pga_parse',
                 'Falha ao decodificar JSON do modelo.',
                 ['snippet' => substr($txt, 0, 800)]
             );
-            return $err;
         }
 
-        $outline = [];
-        if (isset($parsed['outline']) && is_array($parsed['outline'])) {
-            $outline = $parsed['outline'];
-        }
 
         return [
-            'title'              => trim((string)($parsed['title'] ?? '')),
-            'titles_suggestions' => array_values(array_filter((array)($parsed['titles_suggestions'] ?? []))),
             'content'            => trim((string)($parsed['content'] ?? '')),
-            'meta_title'         => trim((string)($parsed['meta_title'] ?? '')),
-            'meta_description'   => trim((string)($parsed['meta_description'] ?? '')),
-            'image_alt'          => trim((string)($parsed['image_alt'] ?? '')),
-            'links'              => [
-                'internal' => array_values(array_filter((array)($parsed['links']['internal'] ?? []))),
-                'external' => array_values(array_filter((array)($parsed['links']['external'] ?? []))),
-            ],
-            'outline'            => $outline,
         ];
     }
 
@@ -366,6 +347,40 @@ class PluginsAlpha_Gemini
         $desc = trim((string) $parsed['description']);
         if ($desc === '') {
             return new WP_Error('pga_meta_empty', 'Meta description vazia.');
+        }
+
+        return $desc;
+    }
+
+    public static function slug(string $prompt)
+    {
+        $c = self::cfg();
+        if (empty($c['key'])) {
+            return new WP_Error('pga_no_key', 'Chave Gemini não configurada.');
+        }
+
+        $system = "Você é um gerador de META DESCRIÇÕES para SEO. "
+            . "Responda SOMENTE em JSON UTF-8 válido, sem markdown, "
+            . "no formato {\"content\":\"...\"}.";
+
+        $maxTokens = min(600, (int) ($c['max_tokens'] ?? 600));
+
+        $txt = self::call_gemini($system, $prompt, [
+            'max_tokens' => $maxTokens,
+        ]);
+
+        if (is_wp_error($txt)) {
+            return $txt;
+        }
+
+        $parsed = self::extract_json($txt);
+        if (!is_array($parsed) || empty($parsed['content'])) {
+            return new WP_Error('pga_slug', 'Falha ao decodificar slug.');
+        }
+
+        $desc = trim((string) $parsed['content']);
+        if ($desc === '') {
+            return new WP_Error('pga_slug_empty', 'Slug vazia.');
         }
 
         return $desc;

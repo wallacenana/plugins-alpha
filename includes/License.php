@@ -545,7 +545,7 @@ class PluginsAlpha_License
                                 </tr>
 
                                 <tr>
-                                    <th><label for="pga_purchase_orion"><?php esc_html_e('ID da compra — Órion', 'plugins-alpha'); ?></label></th>
+                                    <th><label for="pga_purchase_orion"><?php esc_html_e('1º ID da compra', 'plugins-alpha'); ?></label></th>
                                     <td>
                                         <input type="text"
                                             name="purchase_id_orion"
@@ -559,7 +559,7 @@ class PluginsAlpha_License
                                 </tr>
 
                                 <tr>
-                                    <th><label for="pga_purchase_stories"><?php esc_html_e('ID da compra — Stories', 'plugins-alpha'); ?></label></th>
+                                    <th><label for="pga_purchase_stories"><?php esc_html_e('2º ID da compra', 'plugins-alpha'); ?></label></th>
                                     <td>
                                         <input type="text"
                                             name="purchase_id_stories"

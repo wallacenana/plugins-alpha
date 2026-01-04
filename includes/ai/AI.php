@@ -315,54 +315,70 @@ class PluginsAlpha_AI
 
     public static function meta_description(string $prompt, array $args = [])
     {
-        // 1) Resolve provider (args > settings)
-        $provider = isset($args['provider'])
-            ? (string) $args['provider']
-            : self::get_text_provider();
+        $provider = $args['provider'] ?? self::get_text_provider();
 
-        // 2) Garante credenciais
         $ok = self::ensure_text_provider($provider);
-        if (is_wp_error($ok)) {
-            return $ok;
-        }
+        if (is_wp_error($ok)) return $ok;
 
-        /** 
-         * $class será sempre uma dessas (ambas têm complete()).
-         * Ajusta se você tiver mais providers no futuro.
-         *
-         * @var class-string<
-         *   PluginsAlpha_OpenAI |
-         *   PluginsAlpha_Gemini
-         * > $class 
-         */
         $class = self::resolve_provider($provider);
-        if (is_wp_error($class)) {
-            return $class;
-        }
+        if (is_wp_error($class)) return $class;
 
-        // 3) Esquema mínimo só pra orientar o modelo
         $schema = [
-            'meta_description' => 'string',
+            'description' => 'string',
         ];
 
-        // Chama o complete do provider (OpenAI / Gemini)
-        // Não passo $args aqui pra manter compat com assinatura do OpenAI::complete
         $result = $class::complete($prompt, $schema);
 
         if (is_wp_error($result)) {
             return $result;
         }
 
-        // Se algum provider resolver devolver string crua, aceitamos também
         if (is_string($result)) {
             return $result;
         }
 
-        if (is_array($result) && isset($result['meta_description'])) {
-            return (string) $result['meta_description'];
+        if (is_array($result) && isset($result['content'])) {
+            return (string) $result['content'];
         }
 
-        return new WP_Error('pga_meta_desc_format', 'Formato inesperado para a meta description.');
+        return new WP_Error(
+            'pga_meta_desc_format',
+            'Formato inesperado para a meta description.'
+        );
+    }
+
+    public static function slug(string $prompt, array $args = [])
+    {
+        $provider = $args['provider'] ?? self::get_text_provider();
+
+        $ok = self::ensure_text_provider($provider);
+        if (is_wp_error($ok)) return $ok;
+
+        $class = self::resolve_provider($provider);
+        if (is_wp_error($class)) return $class;
+
+        $schema = [
+            'slug' => 'string',
+        ];
+
+        $result = $class::complete($prompt, $schema);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        if (is_string($result)) {
+            return $result;
+        }
+
+        if (is_array($result) && isset($result['content'])) {
+            return (string) $result['content'];
+        }
+
+        return new WP_Error(
+            'pga_slug_format',
+            'Formato inesperado para a meta description.'
+        );
     }
 
     // ------------------------------------------------------------

@@ -175,7 +175,7 @@ class PluginsAlpha_Generate
       'storysId'  => $target_id,
       'edit_url' => $target_id ? get_edit_post_link($target_id, 'raw') : '',
       'view_url' => $target_id ? get_permalink($target_id) : '',
-      'message'  => 'Story gerada/atualizada com sucesso.',
+      'message'  => 'Story gerada com sucesso.',
     ]);
   }
 }

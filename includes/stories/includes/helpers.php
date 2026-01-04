@@ -266,10 +266,6 @@ class PluginsAlpha_Helpers
     return '';
   }
 
-
-  /** =========================
-   *  IA: gerar e salvar conteúdo
-   *  ========================= */
   /** =========================
    *  IA: gerar e salvar conteúdo (Stories)
    *  ========================= */

@@ -212,7 +212,7 @@ class PluginsAlpha_Images
                 $size = '1024x1792';
             } else {
                 // thumbnail wide
-                $size = '1024x576';
+                $size = '1792x1024';
             }
         }
 
