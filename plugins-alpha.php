@@ -130,15 +130,26 @@ PluginsAlpha_Prompts::register_ajax();
 
 // Ativação/Desativação
 register_activation_hook(PGA_FILE, function () {
-  do_action('plugins_alpha/activate');
 
+  // 🔒 evita rodar fora do admin (segurança)
+  if (!is_admin()) {
+    return;
+  }
+
+  // ✅ garante que o CPT vai existir no flush
+  if (class_exists('PluginsAlpha_CPT_Posts_Orion')) {
+    PluginsAlpha_CPT_Posts_Orion::register();
+  }
+
+  // ✅ flush final
+  flush_rewrite_rules(false);
+
+  // cron/licença depois não atrapalha rewrite
+  do_action('plugins_alpha/activate');
   if (class_exists('PluginsAlpha_License')) {
     PluginsAlpha_License::schedule_cron();
   }
-
-  flush_rewrite_rules();
 });
-
 register_deactivation_hook(PGA_FILE, function () {
   do_action('plugins_alpha/deactivate');
 
@@ -146,7 +157,7 @@ register_deactivation_hook(PGA_FILE, function () {
     PluginsAlpha_License::clear_cron();
   }
 
-  flush_rewrite_rules();
+  flush_rewrite_rules(false);
 });
 
 

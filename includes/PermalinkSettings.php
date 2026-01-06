@@ -27,16 +27,6 @@ class PluginsAlpha_PermalinkSettings
       'permalink',
       'plugins_alpha_permalinks_section'
     );
-
-    add_settings_field(
-      'pga_posts_base',
-      __('Base do Órion Posts', 'plugins-alpha'),
-      [self::class, 'render_posts_field'],
-      'permalink',
-      'plugins_alpha_permalinks_section'
-    );
-
-    // OBS: register_setting não tem efeito nessa tela, pode remover sem problemas.
   }
 
   public static function render_story_field()
@@ -44,13 +34,6 @@ class PluginsAlpha_PermalinkSettings
     $value = get_option('pga_story_base', '');
     echo '<input name="pga_story_base" type="text" value="' . esc_attr($value) . '" class="regular-text" />';
     echo '<p class="description">Slug base das Web Stories (ex: "story", "webstory"). Deixe em branco para usar o padrão.</p>';
-  }
-
-  public static function render_posts_field()
-  {
-    $value = get_option('pga_posts_base', '');
-    echo '<input name="pga_posts_base" type="text" value="' . esc_attr($value) . '" class="regular-text"/>';
-    echo '<p class="description">Slug base dos posts gerados (ex: "orion", "ia-posts"). Deixe em branco para usar o padrão.</p>';
   }
 
   public static function handle_save()

@@ -26,10 +26,6 @@ class PluginsAlpha_CPT_Posts_Orion
   {
     // já existentes
     add_action('init', [self::class, 'register']);
-    add_action('update_option_' . self::OPTION_BASE, [self::class, 'on_change_base'], 10, 2);
-    // add_action('init', [self::class, 'add_rewrite_rules'], 20);
-    // add_filter('query_vars', [self::class, 'register_query_var']);
-    // add_action('parse_request', [self::class, 'parse_request']);
     add_filter('post_type_link', [self::class, 'filter_permalink'], 10, 4);
 
     if (is_admin()) {
@@ -43,15 +39,18 @@ class PluginsAlpha_CPT_Posts_Orion
     add_action('pre_get_posts', [self::class, 'include_in_term_archives']);
 
     add_action('add_meta_boxes', function () {
-      add_meta_box(
-        'pga_regen_thumb',
-        'Thumbnail',
-        [self::class, 'pga_render_regen_thumb_box'],
-        'posts_orion',
-        'side',
-        'low'
-      );
+      foreach (['posts_orion', 'post'] as $pt) {
+        add_meta_box(
+          'pga_regen_thumb',
+          'Thumbnail',
+          [self::class, 'pga_render_regen_thumb_box'],
+          $pt,
+          'side',
+          'low'
+        );
+      }
     });
+
     add_action('wp_ajax_pga_regen_thumb', function () {
       if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'pga_regen_thumb')) {
         wp_send_json_error('Nonce inválido.');
@@ -65,6 +64,10 @@ class PluginsAlpha_CPT_Posts_Orion
       $post = get_post($post_id);
       if (!$post) {
         wp_send_json_error('Post inexistente.');
+      }
+
+      if (!current_user_can('edit_post', $post_id)) {
+        wp_send_json_error('Sem permissão para editar este post.');
       }
 
       $raw_prompt = isset($_POST['prompt']) ? trim((string) wp_unslash($_POST['prompt'])) : '';
@@ -148,31 +151,21 @@ class PluginsAlpha_CPT_Posts_Orion
       delete_post_thumbnail($post_id);          // opcional, mas ajuda a garantir
       set_post_thumbnail($post_id, $thumb_id);
 
+      $thumb_html = '';
+      if (function_exists('_wp_post_thumbnail_html')) {
+        $thumb_html = _wp_post_thumbnail_html($thumb_id, $post_id);
+      }
+
       // se quiser já devolver a nova URL pro JS atualizar na hora
       $new_thumb_url = get_the_post_thumbnail_url($post_id, 'full');
 
       wp_send_json_success([
-        'thumb_id'  => $thumb_id,
-        'thumb_url' => $new_thumb_url,
-        'message'   => 'Thumbnail regenerada com sucesso.',
+        'thumb_id'   => $thumb_id,
+        'thumb_url'  => $new_thumb_url,
+        'thumb_html' => $thumb_html,
+        'message'    => 'Thumbnail regenerada com sucesso.',
       ]);
     });
-  }
-
-  public static function on_change_base($old_value, $value): void
-  {
-    // Evita flush desnecessário
-    $old = trim((string)$old_value);
-    $new = trim((string)$value);
-
-    if ($old === $new) {
-      return;
-    }
-
-    // Garante que o CPT esteja registrado antes de flushear
-    self::register();
-
-    flush_rewrite_rules(false);
   }
 
   public static function pga_render_regen_thumb_box($post)
@@ -182,8 +175,7 @@ class PluginsAlpha_CPT_Posts_Orion
     echo '<p>Use IA para gerar ou substituir a imagem destacada deste Órion Post.</p>';
 
     echo '<p><label for="pga_regen_thumb_prompt"><strong>Prompt da imagem</strong></label><br />';
-    echo '<textarea id="pga_regen_thumb_prompt" rows="3" style="width:100%;" placeholder="Ex.: Ilustração realista de 
-    um gato usando coleira com rastreador, fundo claro, estilo fotográfico, 16:9."></textarea></p>';
+    echo '<textarea id="pga_regen_thumb_prompt" rows="3" style="width:100%;" placeholder="Ex.: Ilustração realista de um gato usando coleira com rastreador, fundo claro, estilo fotográfico, 16:9."></textarea></p>';
 
     echo '<button 
         type="button" 
@@ -360,23 +352,6 @@ class PluginsAlpha_CPT_Posts_Orion
     }
   }
 
-  /**
-   * Lê a base de URL do banco de dados.
-   * - Se vazio: usamos slug direto na raiz (/slug-do-post).
-   * - Se preenchido: /base/slug-do-post.
-   */
-  protected static function get_base_slug(): string
-  {
-    $base = trim((string) get_option(self::OPTION_BASE, ''), '/');
-
-    // se vazio, define um padrão seguro
-    if ($base === '') {
-      $base = 'blog';
-    }
-
-    return $base;
-  }
-
   public static function register(): void
   {
     $labels = [
@@ -408,8 +383,6 @@ class PluginsAlpha_CPT_Posts_Orion
       'post-formats',
     ];
 
-    $base = self::get_base_slug();
-
     register_post_type('posts_orion', [
       'public'             => true,
       'show_ui'            => true,
@@ -421,59 +394,18 @@ class PluginsAlpha_CPT_Posts_Orion
       'taxonomies'         => ['category', 'post_tag'],
       'capability_type'    => 'post',
       'publicly_queryable' => true,
-      'rewrite'            => [
-        'slug'       => $base,
+
+      // ✅ permalink fixo: /orion/slug
+      'rewrite' => [
+        'slug'       => 'orion',
         'with_front' => false,
       ],
-      'has_archive'        => $base,
-      'query_var'          => true,
+      'has_archive' => 'orion',
+      'query_var'   => true,
     ]);
   }
 
-  /**
-   * Regras de rewrite:
-   * - Se base vazia:   /slug-do-post -> posts_orion
-   * - Se base "orion": /orion/slug-do-post -> posts_orion
-   */
-  public static function add_rewrite_rules(): void
-  {
-    $base = self::get_base_slug();      // aqui NUNCA é vazio
-    $base_regex = preg_quote($base, '#');
 
-    add_rewrite_rule(
-      '^' . $base_regex . '/([^/]+)/?$',
-      'index.php?' . self::QUERY_VAR . '=$matches[1]',
-      'top'
-    );
-  }
-
-  /**
-   * Registra nossa query var custom pra WP não descartar.
-   */
-  public static function register_query_var(array $vars): array
-  {
-    $vars[] = self::QUERY_VAR;
-    return $vars;
-  }
-
-  /**
-   * Converte a query var interna em uma query padrão de single de posts_orion.
-   */
-  public static function parse_request(\WP $wp): void
-  {
-    if (empty($wp->query_vars[self::QUERY_VAR])) {
-      return;
-    }
-
-    $slug = sanitize_title($wp->query_vars[self::QUERY_VAR]);
-
-    // Dizemos ao WP: é um single de posts_orion com esse slug
-    $wp->query_vars['post_type'] = 'posts_orion';
-    $wp->query_vars['name']      = $slug;
-
-    // Evita conflito com pagename
-    unset($wp->query_vars['pagename']);
-  }
 
   /**
    * Ajusta o permalink dos posts_orion para bater com as nossas regras:
@@ -490,15 +422,7 @@ class PluginsAlpha_CPT_Posts_Orion
       return $permalink;
     }
 
-    $base = self::get_base_slug(); // ex: "blog"
-
-    /**
-     * Caso especial: SAMPLE LINK (usado no editor quando você mexe na slug)
-     *
-     * Nesse momento o WP quer manter o marcador %postname%
-     * ou o slug que ainda nem foi salvo. Se a gente sempre
-     * usar $post->post_name, quebra a edição da slug.
-     */
+    $base = 'orion';
     if ($sample) {
       // Se o permalink original tem %postname%, mantemos ele
       if (strpos($permalink, '%postname%') !== false) {
