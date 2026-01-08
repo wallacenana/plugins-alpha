@@ -20,59 +20,129 @@ class PluginsAlpha_Pages_Generator
           . '</a></p></div>';
       }
       ?>
-      <h1>Gerador — Alpha Órion</h1>
-      <p>Obs.: Você pode criar modelos personalizados para a sua necessidade e com isso editar também os prompts referente a cada um deles.</p>
       <div class="wrap pga-layout">
+        <div class="pga-header-fixed">
+          <div class="pga-header-col">
+            <h1><?php esc_html_e('Gerador — Alpha Órion', 'plugins-alpha'); ?></h1>
+            <p class="pga-descricao"><?php esc_html_e('Criação e automação de conteúdo com IA', 'plugins-alpha'); ?></p>
+          </div>
+          <div class="pga-header-col pga-a-center ">
+            <button
+              title="<?php esc_html_e('Salvar palavras-chave', 'plugins-alpha'); ?>"
+              type="button"
+              class="pga_save_box"
+              id="pga_save_keywords">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save h-4 w-4 mr-2">
+                <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
+                <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
+                <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
+              </svg>
+            </button>
+            <?php
+            $val_default = $val_default ?? date_i18n('Y-m-d\TH:i', current_time('timestamp') + 2 * HOUR_IN_SECONDS);
+            ?>
+            <div class="pga-global-wrap" style="display:flex;align-items:center;gap:10px">
+              <label class="pga-switch">
+                <input type="checkbox" id="pga_plan_global_toggle">
+                <span class="pga-switch-ui" aria-hidden="true"></span>
+                <span class="pga-switch-label">Global</span>
+              </label>
+
+
+              <div id="pga_plan_custom_top" style="display:none;align-items:center;gap:10px;">
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <span><?php echo esc_html__('Total', 'plugins-alpha'); ?></span>
+                  <input id="pga_plan_total" type="number" min="1" step="1" value="30" style="width:90px;">
+                </label>
+
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <span><?php echo esc_html__('Início', 'plugins-alpha'); ?></span>
+                  <input id="pga_plan_start" type="datetime-local" value="<?php echo esc_attr($val_default); ?>" style="width:200px;">
+                </label>
+              </div>
+            </div>
+
+            <?php
+            $label = esc_html__('Planejar & Gerar', 'plugins-alpha');
+
+            echo $chk['ok']
+              ? '<button type="button" id="pga_plan"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles h-4 w-4 mr-2"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg> ' . $label . '</button>'
+              : '<button type="button" id="pga_plan" disabled> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles h-4 w-4 mr-2"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg>' . $label . '</button>';
+            ?>
+          </div>
+        </div>
         <div class="pga-main">
+          <!-- Tabs -->
+          <div class="pga-tabsbar">
+            <div id="pga_tabs"></div>
+            <button type="button" class="button" id="pga_tab_add">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="lucide lucide-plus h-4 w-4">
+                <path d="M5 12h14"></path>
+                <path d="M12 5v14"></path>
+              </svg> <?php esc_html_e('Novo projeto', 'plugins-alpha'); ?></button>
+          </div>
           <!-- Contêiner de grupos -->
           <div id="pga_gen_container">
-
-            <!-- GRUPO 1 (colapse) -->
             <div class="pga-gen-box pga-collapse" data-gen="1">
-              <!-- Cabeçalho do colapse com título dinâmico -->
               <div class="pga-collapse-head">
                 <button type="button" class="button pga-collapse-toggle">
-                  <span class="pga-gen-title">Título</span>
+                  <span class="pga-gen-title"><?php esc_html_e('Título', 'plugins-alpha'); ?></span>
                   <span class="pga-actions-colapse">
+                    <label class="pga-switch  pga_custom_wrap" style="display: none;">
+                      <input type="checkbox" class="pga_custom_enabled" checked>
+                      <span class="pga-switch-ui" aria-hidden="true"></span>
+                    </label>
                     <span type="button" class="pga-copy-box" title="Duplicar este grupo" data-tooltip="Duplicar este grupo">
-                      <span class="pga-icon">📋</span>
-                    </span>
-                    <span type="button" class="pga_remove_box" title="Remover este grupo" data-tooltip="Remover este grupo">
-                      <span class="pga-icon">🗑️</span>
-                      <span class="dashicons dashicons-arrow-up-alt2 pga-collapse-chevron" aria-hidden="true"></span>
+                      <span class="pga-icon"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3">
+                          <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
+                        </svg></span>
                     </span>
                   </span>
                 </button>
               </div>
-
-              <!-- Corpo do colapse -->
               <div class="pga-collapse-body">
-
                 <div class="pga-card">
                   <div class="pga-row between">
-                    <div class="pga-field" style="width:100%;">
-                      <label for="pga_keywords">Keywords</label>
+                    <div class="pga-field" style="width:100%; position: relative">
+                      <div class="pga-field pga-actions-unit">
+                        <button
+                          type="button"
+                          class="pga_import_box"
+                          title="Importar keywords (.txt)">
+                          <span class="pga-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
+                              <path d="M480-240 240-480l56-56 144 144v-368h80v368l144-144 56 56-240 240Z" />
+                            </svg>
+                          </span>
+                        </button>
+
+                        <!-- Exportar -->
+                        <button
+                          type="button"
+                          class="pga_export_box"
+                          title="Exportar keywords (.txt)">
+                          <span class="pga-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
+                              <path d="M280-160v-80h400v80H280Zm160-160v-327L336-544l-56-56 200-200 200 200-56 56-104-103v327h-80Z" />
+                            </svg>
+                          </span>
+                        </button>
+                      </div>
+                      <label for="pga_keywords"><?php esc_html_e('Keywords (1 por linha)', 'plugins-alpha'); ?></label>
                       <textarea
                         id="pga_keywords"
                         class="pga_keywords"
                         rows="16"
-                        placeholder="Uma por linha"></textarea>
+                        placeholder="<?php esc_html_e('Digite uma keyword por linha...', 'plugins-alpha'); ?>"></textarea>
                     </div>
                   </div>
 
                   <div class="pga-row">
                     <div class="pga-field">
-                      <label for="pga_locale">Locale</label>
-                      <select id="pga_locale" class="pga_locale">
-                        <option value="pt_BR" <?php selected(($opt['defaults']['locale'] ?? '') === 'pt_BR'); ?>>Português (Brasil)</option>
-                        <option value="en_US" <?php selected(($opt['defaults']['locale'] ?? '') === 'en_US'); ?>>English (US)</option>
-                        <option value="es_ES" <?php selected(($opt['defaults']['locale'] ?? '') === 'es_ES'); ?>>Español</option>
-                        <option value="fr_FR" <?php selected(($opt['defaults']['locale'] ?? '') === 'fr_FR'); ?>>Français</option>
-                      </select>
-                    </div>
-
-                    <div class="pga-field">
-                      <label>Modelo de Post</label>
+                      <label for="pga_template_key"><?php esc_html_e('Modelo de Post', 'plugins-alpha'); ?></label>
                       <?php
                       $tpls_enabled = class_exists('PluginsAlpha_Orion_Templates')
                         ? PluginsAlpha_Orion_Templates::get_enabled()
@@ -92,7 +162,7 @@ class PluginsAlpha_Pages_Generator
                     </div>
 
                     <div class="pga-field">
-                      <label>Categoria</label>
+                      <label for="pga_category"><?php esc_html_e('Categoria', 'plugins-alpha'); ?></label>
                       <?php
                       wp_dropdown_categories([
                         'show_option_none'  => '— Sem categoria —',
@@ -111,72 +181,48 @@ class PluginsAlpha_Pages_Generator
                     </div>
 
                     <div class="pga-field">
-                      <label>Quantidade total</label>
-                      <input id="pga_total" class="pga_total" type="number" min="1" step="1" value="6">
-                    </div>
-
-                    <div class="pga-field">
-                      <label>Posts por dia</label>
-                      <input id="pga_per_day" class="pga_per_day" type="number" min="1" step="1" value="3">
-                    </div>
-
-                    <div class="pga-field">
-                      <label for="pga_first_delay_hours">Inicio da programação</label>
-                      <?php
-                      $ts_default  = current_time('timestamp') + 2 * HOUR_IN_SECONDS;
-                      $val_default = date_i18n('Y-m-d\TH:i', $ts_default);
-                      ?>
-                      <input
-                        id="pga_first_delay_hours"
-                        class="pga_first_delay_hours"
-                        type="datetime-local"
-                        class="regular-text"
-                        value="<?php echo esc_attr($val_default); ?>" />
-                    </div>
-
-                    <div class="pga-field">
-                      <label for="pga_length">Extensão</label>
+                      <label for="pga_length"><?php esc_html_e('Extensão', 'plugins-alpha'); ?></label>
                       <select id="pga_length" class="pga_length">
-                        <option value="short">Pequeno</option>
-                        <option value="medium">Médio</option>
-                        <option value="long">Longo</option>
-                        <option value="extra-long">Extra Longo</option>
+                        <option value="short"><?php esc_html_e('Pequeno', 'plugins-alpha'); ?></option>
+                        <option value="medium"><?php esc_html_e('Médio', 'plugins-alpha'); ?></option>
+                        <option value="long"><?php esc_html_e('Longo', 'plugins-alpha'); ?></option>
+                        <option value="extra-long"><?php esc_html_e('Extra Longo', 'plugins-alpha'); ?></option>
                       </select>
                     </div>
                     <!-- ... dentro da pga-row de campos do grupo ... -->
 
                     <div class="pga-field">
-                      <label for="">Links internos</label>
-                      <select class="pga_link_mode">
-                        <option value="none">Sem link interno</option>
-                        <option value="auto">Automático</option>
-                        <option value="pillar">Post pilar</option>
-                        <option value="manual">Manual</option>
+                      <label for="pga_link_mode"><?php esc_html_e('Links internos', 'plugins-alpha'); ?></label>
+                      <select id="pga_link_mode" class="pga_link_mode">
+                        <option value="none"><?php esc_html_e('Sem link interno', 'plugins-alpha'); ?></option>
+                        <option value="auto"><?php esc_html_e('Automático', 'plugins-alpha'); ?></option>
+                        <option value="pillar"><?php esc_html_e('Post pilar', 'plugins-alpha'); ?></option>
+                        <option value="manual"><?php esc_html_e('Manual', 'plugins-alpha'); ?></option>
                       </select>
                     </div>
 
                     <div class="pga-field pga_link_extra" style="display:none">
-                      <label>Links por post</label>
+                      <label><?php esc_html_e('Links por post', 'plugins-alpha'); ?></label>
                       <select class="pga_link_max">
-                        <option value="1">1 link</option>
-                        <option value="2">2 links</option>
-                        <option value="3">3 links</option>
-                        <option value="4">4 links</option>
-                        <option value="5">5 links</option>
-                        <option value="6">6 links</option>
-                        <option value="7">7 links</option>
-                        <option value="8">8 links</option>
-                        <option value="9">9 links</option>
-                        <option value="10">10 links</option>
-                        <option value="11">11 links</option>
-                        <option value="12">12 links</option>
-                        <option value="13">13 links</option>
-                        <option value="14">14 links</option>
-                        <option value="15">15 links</option>
+                        <option value="1"><?php esc_html_e('1 link', 'plugins-alpha'); ?></option>
+                        <option value="2"><?php esc_html_e('2 links', 'plugins-alpha'); ?></option>
+                        <option value="3"><?php esc_html_e('3 links', 'plugins-alpha'); ?></option>
+                        <option value="4"><?php esc_html_e('4 links', 'plugins-alpha'); ?></option>
+                        <option value="5"><?php esc_html_e('5 links', 'plugins-alpha'); ?></option>
+                        <option value="6"><?php esc_html_e('6 links', 'plugins-alpha'); ?></option>
+                        <option value="7"><?php esc_html_e('7 links', 'plugins-alpha'); ?></option>
+                        <option value="8"><?php esc_html_e('8 links', 'plugins-alpha'); ?></option>
+                        <option value="9"><?php esc_html_e('9 links', 'plugins-alpha'); ?></option>
+                        <option value="10"><?php esc_html_e('10 links', 'plugins-alpha'); ?></option>
+                        <option value="11"><?php esc_html_e('11 links', 'plugins-alpha'); ?></option>
+                        <option value="12"><?php esc_html_e('12 links', 'plugins-alpha'); ?></option>
+                        <option value="13"><?php esc_html_e('13 links', 'plugins-alpha'); ?></option>
+                        <option value="14"><?php esc_html_e('14 links', 'plugins-alpha'); ?></option>
+                        <option value="15"><?php esc_html_e('15 links', 'plugins-alpha'); ?></option>
                       </select>
                     </div>
                     <div class="pga-field pga_link_manual_wrapper" style="display:none">
-                      <label>Posts para linkar (modo manual)</label>
+                      <label><?php esc_html_e('Posts para linkar (modo manual)', 'plugins-alpha'); ?></label>
                       <?php
                       // últimos posts Orion (ajuste o post_type se for outro)
                       $orion_posts = get_posts([
@@ -198,93 +244,111 @@ class PluginsAlpha_Pages_Generator
                             </option>
                           <?php endforeach; ?>
                         <?php else : ?>
-                          <option value="" disabled>Nenhum post Órion publicado ainda.</option>
+                          <option value="" disabled><?php esc_html_e('Nenhum post Órion publicado ainda.', 'plugins-alpha'); ?></option>
                         <?php endif; ?>
                       </select>
                     </div>
+                    <div class="pga-field">
+                      <label for="pga_locale"><?php esc_html_e('Idioma', 'plugins-alpha'); ?></label>
+                      <select id="pga_locale" class="pga_locale">
+                        <option value="pt_BR" <?php selected(($opt['defaults']['locale'] ?? '') === 'pt_BR'); ?>>Português (Brasil)</option>
+                        <option value="en_US" <?php selected(($opt['defaults']['locale'] ?? '') === 'en_US'); ?>>English (US)</option>
+                        <option value="es_ES" <?php selected(($opt['defaults']['locale'] ?? '') === 'es_ES'); ?>>Español</option>
+                        <option value="fr_FR" <?php selected(($opt['defaults']['locale'] ?? '') === 'fr_FR'); ?>>Français</option>
+                      </select>
+                    </div>
+                    <div class="pga-plan">
+                      <div class="pga-field pga-field-total">
+                        <label for="pga_total"><?php esc_html_e('Quantidade total', 'plugins-alpha'); ?></label>
+                        <input id="pga_total" class="pga_total" type="number" min="1" step="1" value="6">
+                      </div>
 
-                    <div class="pga-actions-unit pga-icon-buttons">
-                      <!-- Gerar -->
-                      <button
-                        type="button"
-                        class="pga_generate_box pga-icon-btn pga-btn-generate"
-                        data-tooltip="Gerar deste grupo">
-                        <span class="pga-icon">🪄</span>
-                      </button>
+                      <div class="pga-field pga_quota_wrap" style="display:none">
+                        <label for="pga_quota_day"><?php esc_html_e('Quota (posts/dia)', 'plugins-alpha'); ?></label>
+                        <input class="pga_quota_day" type="number" min="0" step="1" value="1">
+                      </div>
 
-                      <!-- Salvar configurações -->
-                      <button
-                        type="button"
-                        class="pga_save_box pga-icon-btn pga-btn-save"
-                        data-tooltip="Salvar configurações deste grupo">
-                        <span class="pga-icon">💾</span>
-                      </button>
-                      <!-- Gerar kewywords -->
-                      <button
-                        type="button"
-                        class="pga_generate_keywords pga-icon-btn"
-                        data-tooltip="Gerar keywords">
-                        <span class="pga-icon">⚡</span>
-                      </button>
-                      <!-- Importar -->
-                      <button
-                        type="button"
-                        class="pga_import_box pga-icon-btn pga-btn-import"
-                        data-tooltip="Importar keywords (.txt)">
-                        <span class="pga-icon">⬅️</span>
-                      </button>
+                      <div class="pga-field">
+                        <label for="pga_per_day"><?php esc_html_e('Posts por dia', 'plugins-alpha'); ?></label>
+                        <input id="pga_per_day" class="pga_per_day" type="number" min="1" step="1" value="3">
+                      </div>
 
-                      <!-- Exportar -->
-                      <button
-                        type="button"
-                        class="pga_export_box pga-icon-btn pga-btn-export"
-                        data-tooltip="Exportar keywords (.txt)">
-                        <span class="pga-icon">➡️</span>
-                      </button>
-
-                      <!-- Limpar -->
-                      <button
-                        type="button"
-                        class="pga_clear_box pga-icon-btn pga-btn-delete"
-                        data-tooltip="Limpar keywords deste grupo">
-                        <span class="pga-icon">🗑️</span>
-                      </button>
-
+                      <div class="pga-field pga-field-program">
+                        <label for="pga_first_delay_hours"><?php esc_html_e('Inicio', 'plugins-alpha'); ?></label>
+                        <?php
+                        $ts_default  = current_time('timestamp') + 2 * HOUR_IN_SECONDS;
+                        $val_default = date_i18n('Y-m-d\TH:i', $ts_default);
+                        ?>
+                        <input
+                          id="pga_first_delay_hours"
+                          class="pga_first_delay_hours"
+                          type="datetime-local"
+                          class="regular-text"
+                          value="<?php echo esc_attr($val_default); ?>" />
+                      </div>
                     </div>
                   </div>
+
+                </div>
+                <div class="pga-generator-footer">
+                  <button type="button" class="pga_save_box">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save h-4 w-4 mr-2">
+                      <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
+                      <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
+                      <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
+                    </svg>
+                    <?php esc_html_e('Salvar modelo', 'plugins-alpha'); ?>
+                  </button>
+                  <button type="button" class="pga_generate_box">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-zap h-4 w-4 mr-2">
+                      <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
+                      </path>
+                    </svg>
+                    <?php esc_html_e('Gerar agora', 'plugins-alpha'); ?>
+                  </button>
+                  <button type="button" class="pga_generate_keywords">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles h-4 w-4 mr-2">
+                      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 
+                      .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
+                      <path d="M20 3v4"></path>
+                      <path d="M22 5h-4"></path>
+                      <path d="M4 17v2"></path>
+                      <path d="M5 18H3"></path>
+                    </svg>
+                    <?php esc_html_e('Gerar keywords', 'plugins-alpha'); ?>
+                  </button>
+                  <button type="button" class="pga_clear_box">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2 h-4 w-4 mr-2">
+                      <path d="M3 6h18"></path>
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                      <line x1="10" x2="10" y1="11" y2="17"></line>
+                      <line x1="14" x2="14" y1="11" y2="17"></line>
+                    </svg>
+                    <?php esc_html_e('Excluir', 'plugins-alpha'); ?>
+                  </button>
                 </div>
               </div>
             </div>
           </div>
+          <button class="pga-add-container" id="pga_add_box">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus h-4 w-4">
+              <path d="M5 12h14"></path>
+              <path d="M12 5v14"></path>
+            </svg>
+            <?php esc_html_e('Adicionar gerador', 'plugins-alpha'); ?>
+          </button>
         </div>
       </div>
     </div>
     <div class="pga-footer-fixed">
-      <?php
-      echo $chk['ok']
-        ? '<button class="button button-primary" id="pga_plan">🪄 Planejar &amp; Gerar</button>'
-        : '<button class="button button-primary" id="pga_plan" disabled>🪄 Planejar &amp; Gerar</button>';
-      ?>
       <div class="pga-footer-actions">
         <div class="pga-actions-unit pga-icon-buttons">
-          <!-- Salvar configurações -->
-          <button type="button" class="pga_save_box pga-icon-btn pga-btn-save" data-tooltip="Salvar todas configurações" id="pga_save_keywords">
-            <span class="pga-icon">💾</span>
-          </button>
-
-          <!-- Importar -->
-          <button type="button" class="pga_import_box pga-icon-btn pga-btn-import" id="pga_add_box" data-tooltip="Adicionar grupo de geração">
-            <span class="pga-icon">➕</span>
-          </button>
-          <button type="button" class="pga_import_box pga-icon-btn pga-btn-import" data-tooltip="Importar keywords (.txt)">
-            <span class="pga-icon">⬅️</span>
-          </button>
-
-          <!-- Exportar -->
-          <button type="button" class="pga_export_box pga-icon-btn pga-btn-export" data-tooltip="Exportar keywords (.txt)">
-            <span class="pga-icon">➡️</span>
-          </button>
-
           <div class="pga-done-dropup">
             <button
               type="button"

@@ -4,7 +4,11 @@
   const NONCE = PGA_CFG.nonce;
 
   const PREF_KEY = 'pga_prefs_v1';
-  const GROUPS_KEY = 'pga_gen_groups_v1';
+  const pillarId = window.PGA_PILLAR_ID || 0;
+  const GROUPS_KEY = `pga_gen_groups_v1_${pillarId}`;
+  // trava saves durante rebuild/load
+  let PGA_LOADING_GROUPS = false;
+
 
   // Flag global pra saber se há geração em andamento
   window.PGA_IS_GENERATING = window.PGA_IS_GENERATING || false;
@@ -22,6 +26,21 @@
       return msg;
     });
   }
+
+  function pgaToast(icon, title, timer = 1800) {
+    if (!window.Swal) return;
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: icon || 'success',
+      title: title || '',
+      timer,
+      timerProgressBar: true,
+      showConfirmButton: false,
+      customClass: { popup: 'pga-toast-offset' }
+    });
+  }
+
 
   function loadPrefs() {
     try {
@@ -132,7 +151,6 @@
     });
   }
 
-
   // === Collapse toggle (qualquer grupo) ===
   $(document).on('click', '.pga-collapse-toggle', function () {
     const $box = $(this).closest('.pga-gen-box');
@@ -241,14 +259,14 @@
     const lengthLabel = ($box.find('.pga_length option:selected').text() || '').trim() || 'Extensão';
 
     // 🔹 título curto (visível)
-    const visibleTitle = `${model} – ${cat}`;
+    const visibleTitle = `<span class="pga-model">${model}</span> <span class="pga-category-colapse">${cat}</span>`;
 
     // 🔹 título completo (tooltip)
     const fullTitle = `${model} – ${cat} – ${loc} – ${total} posts – ${perDay}/dia – ${lengthLabel}`;
 
     $box
       .find('.pga-gen-title')
-      .text(visibleTitle)
+      .html(visibleTitle)
       .attr('title', fullTitle); // tooltip nativo do browser
   }
 
@@ -343,24 +361,76 @@
     pgaSyncLinkOptionsForBox($box);
     pgaUpdateBoxTitle($box);
   }
+
+  function pgaGetTabId() {
+    try {
+      const u = new URL(window.location.href);
+      return (u.searchParams.get('tab') || '').trim();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // Se não tiver ?tab=, usa "default" (não quebra nada e mantém compatível)
+  function pgaGroupsStorageKey() {
+    const tabId = pgaGetTabId() || 'default';
+    return `${GROUPS_KEY}_${tabId}`;
+  }
+
+
   // salva TODOS os grupos no localStorage
   function pgaSaveBoxesToLocal() {
+    if (PGA_LOADING_GROUPS) return; // <<<<<< essencial
+
     try {
       const all = [];
       $('#pga_gen_container .pga-gen-box').each(function () {
         all.push(pgaSerializeBox($(this)));
       });
-      localStorage.setItem(GROUPS_KEY, JSON.stringify(all));
-    } catch (e) { /* silencioso */ }
+
+      // se por algum motivo não achou boxes, NÃO grava [] (evita matar legacy/tab)
+      if (!all.length) return;
+
+      localStorage.setItem(pgaGroupsStorageKey(), JSON.stringify(all));
+    } catch (e) {
+      // não silencie agora enquanto testa:
+      console.warn('[PGA] save failed', e);
+    }
   }
+
 
   // recria os grupos a partir do localStorage
   function pgaLoadBoxesFromLocal() {
     let data = [];
+
+    // 1) tenta ler por TAB
+    let rawTab = '';
     try {
-      data = JSON.parse(localStorage.getItem(GROUPS_KEY) || '[]');
-    } catch (e) {
-      data = [];
+      rawTab = localStorage.getItem(pgaGroupsStorageKey()) || '';
+    } catch (e) { rawTab = ''; }
+
+    // 2) parse tab (se tiver)
+    let tabData = [];
+    if (rawTab) {
+      try { tabData = JSON.parse(rawTab || '[]'); } catch (e) { tabData = []; }
+      if (!Array.isArray(tabData)) tabData = [];
+    }
+
+    // 3) fallback legado se TAB não tem dados reais (vazio OU [])
+    if (!tabData.length) {
+      let rawLegacy = '';
+      try {
+        rawLegacy = localStorage.getItem(GROUPS_KEY) || '';
+      } catch (e) { rawLegacy = ''; }
+
+      if (rawLegacy) {
+        try { data = JSON.parse(rawLegacy || '[]'); } catch (e) { data = []; }
+        if (!Array.isArray(data)) data = [];
+      } else {
+        data = [];
+      }
+    } else {
+      data = tabData;
     }
 
     const $container = $('#pga_gen_container');
@@ -373,6 +443,9 @@
       });
       return;
     }
+
+    // 4) trava saves enquanto recria/aplica (ESSENCIAL)
+    PGA_LOADING_GROUPS = true;
 
     const $tplClone = $template.clone(true, true);
     $container.empty();
@@ -398,8 +471,18 @@
       pgaApplyBoxConfig($box, cfg);
       $container.append($box);
     });
-  }
 
+    // 5) destrava saves
+    PGA_LOADING_GROUPS = false;
+
+    // 6) migra legado -> tab, MAS só se tab estava vazia e data tem conteúdo
+    try {
+      const hasTabRaw = !!rawTab && rawTab !== '[]';
+      if (!hasTabRaw && data.length) {
+        localStorage.setItem(pgaGroupsStorageKey(), JSON.stringify(data));
+      }
+    } catch (e) { }
+  }
 
   // === Botão "Adicionar grupo" ===
   $(document).on('click', '#pga_add_box', function () {
@@ -455,7 +538,7 @@
     pgaSyncLinkOptionsForBox($clone);
     initLinkManualSelect2($clone);
     pgaUpdateBoxTitle($clone);
-    pgaSaveBoxesToLocal();
+    window.PGA_IS_GENERATING = true;
   });
 
   // Atualiza o título do primeiro grupo ao carregar
@@ -742,10 +825,63 @@
     return true;
   }
 
+  function pgaBuildPlannedKeywordsByPerDay(groups, totalGlobal) {
+    const out = [];
+    const idx = groups.map(() => 0);
+
+    while (out.length < totalGlobal) {
+      let added = 0;
+
+      for (let gi = 0; gi < groups.length && out.length < totalGlobal; gi++) {
+        const g = groups[gi];
+        const w = Math.max(0, parseInt(g.perDay || 0, 10) || 0);
+        if (!w) continue;
+
+        for (let k = 0; k < w && out.length < totalGlobal; k++) {
+          const pos = idx[gi];
+          const kw = (g.keywords[pos] || '').trim();
+          if (!kw) break;
+
+          out.push({ kw, boxEl: g.$box[0] }); // ✅ guarda origem
+          idx[gi] = pos + 1;
+          added++;
+        }
+      }
+
+      if (added === 0) break;
+    }
+
+    return out;
+  }
+
+  function pgaGlobalIsOn() {
+    return !!document.getElementById('pga_plan_global_toggle')?.checked;
+  }
+
+  function pgaGlobalToggleUI() {
+    const on = pgaGlobalIsOn();
+    $('#pga_plan_custom_top').css('display', on ? 'flex' : 'none');
+
+    // quando GLOBAL ligado: esconde total/per_day/inicio dentro dos geradores
+    $('#pga_gen_container .pga-field-total').css('display', on ? 'none' : '');
+    $('#pga_gen_container .pga-field-program').css('display', on ? 'none' : '');
+
+    // mostra checkbox "incluir na geração" por gerador (se você quiser usar)
+    $('#pga_gen_container .pga_custom_wrap').css('display', on ? '' : 'none');
+  }
+
+  $(document).off('change.pgaGlobal').on('change.pgaGlobal', '#pga_plan_global_toggle', function () {
+    pgaGlobalToggleUI();
+    window.PGA_IS_GENERATING = true;
+  });
+
+  // init
+  pgaGlobalToggleUI();
 
   // ============================================================
   // ========== BLOCO: GERADOR (keywords/plan/generate) ==========
   // ============================================================
+
   async function bootGenerator() {
     const $kw = $('#pga_keywords');
     const $done = $('#pga_kw_done');
@@ -907,19 +1043,71 @@
       URL.revokeObjectURL(a.href);
     });
 
+
     // Limpar apenas o grupo atual
-    $(document).off('click.pgaClearBox').on('click.pgaClearBox', '.pga_clear_box', async function () {
+    $(document).off('click.pgaDeleteGenerator').on('click.pgaDeleteGenerator', '.pga_clear_box', async function () {
       const $box = $(this).closest('.pga-gen-box');
+      const $container = $('#pga_gen_container');
+      const totalBoxes = $container.find('.pga-gen-box').length;
+
+      if (!$box.length) return;
+
+      // se for o único, só limpa
+      if (totalBoxes <= 1) {
+        const ok = window.Swal
+          ? (await Swal.fire({
+            icon: 'warning',
+            title: 'Limpar este gerador?',
+            text: 'Este é o único gerador. Vamos apenas limpar os campos.',
+            showCancelButton: true,
+            confirmButtonText: 'Limpar',
+            cancelButtonText: 'Cancelar',
+          })).isConfirmed
+          : confirm('Este é o único gerador. Limpar os campos?');
+
+        if (!ok) return;
+
+        $box.find('.pga_keywords').val('');
+        $box.find('.pga_total').val('6');
+        $box.find('.pga_per_day').val('3');
+        $box.find('.pga_template_key').val('discover_article');
+        $box.find('.pga_locale').val('pt_BR');
+        $box.find('.pga_length').val('short');
+        $box.find('.pga_category').val('0');
+
+        pgaUpdateBoxTitle($box);
+        window.PGA_IS_GENERATING = true;
+        return;
+      }
+
       const ok = window.Swal
         ? (await Swal.fire({
           icon: 'warning',
-          title: 'Limpar keywords deste grupo?',
-          showCancelButton: true
+          title: 'Excluir gerador?',
+          text: 'Este gerador será removido.',
+          showCancelButton: true,
+          confirmButtonText: 'Excluir',
+          cancelButtonText: 'Cancelar',
         })).isConfirmed
-        : confirm('Limpar keywords deste grupo?');
+        : confirm('Excluir este gerador?');
 
       if (!ok) return;
-      $box.find('.pga_keywords').val('');
+
+      $box.remove();
+
+      // reindexa
+      const $boxes = $container.find('.pga-gen-box');
+      $boxes.each(function (idx) {
+        const $b = $(this);
+        $b.attr('data-gen', idx + 1);
+        pgaUpdateBoxTitle($b);
+      });
+
+      // garante IDs no primeiro
+      const $first = $boxes.first();
+      if ($first.length) pgaActivateBox($first);
+
+      window.PGA_IS_GENERATING = true;
     });
 
     // ---------- Salvar (botão global "Salvar" lá em cima) ----------
@@ -928,56 +1116,38 @@
       btn.disabled = true;
 
       try {
-        // continua salvando preferências do grupo "ativo" (primeiro, por padrão)
         savePrefsToLocal();
         pgaSaveBoxesToLocal();
 
-        // junta keywords de TODOS os grupos para mandar pro backend
         const all = [];
         $('.pga_keywords').each(function () {
           all.push(...textareaToArray($(this).val()));
         });
         const pending_text = (all || []).join('\n');
 
-        await safeCloseSwal();
-        if (window.Swal) {
-          Swal.fire({
-            title: 'Salvando…',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showConfirmButton: false,
-            didOpen: () => Swal.showLoading()
-          });
-        }
+        // toast leve (não bloqueia)
+        pgaToast('info', 'Salvando…', 1200);
 
         const j = await fetchJSON(`${REST}/keywords`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-          body: JSON.stringify({ pending_text })
+          body: JSON.stringify({ pending_text }),
+          silent: true
         });
 
         renderDone(j.done || []);
 
-        await safeCloseSwal();
-        if (window.Swal) {
-          await Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: 'Salvo',
-            text: 'Keywords de todos os grupos foram salvas.',
-            timer: 3000,
-            timerProgressBar: true,
-            showConfirmButton: false,
-            customClass: { popup: 'pga-toast-offset' }
-          });
-        }
+        // ✅ marcou como salvo
+        window.PGA_IS_GENERATING = false;
+        pgaToast('success', 'Salvo');
+
       } catch (e) {
-        await safeCloseSwal();
+        pgaToast('error', e, 2200);
       } finally {
         btn.disabled = false;
       }
     });
+
 
     // "Salvar configurações" dentro do grupo apenas reaproveita o salvar global
     $(document).off('click.pgaSaveBox').on('click.pgaSaveBox', '.pga_save_box', function () {
@@ -1024,7 +1194,8 @@
     async function generateForActiveBox(options = {}) {
       const {
         skipKeywordWarning = false,
-        groupTitle = ''
+        groupTitle = '',
+        plannedOrigins = null,
       } = options;
 
       const prefs = collectPrefs();
@@ -1197,33 +1368,26 @@
       // ✅ box ativo = o que recebeu #pga_keywords via pgaActivateBox()
       const activeBoxEl = document.getElementById('pga_keywords')?.closest('.pga-gen-box') || null;
 
-      // anexa referência do grupo em cada job (vem do backend)
-      for (const j of jobs) {
-        j.boxEl = activeBoxEl;
+      // ✅ Se veio do planejamento global, aplica origem por job (mesma ordem)
+      if (Array.isArray(plannedOrigins) && plannedOrigins.length) {
+        for (let i = 0; i < jobs.length; i++) {
+          const origin = plannedOrigins[i];
+          jobs[i].boxEl = origin?.boxEl || activeBoxEl;
+
+          // opcional: guarda também o kw original pra debug
+          jobs[i].__originKw = origin?.kw || '';
+        }
+      } else {
+        // fallback: geração normal de um box só
+        for (const j of jobs) {
+          j.boxEl = activeBoxEl;
+        }
       }
 
       // === 3) GERAÇÃO ===
       let okCount = 0, failCount = 0;
       let editLinks = [];
       const failedKeywords = [];
-
-      function getJobKeyword(job) {
-        if (job.keyword) return String(job.keyword).trim();
-        if (Array.isArray(job.keywords) && job.keywords.length) {
-          return String(job.keywords[0]).trim();
-        }
-        if (job.keywords) {
-          return String(job.keywords).split(/\r?\n/)[0].trim();
-        }
-        return '';
-      }
-
-      function extractStatus(err) {
-        if (!err) return 0;
-        if (typeof err.status === 'number') return err.status;
-        const m = String(err.message || '').match(/\b(\d{3})\b/);
-        return m ? parseInt(m[1], 10) : 0;
-      }
 
       async function pgaFetchSectionWithRetry(params, maxRetries = 3) {
         let attempt = 0;
@@ -1517,51 +1681,73 @@
 
 
     // ---------- Planejar & Gerar (TODOS os grupos) ----------
-    // ---------- Planejar & Gerar (TODOS os grupos, 1 clique, 1 resumo) ----------
     $('#pga_plan').off('click').on('click', async () => {
+
+      if (!pgaGlobalIsOn()) {
+        // modo normal: gera apenas do box ativo (primeiro/ativo)
+        const $active = $('#pga_gen_container .pga-gen-box').filter(function () {
+          return $(this).find('#pga_keywords').length > 0;
+        }).first();
+
+        pgaActivateBox($active.length ? $active : $('#pga_gen_container .pga-gen-box').first());
+        const res = await generateForActiveBox({ groupTitle: 'Gerador atual' });
+        if (!res) return;
+
+        const html = buildSummaryHtml(res.okCount, res.failCount, res.editLinks, res.failedKeywords);
+        await Swal.fire({ icon: res.failCount ? 'warning' : 'success', title: 'Finalizado', html });
+        return;
+      }
+
       const $boxes = $('#pga_gen_container .pga-gen-box');
       if (!$boxes.length) return;
 
-      const groups = [];
-      let totalRequested = 0;
-      let totalKeywords = 0;
+      // 🔹 IDs do seu footer atual (troque se for pga_plan_total/start)
+      const totalGlobal = Math.max(1, parseInt($('#pga_plan_total').val() || '1', 10) || 1);
+      const startGlobal = String($('#pga_plan_start').val() || '').trim();
 
+      if (!startGlobal) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Início necessário',
+          text: 'Defina a data/hora de início no planejamento global.'
+        });
+        return;
+      }
+
+      // monta groups (loop via each = OK)
+      const groups = [];
       $boxes.each(function () {
         const $box = $(this);
+        const templateKey = $box.find('.pga_template_key').val() || 'article';
         const kwsArr = textareaToArray($box.find('.pga_keywords').val());
-        const templateKey = $box.find('.pga_template_key').val() || 'discover_article';
-        const total = parseInt($box.find('.pga_total').val() || '0', 10) || 0;
-        const titleText = $box.find('.pga-gen-title').text().trim() || 'Grupo';
+        const perDay = parseInt($box.find('.pga_per_day').val() || '0', 10) || 0;
 
-        const g = {
-          $box,
-          templateKey,
-          kwCount: kwsArr.length,
-          total,
-          titleText,
-        };
-        groups.push(g);
+        // ignora grupos sem KW ou sem peso
+        if (templateKey !== 'modelar' && (!kwsArr.length || perDay <= 0)) return;
 
-        // só conta keywords x total pros templates normais (não modelar)
-        if (templateKey !== 'modelar') {
-          totalRequested += Math.max(0, total);
-          totalKeywords += kwsArr.length;
-        }
+        groups.push({ $box, templateKey, keywords: kwsArr, perDay });
       });
 
-      // grupos normais sem keywords
-      const groupsNoKw = groups.filter(g => g.templateKey !== 'modelar' && g.kwCount === 0);
+      if (!groups.length) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Nada a gerar',
+          text: 'Adicione keywords e defina “Posts por dia” (>= 1) em pelo menos um colapse.'
+        });
+        return;
+      }
 
-      if (groupsNoKw.length) {
-        const list = groupsNoKw.map(g => `<li>${g.titleText}</li>`).join('');
+      // alerta template diferente (same como você já tinha)
+      const masterTemplate = groups[0].templateKey;
+      const diffTpl = groups.some(g => g.templateKey !== masterTemplate);
+      if (diffTpl) {
         const r = await Swal.fire({
           icon: 'warning',
-          title: 'Grupos sem keywords',
-          html: `
-            <p>Os grupos abaixo não possuem keywords e serão ignorados:</p>
-            <ul style="margin:4px 0 0 18px;padding:0;font-size:14px;">${list}</ul>
-            <p style="margin-top:8px;">Deseja continuar com os demais grupos?</p>
-          `,
+          title: 'Modelos diferentes',
+          html: `<p style="font-size:14px;">
+        No planejamento global, as configurações (modelo/categoria/locale/links) serão as do <b>primeiro colapse</b>.
+        <br>Deseja continuar?
+      </p>`,
           showCancelButton: true,
           confirmButtonText: 'Continuar',
           cancelButtonText: 'Cancelar',
@@ -1569,15 +1755,26 @@
         if (!r.isConfirmed) return;
       }
 
-      // checa insuficiência global (total de posts pedidos x total de keywords)
-      if (totalRequested > 0 && totalKeywords < totalRequested) {
+      // ✅ lista planejada (usa sua função atual)
+      const plannedKw = pgaBuildPlannedKeywordsByPerDay(groups, totalGlobal);
+
+      if (!plannedKw.length) {
+        await Swal.fire({
+          icon: 'info',
+          title: 'Fila vazia',
+          text: 'Não foi possível montar a fila com os “Posts por dia” atuais.'
+        });
+        return;
+      }
+
+      if (plannedKw.length < totalGlobal) {
         const r = await Swal.fire({
           icon: 'question',
           title: 'Keywords insuficientes',
-          html: `
-            <p style='font-size:16px;'>Você pediu <b>${totalRequested}</b> posts no total, mas só tem <b>${totalKeywords}</b> palavras-chave somando todos os grupos.</p>
-            <p style='font-size:16px;'>Deseja gerar mesmo assim, usando as keywords disponíveis?</p>
-          `,
+          html: `<p style="font-size:15px;">
+        Você pediu <b>${totalGlobal}</b> posts, mas dá pra gerar <b>${plannedKw.length}</b> com as keywords disponíveis.
+        <br>Continuar?
+      </p>`,
           showCancelButton: true,
           confirmButtonText: 'Sim, gerar',
           cancelButtonText: 'Cancelar',
@@ -1585,44 +1782,64 @@
         if (!r.isConfirmed) return;
       }
 
-      // agora roda todos os grupos em sequência, SEM avisos por grupo
-      let totalOk = 0;
-      let totalFail = 0;
-      let allFailedKeywords = [];
-      let allEditLinks = [];
+      // master = primeiro colapse
+      const $master = groups[0].$box;
+      pgaActivateBox($master);
 
-      for (const g of groups) {
-        if (g.templateKey !== 'modelar' && g.kwCount === 0) continue;
+      // injeta keywords no master
+      // injeta keywords no master (somente texto)
+      const plannedText = plannedKw.map(x => x.kw).join('\n');
+      $('#pga_keywords').val(plannedText);
 
-        pgaActivateBox(g.$box);
-        savePrefsToLocal();
+      // sobrescreve total + início no master (mesmo se campos estiverem ocultos)
+      $('#pga_total').val(plannedKw.length);
+      $('#pga_first_delay_hours').val(startGlobal);
 
-        const res = await generateForActiveBox({
-          skipKeywordWarning: true,
-          groupTitle: g.titleText
-        });
+      // ⚠️ IMPORTANTE: per_day aqui define "quantos posts por dia" no calendário.
+      // Se você setar soma, o backend vai publicar vários por dia.
+      // Se sua intenção é 1 post por dia (mesmo com mistura por colapse), deixe 1.
+      $('#pga_per_day').val(1);
 
-        if (!res) continue
+      savePrefsToLocal();
 
-        totalOk += res.okCount;
-        totalFail += res.failCount;
-        allFailedKeywords = allFailedKeywords.concat(res.failedKeywords || []);
-        allEditLinks = allEditLinks.concat(res.editLinks || []);
-      }
+      // gera uma vez só
+      const res = await generateForActiveBox({
+        skipKeywordWarning: true,
+        groupTitle: 'Planejamento global',
+        plannedOrigins: plannedKw, // ✅ IMPORTANTE
+      });
 
-      const html = buildSummaryHtml(totalOk, totalFail, allEditLinks, allFailedKeywords);
+      if (!res) return;
+
+      const html = buildSummaryHtml(
+        res.okCount,
+        res.failCount,
+        res.editLinks || [],
+        res.failedKeywords || []
+      );
 
       await Swal.fire({
-        icon: totalFail ? 'warning' : 'success',
+        icon: res.failCount ? 'warning' : 'success',
         title: 'Geração concluída',
         html,
       });
     });
 
-
-
     try { await refreshKeywords(); } catch (e) { }
     pgaLoadBoxesFromLocal();
+
+    $(document)
+      .off('input.pgaDirty change.pgaDirty')
+      .on('input.pgaDirty change.pgaDirty',
+        '#pga_gen_container input, #pga_gen_container textarea, #pga_gen_container select',
+        function (e) {
+          // só marca se veio do usuário (não de .trigger('change') do JS)
+          if (e && e.isTrigger) return;
+
+          window.PGA_IS_GENERATING = true;
+        }
+      );
+
   }
 
   // boot
@@ -1747,49 +1964,48 @@
   });
 
 
-  // DUPLICAR GRUPO
-  $(document).on('click', '.pga-copy-box', function (e) {
+  // DUPLICAR GRUPO (FIX)
+  $(document).off('click.pgaCopyBox').on('click.pgaCopyBox', '.pga-copy-box', function (e) {
     e.preventDefault();
     e.stopPropagation();
 
     const $box = $(this).closest('.pga-gen-box');
     const $container = $('#pga_gen_container');
+    if (!$box.length || !$container.length) return;
 
-    // clona mantendo valores dos inputs
-    const $clone = $box.clone(false, false);
+    // 1) captura config do box atual (isso garante copiar TUDO)
+    const cfg = pgaSerializeBox($box);
 
-    // gera novo data-gen incremental
+    // 2) clona template visual (com eventos e data)
+    const $clone = $box.clone(true, true);
+
+    // 3) gera novo data-gen
     const gens = $container.find('.pga-gen-box').map(function () {
       return parseInt($(this).attr('data-gen') || '0', 10) || 0;
     }).get();
     const nextGen = (gens.length ? Math.max.apply(null, gens) : 0) + 1;
 
     $clone.attr('data-gen', String(nextGen));
-    $clone.find('[data-gen]').attr('data-gen', String(nextGen));
 
-    // ids duplicados quebram label/JS: remove IDs internos (mantém classes)
-    $clone.find('[id]').each(function () {
-      const id = $(this).attr('id');
-      // mantém IDs globais se você tiver algum; aqui é tudo por grupo → remove
-      $(this).removeAttr('id');
-    });
+    // 4) remove IDs duplicados (mantém classes)
+    $clone.find('[id]').removeAttr('id');
 
-    // estado aberto por padrão (opcional)
+    // 5) aplica config no clone (aqui entra links internos / select2 / etc)
+    pgaApplyBoxConfig($clone, cfg);
+
+    // 6) abre o collapse do clone (opcional)
     $clone.addClass('pga-collapse--open');
 
-    // insere logo após o atual
+    // 7) insere após o atual
     $box.after($clone);
 
-    // se você tem função que “recalcula título do collapse”, chama aqui:
-    if (typeof window.PGA_updateCollapseTitle === 'function') {
-      window.PGA_updateCollapseTitle($clone);
-    }
+    // 8) reinit select2 do clone e atualiza título
+    initLinkManualSelect2($clone);
+    pgaUpdateBoxTitle($clone);
 
-    // se você persiste em localStorage, chama seu save geral:
-    if (typeof window.PGA_saveGroupsToStorage === 'function') {
-      window.PGA_saveGroupsToStorage();
-    }
+    window.PGA_IS_GENERATING = true;
   });
+
 
   $(document).on('click', '.pga_generate_keywords', async function () {
     const $box = $(this).closest('.pga-gen-box');
@@ -2012,14 +2228,13 @@
       const htmlGroups = order.map((tpl, gi) => {
         const list = groups[tpl];
 
-        const tplKey = `tplgrp:${tpl}`;
         const headerExists = list.some(x => x.hasExisting);
         const headerMeta = headerExists
           ? `<span style="color:#b45309;margin-left:6px">tem itens existentes</span>`
           : `<span style="color:#15803d;margin-left:6px">novo</span>`;
 
         // lista interna (prompts)
-        const inner = list.map((it, idx) => {
+        const inner = list.map((it) => {
           // você pode esconder a linha "template" e só mostrar prompts
           if (it.type === 'template') return '';
 
@@ -2244,5 +2459,334 @@
     }
   });
 
-})(jQuery);
 
+  const KEY_TABS_INDEX = 'pga_orion_tabs_index_v1';
+  const KEY_ACTIVE_TAB = 'pga_orion_active_tab_v1';
+
+  function tabGroupsKey(tabId) {
+    return `pga_orion_tab_${tabId}_groups_v1`;
+  }
+
+  function parseJson(raw, fallback) {
+    try {
+      const v = raw ? JSON.parse(raw) : null;
+      return v ?? fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function makeId() {
+    return 't_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+  }
+
+  function getTabIdFromUrl() {
+    const u = new URL(window.location.href);
+    return u.searchParams.get('tab') || '';
+  }
+
+  function setUrlTabNoReload(tabId) {
+    const u = new URL(window.location.href);
+    u.searchParams.set('tab', tabId);
+    history.replaceState({}, '', u.toString());
+  }
+
+  function buildTabUrl(tabId) {
+    const u = new URL(window.location.href);
+    u.searchParams.set('tab', tabId);
+    return u.toString();
+  }
+
+  function loadTabs() {
+    const tabs = parseJson(localStorage.getItem(KEY_TABS_INDEX), []);
+    return Array.isArray(tabs) ? tabs : [];
+  }
+
+  function saveTabs(tabs) {
+    localStorage.setItem(KEY_TABS_INDEX, JSON.stringify(tabs || []));
+  }
+
+  function ensureTabsAndTabId() {
+    let tabs = loadTabs();
+
+    if (!tabs.length) {
+      const first = { id: makeId(), title: 'Projeto 1' };
+      tabs = [first];
+      saveTabs(tabs);
+    }
+
+    let tabId = getTabIdFromUrl();
+
+    if (!tabId) {
+      tabId = localStorage.getItem(KEY_ACTIVE_TAB) || tabs[0].id;
+      setUrlTabNoReload(tabId);
+    }
+
+    if (!tabs.some(t => t.id === tabId)) {
+      tabId = tabs[0].id;
+      setUrlTabNoReload(tabId);
+    }
+
+    localStorage.setItem(KEY_ACTIVE_TAB, tabId);
+    return { tabs, tabId };
+  }
+
+  function renderTabsUI(tabs, tabId) {
+    const $wrap = $('#pga_tabs');
+    if (!$wrap.length) return;
+
+    $wrap.empty();
+
+    tabs.forEach(t => {
+      const active = (t.id === tabId);
+
+      const $a = $('<a/>', {
+        class: 'button ' + (active ? 'button-primary' : ''),
+        href: buildTabUrl(t.id),
+      });
+
+      // conteúdo interno do botão
+      const $label = $('<span/>', {
+        class: 'pga-tab-label',
+        text: t.title || 'Projeto',
+        css: { display: 'inline-flex', alignItems: 'center' }
+      });
+
+      // lixeira dentro do botão
+      const $trash = $('<span/>', {
+        class: 'pga-tab-trash',
+        html: 'x',
+        title: 'Excluir aba',
+      });
+
+      // hover só no ícone (fica mais “limpo”)
+      $trash.on('mouseenter', function () { $(this).css('opacity', '1'); });
+      $trash.on('mouseleave', function () { $(this).css('opacity', '0.75'); });
+
+      // clicar na lixeira NÃO navega, só exclui
+      $trash.on('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        pgaDeleteTab(t.id);
+      });
+
+      // monta
+      $a.append($label, $trash);
+      $wrap.append($a);
+    });
+  }
+
+  function addTabAndGo(title) {
+    const tabs = loadTabs();
+    const nextNum = tabs.length + 1;
+
+    const clean = String(title || '').trim();
+    const finalTitle = clean ? clean : ('Projeto ' + nextNum);
+
+    const tab = { id: makeId(), title: finalTitle };
+    tabs.push(tab);
+
+    saveTabs(tabs);
+    localStorage.setItem(KEY_ACTIVE_TAB, tab.id);
+    window.location.href = buildTabUrl(tab.id);
+  }
+
+  function ensureBoxesCount(targetCount) {
+    // conta boxes já existentes
+    let $boxes = $('#pga_gen_container .pga-gen-box');
+    let n = $boxes.length;
+
+    if (n >= targetCount) return;
+
+    // clica no seu botão de adicionar grupo até bater
+    const $add = $('#pga_add_box');
+    if (!$add.length) return;
+
+    while (n < targetCount) {
+      $add.trigger('click');
+      n++;
+    }
+  }
+
+  function loadTabGroups(tabId) {
+    const groups = parseJson(localStorage.getItem(tabGroupsKey(tabId)), []);
+
+    // se nunca salvou essa tab, não mexe: deixa o padrão da tela como está
+    if (!Array.isArray(groups) || !groups.length) return;
+
+    // garante que tem boxes suficientes no DOM
+    ensureBoxesCount(groups.length);
+
+    const $boxes = $('#pga_gen_container .pga-gen-box');
+
+    // aplica config em cada box existente
+    groups.forEach((cfg, i) => {
+      const $box = $boxes.eq(i);
+      if (!$box.length) return;
+
+      // usa suas funções já existentes
+      if (typeof window.pgaApplyBoxConfig === 'function') {
+        window.pgaApplyBoxConfig($box, cfg);
+      }
+      if (typeof window.pgaUpdateBoxTitle === 'function') {
+        window.pgaUpdateBoxTitle($box);
+      }
+    });
+  }
+
+  function saveCurrentTabGroups(tabId) {
+    const groups = [];
+    $('#pga_gen_container .pga-gen-box').each(function () {
+      const $box = $(this);
+      if (typeof window.pgaSerializeBox === 'function') {
+        groups.push(window.pgaSerializeBox($box));
+      }
+    });
+    localStorage.setItem(tabGroupsKey(tabId), JSON.stringify(groups));
+  }
+
+  function bindAutoSave(tabId) {
+    // salva em mudanças
+    $(document).on('change.pgaTab', '#pga_gen_container .pga-gen-box :input', function () {
+      saveCurrentTabGroups(tabId);
+    });
+
+    // salva antes de gerar / salvar
+    $(document).on('click.pgaTab', '#pga_plan, #pga_save_keywords', function () {
+      saveCurrentTabGroups(tabId);
+    });
+
+    // salva ao sair
+    window.addEventListener('beforeunload', function () {
+      try { saveCurrentTabGroups(tabId); } catch (e) { }
+    });
+  }
+
+  async function pgaDeleteTab(tabId) {
+    if (!tabId) return;
+
+    const tabs = loadTabs(); // << seu nome
+    const idx = tabs.findIndex(t => t.id === tabId);
+    if (idx === -1) return;
+
+    const name = tabs[idx].title || 'Projeto';
+
+    // SweetAlert2 confirm
+    let ok = false;
+    if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
+      const res = await Swal.fire({
+        title: 'Excluir aba?',
+        html: `Você tem certeza que deseja excluir <b>${escapeHtml(name)}</b>?<br><br><small>Isso apaga os grupos salvos dessa aba.</small>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        focusCancel: true
+      });
+      ok = !!res.isConfirmed;
+    } else {
+      ok = confirm(`Excluir a aba "${name}"?\n\nIsso apaga os grupos salvos dessa aba.`);
+    }
+
+    if (!ok) return;
+
+    // apaga storage dessa tab
+    try {
+      localStorage.removeItem(`pga_orion_tab_${tabId}_groups_v1`);
+    } catch (e) { }
+
+    // remove do index
+    tabs.splice(idx, 1);
+
+    // se ficou vazio, recria uma default
+    if (!tabs.length) {
+      const first = { id: pgaMakeId(), title: 'Projeto 1' };
+      tabs.push(first);
+      saveTabs(tabs);
+
+      const u = new URL(window.location.href);
+      u.searchParams.set('tab', first.id);
+      window.location.href = u.toString();
+      return;
+    }
+
+    // salva index
+    saveTabs(tabs);
+
+    // se estava na tab deletada, vai pra primeira
+    const cur = (typeof pgaGetTabId === 'function')
+      ? pgaGetTabId()
+      : (new URL(window.location.href).searchParams.get('tab') || '');
+
+    if (cur === tabId) {
+      const u = new URL(window.location.href);
+      u.searchParams.set('tab', tabs[0].id);
+      window.location.href = u.toString();
+      return;
+    }
+
+    // senão, só re-renderiza
+    if (typeof renderTabsUI === 'function') {
+      renderTabsUI(tabs, cur);
+    }
+  }
+
+
+
+  $(function () {
+    // 1) garante tabId
+    const st = ensureTabsAndTabId();
+
+    // 2) render tabs se existir o container (depois a gente põe no PHP)
+    renderTabsUI(st.tabs, st.tabId);
+
+    // 3) botão adicionar tab (se existir no PHP)
+    $('#pga_tab_add').off('click').on('click', async function () {
+      // salva antes de criar (pra não perder ajustes)
+      try { saveCurrentTabGroups(st.tabId); } catch (e) { }
+
+      let name = '';
+      if (window.Swal) {
+        const res = await Swal.fire({
+          html: `
+            <div class="pga-modal-content">
+              <h3 style="margin:0">Novo projeto</h3>
+              <div class="pga-descricao">
+                Crie um novo projeto para organizar seus geradores de conteúdo.
+              </div>
+              <div class="pga-field">
+                <label for="pga_new_project_name">Nome do Projeto</label>
+                <input id="pga_new_project_name" class="swal2-input" placeholder="Ex: Blog de Marketing" style="width:100%;margin:0" />
+              </div>
+            </div>
+          `,
+          showCancelButton: true,
+          focusConfirm: false,
+          cancelButtonText: 'Cancelar',
+          confirmButtonText: 'Criar Projeto',
+          preConfirm: () => {
+            const v = document.getElementById('pga_new_project_name')?.value || '';
+            return String(v).trim();
+          }
+        });
+
+        if (!res.isConfirmed) return;
+        name = res.value || '';
+      } else {
+        name = prompt('Nome do projeto:') || '';
+        if (!String(name).trim()) return;
+      }
+
+      addTabAndGo(name);
+    });
+
+
+    // 4) carrega dados dessa tab nos colapses existentes
+    loadTabGroups(st.tabId);
+
+    // 5) autosave
+    bindAutoSave(st.tabId);
+  });
+
+})(jQuery);
