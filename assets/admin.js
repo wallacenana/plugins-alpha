@@ -1325,7 +1325,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       if (prefs.template_key !== "modelar") {
         // sem keywords
         if (prefs.mode === 'multi' && kwList.length === 0) {
-          if (!skipKwWarning) {
+          if (!skipKeywordWarning) {
             await Swal.fire({
               icon: 'warning',
               title: __('Sem palavras-chave', 'plugins-alpha'),
