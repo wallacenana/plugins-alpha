@@ -1,4 +1,13 @@
-/* global PGA_CFG, Swal */
+/* global PGA_CFG, Swal, wp */
+const i18n = (window.wp && wp.i18n) ? wp.i18n : null;
+
+const __ = i18n ? i18n.__ : (s) => s;
+const _x = i18n ? i18n._x : (s) => s;
+const _n = i18n ? i18n._n : (s) => s;
+const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
+  ? wp.i18n.sprintf
+  : (fmt, ...args) => String(fmt).replace(/%s/g, () => String(args.shift() ?? ''));
+
 (function ($) {
   const REST = PGA_CFG.rest;
   const NONCE = PGA_CFG.nonce;
@@ -6,23 +15,20 @@
   const PREF_KEY = 'pga_prefs_v1';
   const pillarId = window.PGA_PILLAR_ID || 0;
   const GROUPS_KEY = `pga_gen_groups_v1_${pillarId}`;
-  // trava saves durante rebuild/load
   let PGA_LOADING_GROUPS = false;
-
 
   // Flag global pra saber se há geração em andamento
   window.PGA_IS_GENERATING = window.PGA_IS_GENERATING || false;
 
-  // Registra o aviso ao tentar sair da página
   if (!window.PGA_BEFOREUNLOAD_BOUND) {
     window.PGA_BEFOREUNLOAD_BOUND = true;
 
     window.addEventListener('beforeunload', function (e) {
       if (!window.PGA_IS_GENERATING) return;
 
-      const msg = 'O conteúdo ainda está sendo gerado. Sair da página pode interromper a criação. Deseja mesmo sair?';
+      const msg = __('O conteúdo ainda está sendo gerado. Sair da página pode interromper a criação. Deseja mesmo sair?', 'plugins-alpha');
       e.preventDefault();
-      e.returnValue = msg; // compat com navegadores
+      e.returnValue = msg;
       return msg;
     });
   }
@@ -143,7 +149,7 @@
 
       $sel.select2({
         width: '100%',
-        placeholder: 'Selecione posts para link interno',
+        placeholder: __('Selecione posts para link interno', 'plugins-alpha'),
         allowClear: true
       });
 
@@ -175,8 +181,8 @@
       const ok = window.Swal
         ? (await Swal.fire({
           icon: 'warning',
-          title: 'Limpar este grupo?',
-          text: 'Este é o único grupo. Em vez de remover, vamos apenas limpar os campos.',
+          title: __('Limpar este grupo?', 'plugins-alpha'),
+          text: __('Este é o único grupo. Em vez de remover, vamos apenas limpar os campos.', 'plugins-alpha'),
           showCancelButton: true,
         })).isConfirmed
         : confirm('Este é o único grupo. Limpar os campos deste grupo?');
@@ -200,13 +206,13 @@
     const ok = window.Swal
       ? (await Swal.fire({
         icon: 'warning',
-        title: 'Remover grupo?',
-        text: 'Este grupo de geração será removido (as keywords dentro dele não serão salvas).',
+        title: __('Remover grupo?', 'plugins-alpha'),
+        text: __('Este grupo de geração será removido (as keywords dentro dele não serão salvas).', 'plugins-alpha'),
         showCancelButton: true,
-        confirmButtonText: 'Remover',
-        cancelButtonText: 'Cancelar',
+        confirmButtonText: __('Remover', 'plugins-alpha'),
+        cancelButtonText: __('Cancelar', 'plugins-alpha'),
       })).isConfirmed
-      : confirm('Remover este grupo de geração?');
+      : confirm(__('Remover este grupo de geração?', 'plugins-alpha'));
 
     if (!ok) return;
 
@@ -235,10 +241,10 @@
   // === Atualiza título de UM box com base nos campos ===
   function pgaUpdateBoxTitle($box) {
     // Modelo
-    const model = ($box.find('.pga_template_key option:selected').text() || '').trim() || 'Modelo';
+    const model = ($box.find('.pga_template_key option:selected').text() || '').trim() || __('Modelo', 'plugins-alpha');
 
     // Categoria (mais robusto pra wp_dropdown_categories)
-    let cat = 'Sem categoria';
+    let cat = __('Sem categoria', 'plugins-alpha');
     const $catSel = $box.find('.pga_category').first();
     if ($catSel.length) {
       const el = $catSel[0];
@@ -256,13 +262,23 @@
     const perDay = $box.find('.pga_per_day').val() || '0';
 
     // Extensão
-    const lengthLabel = ($box.find('.pga_length option:selected').text() || '').trim() || 'Extensão';
+    const lengthLabel = ($box.find('.pga_length option:selected').text() || '').trim() || __('Extensão', 'plugins-alpha');
 
     // 🔹 título curto (visível)
     const visibleTitle = `<span class="pga-model">${model}</span> <span class="pga-category-colapse">${cat}</span>`;
 
     // 🔹 título completo (tooltip)
-    const fullTitle = `${model} – ${cat} – ${loc} – ${total} posts – ${perDay}/dia – ${lengthLabel}`;
+    const postsLabel = sprintf(_n('%s post', '%s posts', Number(total), 'plugins-alpha'), total);
+
+    const fullTitle = sprintf(
+      __('%1$s – %2$s – %3$s – %4$s – %5$s/dia – %6$s', 'plugins-alpha'),
+      model,
+      cat,
+      loc,
+      postsLabel,
+      perDay,
+      lengthLabel
+    );
 
     $box
       .find('.pga-gen-title')
@@ -392,12 +408,12 @@
       if (!all.length) return;
 
       localStorage.setItem(pgaGroupsStorageKey(), JSON.stringify(all));
+      window.PGA_IS_GENERATING = false;
     } catch (e) {
       // não silencie agora enquanto testa:
       console.warn('[PGA] save failed', e);
     }
   }
-
 
   // recria os grupos a partir do localStorage
   function pgaLoadBoxesFromLocal() {
@@ -499,7 +515,9 @@
 
     $clone.attr('data-gen', nextId);
     $clone.removeClass('pga-collapse--open'); // começa fechada
-    $clone.find('.pga-gen-title').text(`Geração ${nextId}`);
+    $clone.find('.pga-gen-title').text(
+      sprintf(__('Geração %d', 'plugins-alpha'), nextId)
+    );
 
     // limpa valores de inputs/textarea
     $clone.find('.pga_keywords').val('');
@@ -581,50 +599,50 @@
     } catch (e) {
       if (!silent) {
         if (window.Swal) {
+          const safe = String(text || '').replace(/[<>&]/g, s => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[s]));
+
           await Swal.fire({
             icon: 'error',
-            title: 'Resposta não-JSON',
-            html: `<p><b>HTTP</b>: ${res.status}</p><pre style="white-space:pre-wrap;max-height:320px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px;">${text.replace(/[<>&]/g, s => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[s]))}</pre>`
+            title: __('Resposta não-JSON', 'plugins-alpha'),
+            html: sprintf(
+              __('<p><b>HTTP</b>: %d</p><pre style="white-space:pre-wrap;max-height:320px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px;">%s</pre>', 'plugins-alpha'),
+              res.status,
+              safe
+            )
           });
         } else {
-          alert('Erro: resposta não-JSON (' + res.status + ')');
+          alert(sprintf(__('Erro: resposta não-JSON (%d)', 'plugins-alpha'), res.status));
         }
       }
 
-      const err = new Error('Non-JSON ' + res.status);
+      const err = new Error(sprintf(__('Non-JSON %d', 'plugins-alpha'), res.status));
       err.status = res.status;
       err.rawBody = text;
       throw err;
     }
 
     if (!res.ok) {
-      const msg = (data && (data.message || data.code)) || `HTTP ${res.status}`;
+      const msg = (data && (data.message || data.code)) || sprintf(__('HTTP %d', 'plugins-alpha'), res.status);
 
       if (!silent) {
         if (window.Swal) {
           await Swal.fire({
             icon: 'error',
-            title: 'Falha na chamada',
+            title: __('Falha na chamada', 'plugins-alpha'),
             text: String(msg)
           });
         } else {
-          alert('Erro: ' + msg);
+          alert(sprintf(__('Erro: %s', 'plugins-alpha'), String(msg)));
         }
       }
 
-      const err = new Error(msg);
+      const err = new Error(String(msg));
       err.status = res.status;
       err.body = data;
       throw err;
     }
 
     return data;
-  }
-
-  async function safeCloseSwal() {
-    try {
-      if (window.Swal && Swal.isVisible()) Swal.close();
-    } catch (e) { }
   }
 
   function pgaMaxLinksForLength(len) {
@@ -671,8 +689,8 @@
     if (typeof getQueryParam === 'function' && getQueryParam('settings-updated') === '1') {
       if (window.Swal) {
         await Swal.fire({
-          icon: 'success',
-          title: 'Configurações salvas',
+          icon: __('success', 'plugins-alpha'),
+          title: __('Configurações salvas', 'plugins-alpha'),
           timer: 1600,
           showConfirmButton: false
         });
@@ -694,7 +712,7 @@
       testBtn.type = 'button';
       testBtn.id = 'pga_test_openai';
       testBtn.className = 'button';
-      testBtn.textContent = 'Testar OpenAI';
+      testBtn.textContent = __('Testar OpenAI', 'plugins-alpha');
       testBtn.style.marginLeft = '8px';
       keyEl.parentNode.insertBefore(testBtn, keyEl.nextSibling);
     }
@@ -713,8 +731,8 @@
       if (!key) {
         await Swal.fire({
           icon: 'warning',
-          title: 'Informe a chave',
-          text: 'Digite a chave OpenAI antes de testar.',
+          title: __('Informe a chave', 'plugins-alpha'),
+          text: __('Digite a chave OpenAI antes de testar.', 'plugins-alpha'),
           timer: 2200,
           showConfirmButton: false
         });
@@ -727,7 +745,7 @@
         await safeCloseSwal();
         Swal.fire({
           icon: 'info',
-          title: 'Testando OpenAI…',
+          title: __('Testando OpenAI…', 'plugins-alpha'),
           allowOutsideClick: false,
           allowEscapeKey: false,
           showConfirmButton: false,
@@ -757,20 +775,31 @@
 
         if (!res.ok) {
           const msg = j && (j.message || j.error || j.code) ? (j.message || j.error || j.code) : `HTTP ${res.status}`;
-          await Swal.fire({ icon: 'error', title: 'Erro ao testar', text: msg });
+          await Swal.fire({ icon: 'error', title: __('Erro ao testar', 'plugins-alpha'), text: msg });
           return;
         }
 
+        const safeSample = String(j.sample || '').replace(/[<>&]/g, s => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[s]));
+
         await Swal.fire({
           icon: j.ok ? 'success' : 'warning',
-          title: j.ok ? 'Conectado!' : 'Conexão incompleta',
-          html: `
-          <div style="text-align:left">
-            <div><b>Modelo:</b> ${j.model || payload.model}</div>
-            <div><b>Latência:</b> ${j.latencyMs ?? '?'} ms</div>
-            <div><b>Retorno:</b> <code>${(j.sample || '').replace(/[<>&]/g, s => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[s]))}</code></div>
-          </div>
-        `,
+          title: j.ok ? __('Conectado!', 'plugins-alpha') : __('Conexão incompleta', 'plugins-alpha'),
+          html: sprintf(
+            __(
+              '<div style="text-align:left">' +
+              '<div><b>%s</b> %s</div>' +
+              '<div><b>%s</b> %s ms</div>' +
+              '<div><b>%s</b> <code>%s</code></div>' +
+              '</div>',
+              'plugins-alpha'
+            ),
+            __('Modelo:', 'plugins-alpha'),
+            (j.model || payload.model || ''),
+            __('Latência:', 'plugins-alpha'),
+            (j.latencyMs ?? '?'),
+            __('Retorno:', 'plugins-alpha'),
+            safeSample
+          ),
           timer: 2600,
           timerProgressBar: true,
           showConfirmButton: false
@@ -780,8 +809,8 @@
         await safeCloseSwal();
         await Swal.fire({
           icon: 'error',
-          title: 'Falha no teste',
-          text: err && err.message ? err.message : String(err || 'Erro desconhecido')
+          title: __('Falha no teste', 'plugins-alpha'),
+          text: err && err.message ? err.message : String(err || __('Erro desconhecido', 'plugins-alpha'))
         });
       } finally {
         testBtn.disabled = false;
@@ -888,8 +917,8 @@
     if (!$kw.length) return;
 
     function buildSummaryHtml(okCount, failCount, editLinks, failedKeywords) {
-      const okHtml = `<p style="margin:0 0 4px; font-size: large"><b>Sucesso:</b> ${okCount}</p>`;
-      const failHeaderHtml = `<p style="margin:4px 0 0;"><b>Falhas:</b> ${failCount}</p>`;
+      const okHtml = `<p style="margin:0 0 4px; font-size: large"><b>${__('Sucesso:', 'plugins-alpha')}</b> ${okCount}</p>`;
+      const failHeaderHtml = `<p style="margin:4px 0 0;"><b>${__('Falhas:', 'plugins-alpha')}</b> ${failCount}</p>`;
 
       const failListHtml = (failedKeywords && failedKeywords.length)
         ? `<ul style="margin:4px 0 0 18px;padding:0;font-size:large;">${failedKeywords
@@ -898,7 +927,7 @@
         : '';
 
       const linksHtml = (editLinks && editLinks.length)
-        ? `<p style="margin:8px 0 4px;"><b>Posts gerados</b></p><ul style="margin:0 0 0 18px;padding:0;font-size:large;">${editLinks.join('')}</ul>`
+        ? `<p style="margin:8px 0 4px;"><b>${__('Posts gerados', 'plugins-alpha')}</b></p><ul style="margin:0 0 0 18px;padding:0;font-size:large;">${editLinks.join('')}</ul>`
         : '';
 
       return `
@@ -1022,10 +1051,19 @@
         if (window.Swal) {
           await Swal.fire({
             icon: 'info',
-            title: 'Importado',
-            text: `${neu.length} linhas foram carregadas. Clique em "Salvar configurações" para persistir.`
+            title: __('Importado', 'plugins-alpha'),
+            text: sprintf(
+              _n(
+                '%d linha foi carregada. Clique em "Salvar configurações" para persistir.',
+                '%d linhas foram carregadas. Clique em "Salvar configurações" para persistir.',
+                neu.length,
+                'plugins-alpha'
+              ),
+              neu.length
+            )
           });
         }
+
         pgaSaveBoxesToLocal();
       };
       reader.readAsText(f, 'utf-8');
@@ -1057,13 +1095,13 @@
         const ok = window.Swal
           ? (await Swal.fire({
             icon: 'warning',
-            title: 'Limpar este gerador?',
-            text: 'Este é o único gerador. Vamos apenas limpar os campos.',
+            title: __('Limpar este gerador?', 'plugins-alpha'),
+            text: __('Este é o único gerador. Vamos apenas limpar os campos.', 'plugins-alpha'),
             showCancelButton: true,
-            confirmButtonText: 'Limpar',
-            cancelButtonText: 'Cancelar',
+            confirmButtonText: __('Limpar', 'plugins-alpha'),
+            cancelButtonText: __('Cancelar', 'plugins-alpha'),
           })).isConfirmed
-          : confirm('Este é o único gerador. Limpar os campos?');
+          : confirm(__('Este é o único gerador. Limpar os campos?'));
 
         if (!ok) return;
 
@@ -1083,13 +1121,13 @@
       const ok = window.Swal
         ? (await Swal.fire({
           icon: 'warning',
-          title: 'Excluir gerador?',
-          text: 'Este gerador será removido.',
+          title: __('Excluir gerador?', 'plugins-alpha'),
+          text: __('Este gerador será removido.', 'plugins-alpha'),
           showCancelButton: true,
-          confirmButtonText: 'Excluir',
-          cancelButtonText: 'Cancelar',
+          confirmButtonText: __('Excluir', 'plugins-alpha'),
+          cancelButtonText: __('Cancelar', 'plugins-alpha'),
         })).isConfirmed
-        : confirm('Excluir este gerador?');
+        : confirm(__('Excluir este gerador?', 'plugins-alpha'));
 
       if (!ok) return;
 
@@ -1126,7 +1164,7 @@
         const pending_text = (all || []).join('\n');
 
         // toast leve (não bloqueia)
-        pgaToast('info', 'Salvando…', 1200);
+        pgaToast('info', __('Salvando…', 'plugins-alpha'), 1200);
 
         const j = await fetchJSON(`${REST}/keywords`, {
           method: 'POST',
@@ -1139,7 +1177,7 @@
 
         // ✅ marcou como salvo
         window.PGA_IS_GENERATING = false;
-        pgaToast('success', 'Salvo');
+        pgaToast('success', __('Salvo', 'plugins-alpha'));
 
       } catch (e) {
         pgaToast('error', e, 2200);
@@ -1164,7 +1202,7 @@
         pgaActivateBox($box);
         savePrefsToLocal();
 
-        const titleText = $box.find('.pga-gen-title').text().trim() || 'Grupo atual';
+        const titleText = $box.find('.pga-gen-title').text().trim() || __('Grupo atual', 'plugins-alpha');
 
         const res = await generateForActiveBox({ groupTitle: titleText });
         if (!res) return;
@@ -1173,14 +1211,14 @@
 
         await Swal.fire({
           icon: res.failCount ? 'warning' : 'success',
-          title: 'Finalizado',
+          title: __('Finalizado', 'plugins-alpha'),
           html,
         });
       })();
     });
 
     $('#pga_kw_clear_done').off('click').on('click', async () => {
-      const ok = window.Swal ? (await Swal.fire({ icon: 'warning', title: 'Limpar concluídas?', showCancelButton: true })).isConfirmed : confirm('Limpar concluídas?');
+      const ok = window.Swal ? (await Swal.fire({ icon: 'warning', title: __('Limpar concluídas?', 'plugins-alpha'), showCancelButton: true })).isConfirmed : confirm(__('Limpar concluídas?', 'plugins-alpha'));
       if (!ok) return;
       await fetchJSON(`${REST}/keywords/clear`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
@@ -1205,7 +1243,7 @@
       const transition = {
         strict: false,
         min_ratio: 0.30,
-        words: ['por exemplo', 'em seguida', 'depois', 'antes', 'no entanto', 'portanto', 'assim', 'então']
+        words: [__('por exemplo', 'plugins-alpha'), __('em seguida', 'plugins-alpha'), __('depois', 'plugins-alpha'), __('antes', 'plugins-alpha'), __('no entanto', 'plugins-alpha'), __('portanto', 'plugins-alpha'), __('assim', 'plugins-alpha'), __('então', 'plugins-alpha')]
       };
 
       // === 0) VAL IDA LICENÇA + CHAVE API ANTES DE QUALQUER COISA ===
@@ -1218,22 +1256,22 @@
         if (st && st.ok === false) {
           await Swal.fire({
             icon: 'error',
-            title: 'Configuração necessária',
-            text: st.message || 'Sua licença ou chave de API não está configurada. Verifique a tela de configurações do Plugins Alpha.'
+            title: __('Configuração necessária', 'plugins-alpha'),
+            text: st.message || __('Sua licença ou chave de API não está configurada. Verifique a tela de configurações do Plugins Alpha.', 'plugins-alpha')
           });
           return;
         }
       } catch (e) {
-        let msg = 'Não foi possível validar a licença / chave de API.';
-        let title = 'Erro de validação';
+        let msg = __('Não foi possível validar a licença / chave de API.', 'plugins-alpha');
+        let title = __('Erro de validação', 'plugins-alpha');
 
         if (e && typeof e === 'object') {
           if (e.code === 'pga_no_key') {
-            title = 'Chave da API ausente';
-            msg = e.message || 'Configure sua chave da API na tela de configurações do Plugins Alpha.';
+            title = __('Chave da API ausente', 'plugins-alpha');
+            msg = e.message || __('Configure sua chave da API na tela de configurações do Plugins Alpha.', 'plugins-alpha');
           } else if (e.code === 'pga_lic_inactive') {
-            title = 'Licença inativa';
-            msg = e.message || 'Sua licença está inativa ou expirada. Verifique na tela de Licença do Plugins Alpha.';
+            title = __('Licença inativa', 'plugins-alpha');
+            msg = e.message || __('Sua licença está inativa ou expirada. Verifique na tela de Licença do Plugins Alpha.', 'plugins-alpha');
           } else if (e.message) {
             msg = e.message;
           }
@@ -1253,8 +1291,8 @@
         if (!hasYoutubeUrl) {
           await Swal.fire({
             icon: 'warning',
-            title: 'URLs do YouTube necessárias',
-            text: 'Para “Modelar vídeo do YouTube”, insira pelo menos 1 URL completa de vídeo do YouTube nas palavras-chave (uma por linha).'
+            title: __('URLs do YouTube necessárias', 'plugins-alpha'),
+            text: __('Para “Modelar vídeo do YouTube”, insira pelo menos 1 URL completa de vídeo do YouTube nas palavras-chave (uma por linha).', 'plugins-alpha')
           });
           return;
         }
@@ -1269,16 +1307,16 @@
           if (yt && yt.ok === false) {
             await Swal.fire({
               icon: 'error',
-              title: 'Chave do YouTube necessária',
-              text: yt.message || 'Configure sua chave da API do YouTube na tela de configurações do Plugins Alpha.'
+              title: __('Chave do YouTube necessária', 'plugins-alpha'),
+              text: yt.message || __('Configure sua chave da API do YouTube na tela de configurações do Plugins Alpha.', 'plugins-alpha')
             });
             return;
           }
         } catch (e) {
           await Swal.fire({
             icon: 'error',
-            title: 'Erro ao validar YouTube',
-            text: (e && e.message) ? e.message : 'Não foi possível validar a chave da API do YouTube.'
+            title: __('Erro ao validar YouTube', 'plugins-alpha'),
+            text: (e && e.message) ? e.message : __('Não foi possível validar a chave da API do YouTube.', 'plugins-alpha')
           });
           return;
         }
@@ -1290,8 +1328,8 @@
           if (!skipKwWarning) {
             await Swal.fire({
               icon: 'warning',
-              title: 'Sem palavras-chave',
-              text: 'Insira ao menos 1 palavra-chave.'
+              title: __('Sem palavras-chave', 'plugins-alpha'),
+              text: __('Insira ao menos 1 palavra-chave.', 'plugins-alpha')
             });
           }
           return;
@@ -1300,16 +1338,30 @@
         // keywords < total
         if (prefs.mode === 'multi' && kwList.length < prefs.total) {
           if (!skipKeywordWarning) {
+
+            const html = sprintf(
+              _n(
+                "<p style='font-size:16px;'>Você pediu <b>%d</b> post, mas só tem <b>%d</b> palavra. Gerar <b>%d</b>?</p>",
+                "<p style='font-size:16px;'>Você pediu <b>%d</b> posts, mas só tem <b>%d</b> palavras. Gerar <b>%d</b>?</p>",
+                kwList.length,
+                'plugins-alpha'
+              ),
+              prefs.total,
+              kwList.length,
+              kwList.length
+            );
+
             const ok = (await Swal.fire({
               icon: 'question',
-              title: 'Quantidade insuficiente',
-              html: `<p style='font-size:16px;'>Você pediu <b>${prefs.total}</b> posts mas só tem <b>${kwList.length}</b> palavras. Gerar ${kwList.length}?</p>`,
+              title: __('Quantidade insuficiente', 'plugins-alpha'),
+              html,
               showCancelButton: true
             })).isConfirmed;
+
             if (!ok) return;
           }
-          // no modo global, deixamos seguir e o PHP já corta pelos keywords disponíveis
         }
+
       }
 
       // === 2) PLANO ===
@@ -1336,16 +1388,16 @@
           })
         });
       } catch (e) {
-        let msg = 'Ocorreu um erro ao montar o plano de geração.';
-        let title = 'Erro ao gerar plano';
+        let msg = __('Ocorreu um erro ao montar o plano de geração.', 'plugins-alpha');
+        let title = __('Erro ao gerar plano', 'plugins-alpha');
 
         if (e && typeof e === 'object') {
           if (e.code === 'pga_no_key') {
-            title = 'Chave da API ausente';
-            msg = e.message || 'Configure sua chave da API na tela de configurações do Plugins Alpha.';
+            title = __('Chave da API ausente', 'plugins-alpha');
+            msg = e.message || __('Configure sua chave da API na tela de configurações do Plugins Alpha.', 'plugins-alpha');
           } else if (e.code === 'pga_lic_inactive') {
-            title = 'Licença inativa';
-            msg = e.message || 'Sua licença está inativa ou expirada. Verifique na tela de Licença do Plugins Alpha.';
+            title = __('Licença inativa', 'plugins-alpha');
+            msg = e.message || __('Sua licença está inativa ou expirada. Verifique na tela de Licença do Plugins Alpha.', 'plugins-alpha');
           } else if (e.message) {
             msg = e.message;
           }
@@ -1359,8 +1411,8 @@
       if (!jobs.length) {
         await Swal.fire({
           icon: 'info',
-          title: 'Nada a gerar',
-          text: 'Plano vazio.'
+          title: __('Nada a gerar', 'plugins-alpha'),
+          text: __('Plano vazio.', 'plugins-alpha')
         });
         return;
       }
@@ -1447,7 +1499,7 @@
         const onStatus = typeof opts.onStatus === 'function' ? opts.onStatus : () => { };
 
         // 1) OUTLINE -------------------------------------------------
-        onStatus('Gerando outline…');
+        onStatus(__('Gerando outline…', 'plugins-alpha'));
 
         const outlineRes = await fetchJSON(`${REST}/orion/outline`, {
           method: 'POST',
@@ -1470,7 +1522,7 @@
         });
 
         if (!outlineRes || outlineRes.code) {
-          throw new Error(outlineRes?.message || 'Erro ao gerar esboço');
+          throw new Error(outlineRes?.message || __('Erro ao gerar esboço', 'plugins-alpha'));
         }
 
         const postId = outlineRes.post_id;
@@ -1484,7 +1536,9 @@
         for (const section of sections) {
           const sid = section.id;
 
-          onStatus(`Gerando seções… (${doneSections}/${totalSections})`);
+          onStatus(
+            sprintf(__('Gerando seções… (%d/%d)', 'plugins-alpha'), doneSections, totalSections)
+          );
 
           const secRes = await pgaFetchSectionWithRetry({
             post_id: postId,
@@ -1492,16 +1546,20 @@
           });
 
           if (!secRes.ok) {
-            errors.push(`Falha definitiva na seção ${sid} do post ${postId}`);
+            errors.push(
+              sprintf(__('Falha definitiva na seção %s do post %s', 'plugins-alpha'), sid, postId)
+            );
           }
 
           doneSections++;
         }
 
-        onStatus(`Gerando seções… (${doneSections}/${totalSections})`);
+        onStatus(
+          sprintf(__('Gerando seções… (%d/%d)', 'plugins-alpha'), doneSections, totalSections)
+        );
 
         // 3) FINALIZE (SEM IMAGEM) -----------------------------------
-        onStatus('Finalizando conteúdo…');
+        onStatus(__('Finalizando conteúdo…', 'plugins-alpha'));
 
         const il = job.internal_links || {};
         const rawManual = il.manual_ids;
@@ -1525,11 +1583,11 @@
 
 
         if (finRes && finRes.code) {
-          throw new Error(finRes.message || 'Erro ao finalizar post');
+          throw new Error(finRes.message || __('Erro ao finalizar post', 'plugins-alpha'));
         }
 
         // 4) IMAGEM EM ENDPOINT SEPARADO ------------------------------
-        onStatus('Gerando imagem destacada…');
+        onStatus(__('Gerando imagem destacada…', 'plugins-alpha'));
 
         let imgRes = null;
 
@@ -1550,11 +1608,11 @@
           });
         } catch (e) {
           console.warn('Falha ao gerar imagem para o post', postId, e);
-          onStatus('Conteúdo pronto. Imagem falhou (pode tentar depois).');
+          onStatus(__('Conteúdo pronto. Imagem falhou (pode tentar depois).', 'plugins-alpha'));
         }
 
         if (imgRes && !imgRes.error) {
-          onStatus('Conteúdo e imagem gerados com sucesso.');
+          onStatus(__('Conteúdo e imagem gerados com sucesso.', 'plugins-alpha'));
         }
 
         return {
@@ -1569,25 +1627,27 @@
       window.PGA_IS_GENERATING = true;
 
       try {
+        const totalJobs = jobs.length;
+
         await Swal.fire({
-          title: 'Gerando posts…',
+          title: __('Gerando posts…', 'plugins-alpha'),
           html: `
             <div id="pga_group" style="text-align:center;font-weight:600;font-size:13px;margin-bottom:4px;"></div>
-        
+
             <div id="pga_loader" style="display:flex;align-items:center;justify-content:center;margin-bottom:6px;">
               <div class="swal2-loader" style="display:block;border-width:3px;width:20px;height:20px;"></div>
             </div>
-        
+
             <div id="pga_prog" style="text-align:center;font-size:13px;margin-bottom:4px;">
-              Progresso: 0 de ${jobs.length}
+              ${sprintf(__('Progresso: %d de %d', 'plugins-alpha'), 0, totalJobs)}
             </div>
-        
+
             <div class="swal2-progress-steps" style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px">
               <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
             </div>
-        
+
             <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px;">
-              Preparando geração…
+              ${__('Preparando geração…', 'plugins-alpha')}
             </div>
           `,
           allowOutsideClick: false,
@@ -1643,24 +1703,37 @@
 
                     if (editUrl) {
                       const labelId = r.post_id || r.edit;
+                      const suffix = kw ? sprintf(__(' – %s', 'plugins-alpha'), kw) : '';
+
                       editLinks.push(
-                        `<li><a target="_blank" rel="noopener" href="${editUrl}">Editar #${labelId}${kw ? ' – ' + kw : ''}</a></li>`
+                        `<li><a target="_blank" rel="noopener" href="${editUrl}">${sprintf(
+                          __('Editar #%s%s', 'plugins-alpha'),
+                          labelId,
+                          suffix
+                        )}</a></li>`
                       );
+
                     }
                   }
                 }
               } catch (e) {
                 failCount++;
                 failedKeywords.push({
-                  keyword: kw || '(sem keyword)',
-                  error: e && e.message ? e.message : 'Erro desconhecido',
+                  keyword: kw || __('(sem keyword)', 'plugins-alpha'),
+                  error: e && e.message ? e.message : __('Erro desconhecido', 'plugins-alpha'),
                 });
               }
 
               const done = i + 1;
               const pct = Math.round((done / jobs.length) * 100);
 
-              if ($status) $status.textContent = `Progresso: ${done} de ${jobs.length}`;
+              if ($status) {
+                $status.textContent = sprintf(
+                  __('Progresso: %1$s de %2$s', 'plugins-alpha'),
+                  done,
+                  jobs.length
+                );
+              }
               if ($bar) $bar.style.width = pct + '%';
 
               await new Promise(r => setTimeout(r, 150));
@@ -1690,11 +1763,11 @@
         }).first();
 
         pgaActivateBox($active.length ? $active : $('#pga_gen_container .pga-gen-box').first());
-        const res = await generateForActiveBox({ groupTitle: 'Gerador atual' });
+        const res = await generateForActiveBox({ groupTitle: __('Gerador atual', 'plugins-alpha') });
         if (!res) return;
 
         const html = buildSummaryHtml(res.okCount, res.failCount, res.editLinks, res.failedKeywords);
-        await Swal.fire({ icon: res.failCount ? 'warning' : 'success', title: 'Finalizado', html });
+        await Swal.fire({ icon: res.failCount ? 'warning' : 'success', title: __('Finalizado', 'plugins-alpha'), html });
         return;
       }
 
@@ -1708,8 +1781,8 @@
       if (!startGlobal) {
         await Swal.fire({
           icon: 'warning',
-          title: 'Início necessário',
-          text: 'Defina a data/hora de início no planejamento global.'
+          title: __('Início necessário', 'plugins-alpha'),
+          text: __('Defina a data/hora de início no planejamento global.', 'plugins-alpha')
         });
         return;
       }
@@ -1731,8 +1804,8 @@
       if (!groups.length) {
         await Swal.fire({
           icon: 'warning',
-          title: 'Nada a gerar',
-          text: 'Adicione keywords e defina “Posts por dia” (>= 1) em pelo menos um colapse.'
+          title: __('Nada a gerar', 'plugins-alpha'),
+          text: __('Adicione keywords e defina “Posts por dia” (>= 1) em pelo menos um colapse.', 'plugins-alpha')
         });
         return;
       }
@@ -1743,14 +1816,16 @@
       if (diffTpl) {
         const r = await Swal.fire({
           icon: 'warning',
-          title: 'Modelos diferentes',
-          html: `<p style="font-size:14px;">
-        No planejamento global, as configurações (modelo/categoria/locale/links) serão as do <b>primeiro colapse</b>.
-        <br>Deseja continuar?
-      </p>`,
+          title: __('Modelos diferentes', 'plugins-alpha'),
+          html: sprintf(
+            __(
+              '<p style="font-size:14px;">No planejamento global, as configurações (modelo/categoria/locale/links) serão as do <b>primeiro colapse</b>.<br>Deseja continuar?</p>',
+              'plugins-alpha'
+            )
+          ),
           showCancelButton: true,
-          confirmButtonText: 'Continuar',
-          cancelButtonText: 'Cancelar',
+          confirmButtonText: __('Continuar', 'plugins-alpha'),
+          cancelButtonText: __('Cancelar', 'plugins-alpha'),
         });
         if (!r.isConfirmed) return;
       }
@@ -1761,8 +1836,8 @@
       if (!plannedKw.length) {
         await Swal.fire({
           icon: 'info',
-          title: 'Fila vazia',
-          text: 'Não foi possível montar a fila com os “Posts por dia” atuais.'
+          title: __('Fila vazia', 'plugins-alpha'),
+          text: __('Não foi possível montar a fila com os “Posts por dia” atuais.', 'plugins-alpha')
         });
         return;
       }
@@ -1770,14 +1845,18 @@
       if (plannedKw.length < totalGlobal) {
         const r = await Swal.fire({
           icon: 'question',
-          title: 'Keywords insuficientes',
-          html: `<p style="font-size:15px;">
-        Você pediu <b>${totalGlobal}</b> posts, mas dá pra gerar <b>${plannedKw.length}</b> com as keywords disponíveis.
-        <br>Continuar?
-      </p>`,
+          title: __('Keywords insuficientes', 'plugins-alpha'),
+          html: sprintf(
+            __(
+              '<p style="font-size:15px;">Você pediu <b>%d</b> posts, mas dá pra gerar <b>%d</b> com as keywords disponíveis.<br>Continuar?</p>',
+              'plugins-alpha'
+            ),
+            totalGlobal,
+            plannedKw.length
+          ),
           showCancelButton: true,
-          confirmButtonText: 'Sim, gerar',
-          cancelButtonText: 'Cancelar',
+          confirmButtonText: __('Sim, gerar', 'plugins-alpha'),
+          cancelButtonText: __('Cancelar', 'plugins-alpha'),
         });
         if (!r.isConfirmed) return;
       }
@@ -1805,7 +1884,7 @@
       // gera uma vez só
       const res = await generateForActiveBox({
         skipKeywordWarning: true,
-        groupTitle: 'Planejamento global',
+        groupTitle: __('Planejamento global', 'plugins-alpha'),
         plannedOrigins: plannedKw, // ✅ IMPORTANTE
       });
 
@@ -1820,7 +1899,7 @@
 
       await Swal.fire({
         icon: res.failCount ? 'warning' : 'success',
-        title: 'Geração concluída',
+        title: __('Geração concluída', 'plugins-alpha'),
         html,
       });
     });
@@ -1851,7 +1930,7 @@
   });
 
   // Helpers SweetAlert2
-  async function swalLoading(title = 'Processando…') {
+  async function swalLoading(title = __('Processando…', 'plugins-alpha')) {
     return Swal.fire({
       title,
       allowOutsideClick: false,
@@ -1860,14 +1939,14 @@
       didOpen: () => Swal.showLoading()
     });
   }
-  async function swalSuccess(html, title = 'Tudo certo!') {
-    return Swal.fire({ icon: 'success', title, html, confirmButtonText: 'Ok' });
+  async function swalSuccess(html, title = __('Tudo certo!', 'plugins-alpha')) {
+    return Swal.fire({ icon: 'success', title, html, confirmButtonText: __('Ok', 'plugins-alpha') });
   }
-  async function swalError(html, title = 'Ops…') {
-    return Swal.fire({ icon: 'error', title, html, confirmButtonText: 'Entendi' });
+  async function swalError(html, title = __('Ops…', 'plugins-alpha')) {
+    return Swal.fire({ icon: 'error', title, html, confirmButtonText: __('Entendi', 'plugins-alpha') });
   }
-  async function swalWarn(html, title = 'Atenção') {
-    return Swal.fire({ icon: 'warning', title, html, confirmButtonText: 'Ok' });
+  async function swalWarn(html, title = __('Atenção', 'plugins-alpha')) {
+    return Swal.fire({ icon: 'warning', title, html, confirmButtonText: __('Ok', 'plugins-alpha') });
   }
 
   // Fetch JSON com tratamento de erro padronizado
@@ -1906,13 +1985,13 @@
     const pid = ($pid.val() || '').trim();
 
     if (!email || !pid) {
-      await swalWarn('Preencha <b>e-mail</b> e <b>ID da compra</b> antes de ativar.');
+      await swalWarn(__('Preencha <b>e-mail</b> e <b>ID da compra</b> antes de ativar.', 'plugins-alpha'));
       return;
     }
 
     try {
       $btn.prop('disabled', true);
-      await swalLoading('Ativando licença…');
+      await swalLoading(__('Ativando licença…', 'plugins-alpha'));
 
       const data = await fetchJSON(`${REST}/license/activate`, {
         method: 'POST',
@@ -1928,23 +2007,24 @@
           <div style="text-align:left">
             <div><b>Status:</b> ${data.license?.status || '-'}</div>
             <div><b>E-mail:</b> ${data.license?.email || '-'}</div>
-            <div><b>Compra:</b> ${data.license?.purchase_id || '-'}</div>
+            <div><b>${__('Compra:', 'plugins-alpha')}</b> ${data.license?.purchase_id || '-'}</div>
             ${data.license?.message ? `<div style="margin-top:6px">${data.license.message}</div>` : ''}
           </div>
         `;
-        await swalSuccess(html, 'Licença ativada!');
+        await swalSuccess(html, __('Licença ativada!', 'plugins-alpha'));
       } else {
         const html = `
           <div style="text-align:left">
             <div><b>Status:</b> ${data.license?.status || 'INACTIVE'}</div>
-            ${data.license?.message ? `<div style="margin-top:6px">${data.license.message}</div>` : '<div style="margin-top:6px">Não foi possível ativar. Verifique os dados.</div>'}
+            ${data.license?.message ? `<div style="margin-top:6px">${data.license.message}</div>` : `<div style="margin-top:6px">${__('Não foi possível ativar. Verifique os dados.', 'plugins-alpha')}</div>`}
           </div>
         `;
-        await swalWarn(html, 'Licença não ativa');
+        await swalWarn(html, __('Licença não ativa', 'plugins-alpha'));
       }
     } catch (err) {
       Swal.close();
-      await swalError(`${(err && err.message) ? err.message : 'Erro desconhecido.'}<br><small>Tente novamente em instantes.</small>`);
+      const fallbackMsg = __('Erro desconhecido.<br><small>Tente novamente em instantes.</small>', 'plugins-alpha');
+      await swalError((err && err.message) ? String(err.message) : fallbackMsg);
     } finally {
 
       $btn.prop('disabled', false);
@@ -2014,11 +2094,11 @@
 
     const ok = await Swal.fire({
       icon: 'question',
-      title: 'Gerar keywords?',
-      text: 'Isso vai substituir o conteúdo do campo por keywords geradas. Tem certeza?',
+      title: __('Gerar keywords?', 'plugins-alpha'),
+      text: __('Isso vai substituir o conteúdo do campo por keywords geradas. Tem certeza?', 'plugins-alpha'),
       showCancelButton: true,
-      confirmButtonText: 'Gerar',
-      cancelButtonText: 'Cancelar',
+      confirmButtonText: __('Gerar', 'plugins-alpha'),
+      cancelButtonText: __('Cancelar', 'plugins-alpha'),
     });
 
     if (!ok.isConfirmed) return;
@@ -2030,8 +2110,8 @@
 
     // ✅ abre o loading ANTES do fetch
     Swal.fire({
-      title: 'Gerando keywords...',
-      text: 'Aguarde um instante.',
+      title: __('Gerando keywords...', 'plugins-alpha'),
+      text: __('Aguarde um instante.', 'plugins-alpha'),
       allowOutsideClick: false,
       allowEscapeKey: false,
       didOpen: () => {
@@ -2059,14 +2139,14 @@
       const j = await r.json().catch(() => ({}));
 
       if (!r.ok || !j || !j.ok) {
-        throw new Error((j && j.message) ? j.message : 'Falha ao gerar keywords.');
+        throw new Error((j && j.message) ? j.message : __('Falha ao gerar keywords.', 'plugins-alpha'));
       }
 
       $ta.val(j.keywords_text || '');
 
       // fecha loading e mostra sucesso
       Swal.close();
-      await Swal.fire({ icon: 'success', title: 'Pronto', text: 'Keywords geradas.' });
+      await Swal.fire({ icon: 'success', title: __('Pronto', 'plugins-alpha'), text: __('Keywords geradas.', 'plugins-alpha') });
 
       if (typeof window.PGA_saveGroupsToStorage === 'function') {
         window.PGA_saveGroupsToStorage();
@@ -2075,7 +2155,7 @@
 
     } catch (err) {
       Swal.close();
-      Swal.fire({ icon: 'error', title: 'Erro', text: String(err.message || err) });
+      Swal.fire({ icon: 'error', title: __('Erro', 'plugins-alpha'), text: String(err.message || err) });
     } finally {
       $btn.data('loading', 0).prop('disabled', false);
     }
@@ -2101,7 +2181,7 @@
     catch (e) {
       console.error(label, 'Resposta NÃO é JSON. HTTP=', resp.status, 'CT=', resp.headers.get('content-type'));
       console.error('Primeiros 800 chars:', txt.slice(0, 800));
-      throw new Error(label + ': Servidor não retornou JSON. Veja o console (Network/Response).');
+      throw new Error(label + __(': Servidor não retornou JSON. Veja o console (Network/Response).', 'plugins-alpha'));
     }
   }
 
@@ -2125,11 +2205,11 @@
     if (!btn) return;
 
     const { ajaxurl, nonce } = cfg();
-    if (!ajaxurl || !nonce) { alert('Config export ausente (ajaxurl/nonce).'); return; }
+    if (!ajaxurl || !nonce) { alert(__('Config export ausente (ajaxurl/nonce).', 'plugins-alpha')); return; }
 
     try {
       if (window.Swal) {
-        Swal.fire({ title: 'Exportando…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: __('Exportando…', 'plugins-alpha'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
       }
 
       const r = await fetch(ajaxurl + '?action=pga_orion_prompts_export', {
@@ -2140,7 +2220,7 @@
       });
 
       const j = await safeJson(r, 'EXPORT');
-      if (!r.ok || !j.success) throw new Error(j?.data?.message || 'Falha no export.');
+      if (!r.ok || !j.success) throw new Error(j?.data?.message || __('Falha no export.', 'plugins-alpha'));
 
       const blob = new Blob([JSON.stringify(j.data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -2182,11 +2262,11 @@
     if (!file) return;
 
     const { ajaxurl, nonce } = cfg();
-    if (!ajaxurl || !nonce) { alert('Config import ausente (ajaxurl/nonce).'); return; }
+    if (!ajaxurl || !nonce) { alert(__('Config import ausente (ajaxurl/nonce).', 'plugins-alpha')); return; }
 
     try {
       if (window.Swal) {
-        Swal.fire({ title: 'Lendo arquivo…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: __('Lendo arquivo…', 'plugins-alpha'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
       }
 
       // 1) PREPARE
@@ -2198,12 +2278,12 @@
       const r = await fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: fd });
       const j = await safeJson(r, 'IMPORT_PREPARE');
 
-      if (!r.ok || !j.success) throw new Error(j?.data?.message || 'Falha ao ler o JSON.');
+      if (!r.ok || !j.success) throw new Error(j?.data?.message || __('Falha ao ler o JSON.', 'plugins-alpha'));
 
       const token = j.data?.token || '';
       const items = Array.isArray(j.data?.items) ? j.data.items : [];
-      if (!token) throw new Error('Token não retornado no prepare.');
-      if (!items.length) throw new Error('Nada importável encontrado no arquivo.');
+      if (!token) throw new Error(__('Token não retornado no prepare.', 'plugins-alpha'));
+      if (!items.length) throw new Error(__('Nada importável encontrado no arquivo.', 'plugins-alpha'));
 
       // 2) MODAL
       // items: [{key, type:'template|prompt', tpl, stage, hasExisting, size}]
@@ -2230,15 +2310,15 @@
 
         const headerExists = list.some(x => x.hasExisting);
         const headerMeta = headerExists
-          ? `<span style="color:#b45309;margin-left:6px">tem itens existentes</span>`
-          : `<span style="color:#15803d;margin-left:6px">novo</span>`;
+          ? `<span style="color:#b45309;margin-left:6px">${__('tem itens existentes', 'plugins-alpha')}</span>`
+          : `<span style="color:#15803d;margin-left:6px">${__('novo', 'plugins-alpha')}</span>`;
 
         // lista interna (prompts)
         const inner = list.map((it) => {
           // você pode esconder a linha "template" e só mostrar prompts
           if (it.type === 'template') return '';
 
-          const meta = it.hasExisting ? `já existe` : `novo`;
+          const meta = it.hasExisting ? __('já existe', 'plugins-alpha') : __('novo', 'plugins-alpha');
           const metaColor = it.hasExisting ? '#b45309' : '#15803d';
           const small = it.size ? ` <span style="color:#666">(${Number(it.size)} chars)</span>` : '';
 
@@ -2268,9 +2348,9 @@
       </div>
 
       <details style="margin-top:8px">
-        <summary style="cursor:pointer;color:#111">ver itens</summary>
+        <summary style="cursor:pointer;color:#111">${__('ver itens', 'plugins-alpha')}</summary>
         <div style="margin-top:8px;max-height:260px;overflow:auto;padding-right:6px">
-          ${inner || `<div style="color:#666">Nenhum prompt encontrado neste modelo.</div>`}
+          ${inner || `<div style="color:#666">${__('Nenhum prompt encontrado neste modelo.', 'plugins-alpha')}</div>`}
         </div>
       </details>
     </div>
@@ -2280,7 +2360,7 @@
       const modalHtml = `
   <div style="text-align:left">
     <div style="margin-bottom:10px;color:#444;font-size:13px">
-      Selecione o(s) modelo(s) para importar. Você pode abrir e desmarcar stages específicos.
+      ${__('Selecione o(s) modelo(s) para importar. Você pode abrir e desmarcar stages específicos.', 'plugins-alpha')}
     </div>
 
     <div style="max-height:380px;overflow:auto">
@@ -2290,11 +2370,11 @@
     <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
       <label style="display:flex;gap:8px;align-items:center;font-size:13px">
         <input type="checkbox" id="pga-import-overwrite" />
-        Sobrescrever itens existentes
+        ${__('Sobrescrever itens existentes', 'plugins-alpha')}
       </label>
 
-      <button type="button" class="button" id="pga-import-select-all">Marcar tudo</button>
-      <button type="button" class="button" id="pga-import-select-none">Desmarcar tudo</button>
+      <button type="button" class="button" id="pga-import-select-all">${__('Marcar tudo', 'plugins-alpha')}</button>
+      <button type="button" class="button" id="pga-import-select-none">${__('Desmarcar tudo', 'plugins-alpha')}</button>
     </div>
   </div>
 `;
@@ -2303,12 +2383,12 @@
       let res;
       if (window.Swal) {
         res = await Swal.fire({
-          title: 'Importar (seleção)',
+          title: __('Importar (seleção)', 'plugins-alpha'),
           html: modalHtml,
           width: 760,
           showCancelButton: true,
-          confirmButtonText: 'Importar selecionados',
-          cancelButtonText: 'Cancelar',
+          confirmButtonText: __('Importar selecionados', 'plugins-alpha'),
+          cancelButtonText: __('Cancelar', 'plugins-alpha'),
           focusConfirm: false,
           didOpen: () => {
             // marcar/desmarcar geral
@@ -2346,7 +2426,7 @@
             const overwrite = !!document.getElementById('pga-import-overwrite')?.checked;
 
             if (!keys.length) {
-              Swal.showValidationMessage('Selecione ao menos 1 item.');
+              Swal.showValidationMessage(__('Selecione ao menos 1 item.', 'plugins-alpha'));
               return false;
             }
             return { keys, overwrite };
@@ -2360,7 +2440,7 @@
 
       // 3) APPLY
       if (window.Swal) {
-        Swal.fire({ title: 'Importando…', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: __('Importando…', 'plugins-alpha'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
       }
 
       const body = new URLSearchParams();
@@ -2378,23 +2458,23 @@
       });
 
       const j2 = await safeJson(r2, 'IMPORT_APPLY');
-      if (!r2.ok || !j2.success) throw new Error(j2?.data?.message || 'Falha ao aplicar import.');
+      if (!r2.ok || !j2.success) throw new Error(j2?.data?.message || __('Falha ao aplicar import.', 'plugins-alpha'));
 
       if (window.Swal) {
         Swal.fire({
           icon: 'success',
-          title: 'Importado!',
-          text: j2.data?.message || 'Itens aplicados.',
+          title: __('Importado!', 'plugins-alpha'),
+          text: j2.data?.message || __('Itens aplicados.', 'plugins-alpha'),
         }).then(() => {
           window.location.reload();
         });
       } else {
-        alert(j2.data?.message || 'Importado!');
+        alert(j2.data?.message || __('Importado!', 'plugins-alpha'));
         window.location.reload();
       }
 
     } catch (err) {
-      if (window.Swal) Swal.fire({ icon: 'error', title: 'Erro', text: String(err.message || err) });
+      if (window.Swal) Swal.fire({ icon: 'error', title: __('Erro', 'plugins-alpha'), text: String(err.message || err) });
       else alert(String(err.message || err));
     } finally {
       try { this.value = ''; } catch (e) { }
@@ -2429,32 +2509,32 @@
 
       const txt = await r.text();
       let j;
-      try { j = JSON.parse(txt); } catch (e) { throw new Error('Servidor não retornou JSON.'); }
+      try { j = JSON.parse(txt); } catch (e) { throw new Error(__('Servidor não retornou JSON.', 'plugins-alpha')); }
 
-      if (!r.ok || !j.success) throw new Error(j?.data?.message || 'Falha ao remover.');
+      if (!r.ok || !j.success) throw new Error(j?.data?.message || __('Falha ao remover.', 'plugins-alpha'));
 
       tr.remove();
     };
 
     if (window.Swal) {
       const res = await Swal.fire({
-        title: 'Remover modelo?',
-        text: 'Isso apaga do banco o modelo e TODOS os prompts dele.',
+        title: __('Remover modelo?', 'plugins-alpha'),
+        text: __('Isso apaga do banco o modelo e TODOS os prompts dele.', 'plugins-alpha'),
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Remover de vez',
-        cancelButtonText: 'Cancelar'
+        confirmButtonText: __('Remover de vez', 'plugins-alpha'),
+        cancelButtonText: __('Cancelar', 'plugins-alpha')
       });
       if (!res.isConfirmed) return;
       try {
-        Swal.fire({ title: 'Removendo…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: __('Removendo…', 'plugins-alpha'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         await go();
-        Swal.fire({ icon: 'success', title: 'Removido', timer: 900, showConfirmButton: false });
+        Swal.fire({ icon: 'success', title: __('Removido', 'plugins-alpha'), timer: 900, showConfirmButton: false });
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Erro', text: String(err.message || err) });
+        Swal.fire({ icon: 'error', title: __('Erro', 'plugins-alpha'), text: String(err.message || err) });
       }
     } else {
-      if (!confirm('Remover do banco este modelo e todos os prompts dele?')) return;
+      if (!confirm(__('Remover do banco este modelo e todos os prompts dele?', 'plugins-alpha'))) return;
       try { await go(); } catch (err) { alert(String(err.message || err)); }
     }
   });
@@ -2497,6 +2577,21 @@
     return u.toString();
   }
 
+  function getDefaultTemplatesFromButton() {
+    const btn = document.getElementById('pga_tab_add');
+    if (!btn) return ['article'];
+
+    const raw = btn.getAttribute('data-default-templates') || '';
+    if (!raw) return ['article'];
+
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) return arr.map(s => String(s || '').trim()).filter(Boolean);
+    } catch (e) { /* ignore */ }
+
+    return ['article'];
+  }
+
   function loadTabs() {
     const tabs = parseJson(localStorage.getItem(KEY_TABS_INDEX), []);
     return Array.isArray(tabs) ? tabs : [];
@@ -2510,7 +2605,7 @@
     let tabs = loadTabs();
 
     if (!tabs.length) {
-      const first = { id: makeId(), title: 'Projeto 1' };
+      const first = { id: makeId(), title: __('Projeto 1', 'plugins-alpha') };
       tabs = [first];
       saveTabs(tabs);
     }
@@ -2576,17 +2671,38 @@
     });
   }
 
-  function addTabAndGo(title) {
+  function buildGroupsForNewProject() {
+    const defaults = getDefaultTemplatesFromButton(); // ['pilar', 'artigo_topo', ...] ou ['article']
+    // monta estrutura igual serialize usa, só o necessário
+    return defaults.map((tplKey) => ({
+      keywords: '',
+      locale: 'pt_BR',
+      template_key: tplKey || 'article',
+      category: '0',
+      total: 6,
+      per_day: 3,
+      first_delay: '',
+      length: 'short',
+      link_max: 2,
+      internal_links: { mode: 'none', max: 0, manual_ids: '' }
+    }));
+  }
+
+  function addTabAndGo(name) {
     const tabs = loadTabs();
     const nextNum = tabs.length + 1;
 
-    const clean = String(title || '').trim();
-    const finalTitle = clean ? clean : ('Projeto ' + nextNum);
+    const title = String(name || '').trim() || (__('Projeto ', 'plugins-alpha') + nextNum);
 
-    const tab = { id: makeId(), title: finalTitle };
+    const tab = { id: makeId(), title };
     tabs.push(tab);
-
     saveTabs(tabs);
+
+    // ✅ cria grupos default já na tab nova
+    try {
+      const groups = buildGroupsForNewProject();
+      localStorage.setItem(tabGroupsKey(tab.id), JSON.stringify(groups));
+    } catch (e) { }
     localStorage.setItem(KEY_ACTIVE_TAB, tab.id);
     window.location.href = buildTabUrl(tab.id);
   }
@@ -2617,12 +2733,19 @@
     // garante que tem boxes suficientes no DOM
     ensureBoxesCount(groups.length);
 
+    // ✅ REBUSCA DEPOIS DE CRIAR
     const $boxes = $('#pga_gen_container .pga-gen-box');
 
-    // aplica config em cada box existente
-    groups.forEach((cfg, i) => {
+    groups.forEach((g, i) => {
       const $box = $boxes.eq(i);
       if (!$box.length) return;
+
+      // ✅ sempre pelo box, não por ID global
+      $box.find('.pga_template_key').val(g.template_key || 'article').trigger('change');
+      // $box.find('.pga_keywords').val(g.keywords || '');
+      $box.find('.pga_category').val(g.category || '0').trigger('change');
+      // $box.find('.pga_length').val(g.length || 'short').trigger('change');
+      // $box.find('.pga_locale').val(g.locale || 'pt_BR').trigger('change');
 
       // usa suas funções já existentes
       if (typeof window.pgaApplyBoxConfig === 'function') {
@@ -2669,24 +2792,27 @@
     const idx = tabs.findIndex(t => t.id === tabId);
     if (idx === -1) return;
 
-    const name = tabs[idx].title || 'Projeto';
+    const name = tabs[idx].title || __('Projeto', 'plugins-alpha');
 
     // SweetAlert2 confirm
     let ok = false;
     if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
       const res = await Swal.fire({
-        title: 'Excluir aba?',
-        html: `Você tem certeza que deseja excluir <b>${escapeHtml(name)}</b>?<br><br><small>Isso apaga os grupos salvos dessa aba.</small>`,
+        title: __('Excluir aba?', 'plugins-alpha'),
+        html: sprintf(
+          __('Você tem certeza que deseja excluir <b>%s</b>?<br><br><small>Isso apaga os grupos salvos dessa aba.</small>', 'plugins-alpha'),
+          escapeHtml(name)
+        ),
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Sim, excluir',
-        cancelButtonText: 'Cancelar',
+        confirmButtonText: __('Sim, excluir', 'plugins-alpha'),
+        cancelButtonText: __('Cancelar', 'plugins-alpha'),
         reverseButtons: true,
         focusCancel: true
       });
       ok = !!res.isConfirmed;
     } else {
-      ok = confirm(`Excluir a aba "${name}"?\n\nIsso apaga os grupos salvos dessa aba.`);
+      ok = confirm(__('Excluir a aba "%s"?\n\nIsso apaga os grupos salvos dessa aba.', 'plugins-alpha'), name);
     }
 
     if (!ok) return;
@@ -2701,7 +2827,7 @@
 
     // se ficou vazio, recria uma default
     if (!tabs.length) {
-      const first = { id: pgaMakeId(), title: 'Projeto 1' };
+      const first = { id: pgaMakeId(), title: __('Projeto 1', 'plugins-alpha') };
       tabs.push(first);
       saveTabs(tabs);
 
@@ -2751,20 +2877,20 @@
         const res = await Swal.fire({
           html: `
             <div class="pga-modal-content">
-              <h3 style="margin:0">Novo projeto</h3>
+              <h3 style="margin:0"><?php _e('Novo projeto', 'plugins-alpha'); ?></h3>
               <div class="pga-descricao">
-                Crie um novo projeto para organizar seus geradores de conteúdo.
+                <?php _e('Crie um novo projeto para organizar seus geradores de conteúdo.', 'plugins-alpha'); ?>
               </div>
               <div class="pga-field">
-                <label for="pga_new_project_name">Nome do Projeto</label>
-                <input id="pga_new_project_name" class="swal2-input" placeholder="Ex: Blog de Marketing" style="width:100%;margin:0" />
+                <label for="pga_new_project_name"><?php _e('Nome do Projeto', 'plugins-alpha'); ?></label>
+                <input id="pga_new_project_name" class="swal2-input" placeholder="<?php _e('Ex: Blog de Marketing', 'plugins-alpha'); ?>" style="width:100%;margin:0" />
               </div>
             </div>
           `,
           showCancelButton: true,
           focusConfirm: false,
-          cancelButtonText: 'Cancelar',
-          confirmButtonText: 'Criar Projeto',
+          cancelButtonText: __('Cancelar', 'plugins-alpha'),
+          confirmButtonText: __('Criar Projeto', 'plugins-alpha'),
           preConfirm: () => {
             const v = document.getElementById('pga_new_project_name')?.value || '';
             return String(v).trim();
@@ -2774,7 +2900,7 @@
         if (!res.isConfirmed) return;
         name = res.value || '';
       } else {
-        name = prompt('Nome do projeto:') || '';
+        name = prompt(__('Nome do projeto:', 'plugins-alpha')) || '';
         if (!String(name).trim()) return;
       }
 
@@ -2787,6 +2913,9 @@
 
     // 5) autosave
     bindAutoSave(st.tabId);
+    setTimeout(() => {
+      pgaSaveBoxesToLocal();
+    }, 4000);
   });
 
 })(jQuery);

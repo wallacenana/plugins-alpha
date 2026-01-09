@@ -896,6 +896,7 @@ class PluginsAlpha_Prompts
                                     <tr>
                                         <th><?php esc_html_e('Modelo', 'plugins-alpha'); ?></th>
                                         <th style="width:240px;"><?php esc_html_e('Ativo', 'plugins-alpha'); ?></th>
+                                        <th style="width:180px;"><?php esc_html_e('Padrão', 'plugins-alpha'); ?></th>
                                         <th style="width:160px;text-align:right;"><?php esc_html_e('Ações', 'plugins-alpha'); ?></th>
                                     </tr>
                                 </thead>
@@ -903,9 +904,11 @@ class PluginsAlpha_Prompts
                                 <tbody>
                                     <?php foreach ($tpls_all as $slug => $row):
                                         $slug = sanitize_key((string)$slug);
-                                        $is_builtin = !empty($row['builtin']) || in_array($slug, ['article', 'modelar_youtube', 'global'], true);
+                                        $is_builtin = !empty($row['builtin']) || in_array($slug, ['global', 'article', 'modelar_youtube'], true);
                                         $label = (string)($row['label'] ?? $slug);
                                         $enabled = !empty($row['enabled']) ? 1 : 0;
+                                        $is_default = !empty($row['is_default']) ? 1 : 0;
+                                        error_log('log: ' . print_r($row, true));
                                     ?>
                                         <tr data-slug="<?php echo esc_attr($slug); ?>" data-builtin="<?php echo $is_builtin ? '1' : '0'; ?>">
                                             <td>
@@ -915,9 +918,27 @@ class PluginsAlpha_Prompts
                                                     value="<?php echo esc_attr($label); ?>"
                                                     <?php echo $is_builtin ? 'disabled' : ''; ?>>
                                             </td>
+                                            <td>
+                                                <?php if ($slug !== 'global'): ?>
+
+                                                    <!-- sempre envia 0, mesmo desmarcado -->
+                                                    <input type="hidden"
+                                                        name="pga_orion_templates[<?php echo esc_attr($slug); ?>][is_default]"
+                                                        value="0">
+
+                                                    <label class="pga-mini" style="display:flex;align-items:center;gap:8px;">
+                                                        <input type="checkbox"
+                                                            name="pga_orion_templates[<?php echo esc_attr($slug); ?>][is_default]"
+                                                            value="1"
+                                                            <?php checked((int)$is_default === 1); ?>>
+                                                        <span><?php esc_html_e('Novo projeto', 'plugins-alpha'); ?></span>
+                                                    </label>
+
+                                                <?php endif; ?>
+                                            </td>
 
                                             <td>
-                                                <div class="pga-switch">
+                                                <div style="display: <?php echo $slug === 'article' || $slug === 'global' || $slug === 'modelar_youtube' ? 'none' : 'block' ?>">
                                                     <label>
                                                         <input type="checkbox"
                                                             name="pga_orion_templates[<?php echo esc_attr($slug); ?>][enabled]"
@@ -948,7 +969,7 @@ class PluginsAlpha_Prompts
 
                                 <tfoot>
                                     <tr>
-                                        <td colspan="3">
+                                        <td colspan="4">
                                             <button type="button" class="pga-btn" id="pga-add-tpl-row">+ <?php esc_html_e('Adicionar modelo custom', 'plugins-alpha'); ?></button>
                                             <span class="pga-mini" style="margin-left:10px;"><?php esc_html_e('Ex.: receitas, review, modelar_url', 'plugins-alpha'); ?></span>
                                         </td>
@@ -1238,25 +1259,25 @@ class PluginsAlpha_Prompts
                         tr.setAttribute('data-slug', slug);
                         tr.setAttribute('data-builtin', '0');
                         tr.innerHTML = `
-      <td>
-        <input class="pga-input"
-          name="pga_orion_templates[${slug}][label]"
-          value="${String(label).replace(/"/g,'&quot;')}">
-      </td>
-      <td>
-        <div class="pga-switch">
-          <label>
-            <input type="checkbox"
-              name="pga_orion_templates[${slug}][enabled]"
-              value="1" checked>
-            <strong>Ativo</strong>
-          </label>
-        </div>
-      </td>
-      <td style="text-align:right;">
-        <button type="button" class="pga-btn pga-remove-tpl-row">Remover</button>
-      </td>
-    `;
+                            <td>
+                                <input class="pga-input"
+                                name="pga_orion_templates[${slug}][label]"
+                                value="${String(label).replace(/"/g,'&quot;')}">
+                            </td>
+                            <td>
+                                <div class="pga-switch">
+                                <label>
+                                    <input type="checkbox"
+                                    name="pga_orion_templates[${slug}][enabled]"
+                                    value="1" checked>
+                                    <strong>Ativo</strong>
+                                </label>
+                                </div>
+                            </td>
+                            <td style="text-align:right;">
+                                <button type="button" class="pga-btn pga-remove-tpl-row">Remover</button>
+                            </td>
+                            `;
                         tbody.appendChild(tr);
                         return;
                     }
@@ -1322,25 +1343,25 @@ class PluginsAlpha_Prompts
                     tr.setAttribute('data-builtin', '0');
 
                     tr.innerHTML = `
-    <td>
-      <input class="pga-input"
-        name="pga_orion_templates[${slug}][label]"
-        value="${String(label).replace(/"/g, '&quot;')}">
-    </td>
-    <td>
-      <div class="pga-switch">
-        <label>
-          <input type="checkbox"
-            name="pga_orion_templates[${slug}][enabled]"
-            value="1" ${enabled ? 'checked' : ''}>
-          <strong>${enabled ? 'Ativo' : 'Inativo'}</strong>
-        </label>
-      </div>
-    </td>
-    <td style="text-align:right;">
-      <button type="button" class="pga-btn pga-remove-tpl-row">Remover</button>
-    </td>
-  `;
+                        <td>
+                        <input class="pga-input"
+                            name="pga_orion_templates[${slug}][label]"
+                            value="${String(label).replace(/"/g, '&quot;')}">
+                        </td>
+                        <td>
+                        <div class="pga-switch">
+                            <label>
+                            <input type="checkbox"
+                                name="pga_orion_templates[${slug}][enabled]"
+                                value="1" ${enabled ? 'checked' : ''}>
+                            <strong>${enabled ? 'Ativo' : 'Inativo'}</strong>
+                            </label>
+                        </div>
+                        </td>
+                        <td style="text-align:right;">
+                        <button type="button" class="pga-btn pga-remove-tpl-row">Remover</button>
+                        </td>
+                    `;
 
                     tbody.appendChild(tr);
 
@@ -1488,12 +1509,39 @@ class PluginsAlpha_Prompts
 
         // ✅ normaliza slugs válidos que ficaram na tabela (inclui nativos)
         $keep = [];
+        $clean_templates = [];
+
         foreach ($templates as $slug => $row) {
             $slug = sanitize_key((string)$slug);
-            if ($slug === '') continue;
-            if ($slug === 'global') continue;
-            $keep[$slug] = true;
+            if ($slug === '' || $slug === 'global') continue;
+
+            $label      = sanitize_text_field((string)($row['label'] ?? $slug));
+            $enabled    = !empty($row['enabled']) ? 1 : 0;
+            $is_default = !empty($row['is_default']) ? 1 : 0;
+
+            // se for padrão, tem que estar ativo
+            if ($is_default) $enabled = 1;
+
+            // builtin: sempre enabled=1 e builtin=1, MAS is_default pode ser 0/1 (usuário escolhe)
+            if (in_array($slug, ['article', 'modelar_youtube'], true)) {
+                $clean_templates[$slug] = [
+                    'label'      => $label ?: $slug,
+                    'enabled'    => 1,
+                    'builtin'    => 1,
+                    'is_default' => $is_default, // ✅ deixa o usuário decidir
+                ];
+            } else {
+                $clean_templates[$slug] = [
+                    'label'      => $label ?: $slug,
+                    'enabled'    => $enabled,
+                    'builtin'    => 0,
+                    'is_default' => $is_default,
+                ];
+            }
         }
+
+        update_option('pga_orion_templates', $clean_templates, false);
+
         $keep['article'] = true;
         $keep['modelar_youtube'] = true;
 
@@ -1508,20 +1556,69 @@ class PluginsAlpha_Prompts
             }
         }
 
-        // ✅ também limpa templates removidos (opcional, mas coerente)
+        // templates (do modal)
+        $templates_post = [];
+        if (isset($_POST['pga_orion_templates'])) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+            $templates_post = (array) wp_unslash($_POST['pga_orion_templates']);
+        }
+
+        // sempre manter nativos
+        $builtin = [
+            'article'        => ['label' => 'Artigo (padrão)',        'enabled' => 1, 'builtin' => 1, 'is_default' => 0],
+            'modelar_youtube' => ['label' => 'Modelar vídeo do YouTube', 'enabled' => 1, 'builtin' => 1, 'is_default' => 0],
+        ];
+
         $clean_templates = [];
-        foreach ($templates as $slug => $row) {
-            $slug = sanitize_key((string)$slug);
+
+        // 1) primeiro, injeta nativos SEMPRE
+        foreach ($builtin as $bslug => $bmeta) {
+            $clean_templates[$bslug] = [
+                'label'      => sanitize_text_field((string) ($bmeta['label'] ?? $bslug)) ?: $bslug,
+                'enabled'    => 1,
+                'builtin'    => 1,
+                'is_default' => 0,
+            ];
+        }
+
+        // 2) depois, normaliza o que veio do POST
+        foreach ($templates_post as $slug => $row) {
+            $slug = sanitize_key((string) $slug);
             if ($slug === '' || $slug === 'global') continue;
 
-            $label = sanitize_text_field((string)($row['label'] ?? $slug));
-            $enabled = !empty($row['enabled']) ? 1 : 0;
+            // nativos já foram forçados acima
+            if (isset($clean_templates[$slug]) && !empty($clean_templates[$slug]['builtin'])) {
+                continue;
+            }
 
-            // força nativos
-            if (in_array($slug, ['article', 'modelar_youtube'], true)) {
-                $clean_templates[$slug] = ['label' => $label ?: $slug, 'enabled' => 1, 'builtin' => 1];
-            } else {
-                $clean_templates[$slug] = ['label' => $label ?: $slug, 'enabled' => $enabled, 'builtin' => 0];
+            $row = is_array($row) ? $row : [];
+
+            $label      = sanitize_text_field((string) ($row['label'] ?? $slug));
+            $enabled    = !empty($row['enabled']) ? 1 : 0;
+            $is_default = !empty($row['is_default']) ? 1 : 0;
+
+            // se for padrão, tem que estar ativo
+            if ($is_default) $enabled = 1;
+
+            $clean_templates[$slug] = [
+                'label'      => $label ?: $slug,
+                'enabled'    => $enabled,
+                'builtin'    => 0,
+                'is_default' => $is_default,
+            ];
+        }
+
+        // 3) limpa prompts de templates que não existem mais
+        $keep = array_fill_keys(array_keys($clean_templates), true);
+
+        if (is_array($out)) {
+            foreach (array_keys($out) as $tpl_slug) {
+                $tpl_slug = sanitize_key((string) $tpl_slug);
+                if ($tpl_slug === 'global') continue;
+
+                if (empty($keep[$tpl_slug])) {
+                    unset($out[$tpl_slug]);
+                }
             }
         }
 
@@ -1819,9 +1916,14 @@ class PluginsAlpha_Prompts
             $enabled = is_array($meta) && array_key_exists('enabled', $meta) ? (int)!empty($meta['enabled']) : 1;
 
             if (in_array($slug, ['article', 'modelar_youtube'], true)) {
-                $current_templates[$slug] = ['label' => $label ?: $slug, 'enabled' => 1, 'builtin' => 1];
+                $clean_templates[$slug] = [
+                    'label'      => $label ?: $slug,
+                    'enabled'    => 1,
+                    'builtin'    => 1,
+                    'is_default' => 1,
+                ];
             } else {
-                $current_templates[$slug] = ['label' => $label ?: $slug, 'enabled' => $enabled, 'builtin' => 0];
+                $current_templates[$slug] = ['label' => $label ?: $slug, 'enabled' => $enabled, 'builtin' => 0, 'is_default' => 0];
             }
 
             $imported++;

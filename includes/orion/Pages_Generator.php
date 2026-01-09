@@ -19,6 +19,26 @@ class PluginsAlpha_Pages_Generator
           . esc_html__('Clique aqui para ativar', 'plugins-alpha')
           . '</a></p></div>';
       }
+
+      $tpls = (array) get_option('pga_orion_templates', []);
+      $default_tpls = [];
+
+      foreach ($tpls as $slug => $row) {
+        $slug = sanitize_key((string) $slug);
+        if (!$slug) continue;
+
+        $enabled = !empty($row['enabled']);
+        $is_default = !empty($row['is_default']);
+
+        if ($enabled && $is_default) {
+          $default_tpls[] = $slug;
+        }
+      }
+
+      // fallback: se user não marcou nada, evita “novo projeto vazio”
+      if (!$default_tpls) {
+        $default_tpls = ['article'];
+      }
       ?>
       <div class="wrap pga-layout">
         <div class="pga-header-fixed">
@@ -48,8 +68,6 @@ class PluginsAlpha_Pages_Generator
                 <span class="pga-switch-ui" aria-hidden="true"></span>
                 <span class="pga-switch-label">Global</span>
               </label>
-
-
               <div id="pga_plan_custom_top" style="display:none;align-items:center;gap:10px;">
                 <label style="display:flex;align-items:center;gap:8px;">
                   <span><?php echo esc_html__('Total', 'plugins-alpha'); ?></span>
@@ -76,7 +94,8 @@ class PluginsAlpha_Pages_Generator
           <!-- Tabs -->
           <div class="pga-tabsbar">
             <div id="pga_tabs"></div>
-            <button type="button" class="button" id="pga_tab_add">
+            <button type="button" class="button" id="pga_tab_add"
+              data-default-templates="<?php echo esc_attr(wp_json_encode(array_values($default_tpls))); ?>">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="lucide lucide-plus h-4 w-4">
@@ -204,21 +223,21 @@ class PluginsAlpha_Pages_Generator
                     <div class="pga-field pga_link_extra" style="display:none">
                       <label><?php esc_html_e('Links por post', 'plugins-alpha'); ?></label>
                       <select class="pga_link_max">
-                        <option value="1"><?php esc_html_e('1 link', 'plugins-alpha'); ?></option>
-                        <option value="2"><?php esc_html_e('2 links', 'plugins-alpha'); ?></option>
-                        <option value="3"><?php esc_html_e('3 links', 'plugins-alpha'); ?></option>
-                        <option value="4"><?php esc_html_e('4 links', 'plugins-alpha'); ?></option>
-                        <option value="5"><?php esc_html_e('5 links', 'plugins-alpha'); ?></option>
-                        <option value="6"><?php esc_html_e('6 links', 'plugins-alpha'); ?></option>
-                        <option value="7"><?php esc_html_e('7 links', 'plugins-alpha'); ?></option>
-                        <option value="8"><?php esc_html_e('8 links', 'plugins-alpha'); ?></option>
-                        <option value="9"><?php esc_html_e('9 links', 'plugins-alpha'); ?></option>
-                        <option value="10"><?php esc_html_e('10 links', 'plugins-alpha'); ?></option>
-                        <option value="11"><?php esc_html_e('11 links', 'plugins-alpha'); ?></option>
-                        <option value="12"><?php esc_html_e('12 links', 'plugins-alpha'); ?></option>
-                        <option value="13"><?php esc_html_e('13 links', 'plugins-alpha'); ?></option>
-                        <option value="14"><?php esc_html_e('14 links', 'plugins-alpha'); ?></option>
-                        <option value="15"><?php esc_html_e('15 links', 'plugins-alpha'); ?></option>
+                        <option value="1">1 link</option>
+                        <option value="2">2 links</option>
+                        <option value="3">3 links</option>
+                        <option value="4">4 links</option>
+                        <option value="5">5 links</option>
+                        <option value="6">6 links</option>
+                        <option value="7">7 links</option>
+                        <option value="8">8 links</option>
+                        <option value="9">9 links</option>
+                        <option value="10">10 links</option>
+                        <option value="11">11 links</option>
+                        <option value="12">12 links</option>
+                        <option value="13">13 links</option>
+                        <option value="14">14 links</option>
+                        <option value="15">15 links</option>
                       </select>
                     </div>
                     <div class="pga-field pga_link_manual_wrapper" style="display:none">

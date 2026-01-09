@@ -275,7 +275,7 @@ class PluginsAlpha_Settings
     $opts = self::get();
 ?>
     <div class="wrap">
-      <h1>Plugins Alpha — Configurações</h1>
+      <h1><?php esc_html_e('Plugins Alpha — Configurações', 'plugins-alpha'); ?></h1>
 
       <h2 class="nav-tab-wrapper" style="margin-top:12px;">
         <?php foreach ($tabs as $slug => $label):
@@ -504,10 +504,10 @@ class PluginsAlpha_Settings
     $gp_text     = $o['orion_posts']['text_provider'] ?? 'openai';
     $gp_img      = $o['orion_posts']['images_provider'] ?? 'pollinations';
   ?>
-    <h2 class="title">Padrões de geração</h2>
+    <h2 class="title"><?php esc_html_e('Padrões de geração', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
-        <th scope="row"><label for="pga_gp_locale">Locale padrão</label></th>
+        <th scope="row"><label for="pga_gp_locale"><?php esc_html_e('Idioma padrão', 'plugins-alpha'); ?></label></th>
         <td>
           <!-- select de locale que você já tem -->
         </td>
@@ -515,7 +515,7 @@ class PluginsAlpha_Settings
 
       <tr>
         <th scope="row">
-          <label for="pga_gp_text_provider">IA para geração de TEXTO</label>
+          <label for="pga_gp_text_provider"><?php esc_html_e('IA para geração de TEXTO', 'plugins-alpha'); ?></label>
         </th>
         <td>
           <select name="pga_settings[orion_posts][text_provider]" id="pga_gp_text_provider">
@@ -523,14 +523,14 @@ class PluginsAlpha_Settings
             <option value="gemini" <?php selected($gp_text, 'gemini'); ?>>Gemini</option>
           </select>
           <p class="description">
-            Usada para gerar títulos, sections, planos etc.
+            <?php esc_html_e('Usada para gerar títulos, sections, planos etc.', 'plugins-alpha'); ?>
           </p>
         </td>
       </tr>
 
       <tr>
         <th scope="row">
-          <label for="pga_gp_img_provider">IA / Fonte para IMAGEM</label>
+          <label for="pga_gp_img_provider"><?php esc_html_e('IA / Fonte para IMAGEM', 'plugins-alpha'); ?></label>
         </th>
         <td>
           <select name="pga_settings[orion_posts][images_provider]" id="pga_gp_img_provider">
@@ -538,10 +538,10 @@ class PluginsAlpha_Settings
             <option value="openai" <?php selected($gp_img, 'openai'); ?>>OpenAI (DALL·E)</option>
             <option value="pexels" <?php selected($gp_img, 'pexels'); ?>>Pexels (banco de imagens)</option>
             <option value="unsplash" <?php selected($gp_img, 'unsplash'); ?>>Unsplash (banco de imagens)</option>
-            <option value="none" <?php selected($gp_img, 'none'); ?>>Não gerar imagens automaticamente</option>
+            <option value="none" <?php selected($gp_img, 'none'); ?>><?php esc_html_e('Não gerar imagens automaticamente', 'plugins-alpha'); ?></option>
           </select>
           <p class="description">
-            Usada para thumbnails e imagens geradas pelo módulo Órion.
+            <?php esc_html_e('Usada para thumbnails e imagens geradas pelo módulo Órion.', 'plugins-alpha'); ?>
           </p>
         </td>
       </tr>
@@ -560,10 +560,10 @@ class PluginsAlpha_Settings
     $text_provider   = $st['text_provider'] ?? 'openai';
 
   ?>
-    <h2 class="title">Publisher</h2>
+    <h2 class="title"><?php esc_html_e('Publisher', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
-        <th scope="row"><label for="pga_st_pub_name">Nome do blog</label></th>
+        <th scope="row"><label for="pga_st_pub_name"><?php esc_html_e('Nome do blog', 'plugins-alpha'); ?></label></th>
         <td><input name="pga_settings[stories][publisher_name]" id="pga_st_pub_name" type="text" class="regular-text" value="<?php echo esc_attr($st['publisher_name'] ?? get_bloginfo('name')); ?>"></td>
       </tr>
       <tr>
@@ -573,16 +573,16 @@ class PluginsAlpha_Settings
             <img id="pga_st_logo_prev" src="<?php echo esc_url($logo_url ?: ''); ?>" style="max-width:96px;height:auto;<?php echo $logo_url ? '' : 'display:none'; ?>">
           </div>
           <input type="hidden" id="pga_st_logo_id" name="pga_settings[stories][publisher_logo_id]" value="<?php echo (int)$logo_id; ?>">
-          <button type="button" class="button" data-pga-media-target="pga_st_logo_id" data-pga-preview="pga_st_logo_prev">Selecionar imagem</button>
-          <button type="button" class="button" data-pga-media-clear="pga_st_logo_id" style="margin-left:8px;">Remover</button>
+          <button type="button" class="button" data-pga-media-target="pga_st_logo_id" data-pga-preview="pga_st_logo_prev"><?php esc_html_e('Selecionar imagem', 'plugins-alpha'); ?></button>
+          <button type="button" class="button" data-pga-media-clear="pga_st_logo_id" style="margin-left:8px;"><?php esc_html_e('Remover', 'plugins-alpha'); ?></button>
         </td>
       </tr>
     </table>
 
-    <h2 class="title">Estilo & Playback (padrão)</h2>
+    <h2 class="title"><?php esc_html_e('Estilo & Playback (padrão)', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
-        <th scope="row"><label for="pga_st_style">Preset de estilo</label></th>
+        <th scope="row"><label for="pga_st_style"><?php esc_html_e('Preset de estilo', 'plugins-alpha'); ?></label></th>
         <td>
           <select name="pga_settings[stories][default_style]" id="pga_st_style">
             <?php foreach (['clean' => 'Clean', 'dark-left' => 'Dark Left', 'card' => 'Card', 'split' => 'Split', 'top' => 'Image top'] as $v => $lab): ?>
@@ -592,7 +592,7 @@ class PluginsAlpha_Settings
         </td>
       </tr>
       <tr>
-        <th scope="row"><label for="pga_st_font">Fonte</label></th>
+        <th scope="row"><label for="pga_st_font"><?php esc_html_e('Fonte', 'plugins-alpha'); ?></label></th>
         <td>
           <select name="pga_settings[stories][default_font]" id="pga_st_font">
             <?php foreach (['system' => 'System UI', 'inter' => 'Inter', 'poppins' => 'Poppins', 'merriweather' => 'Merriweather', 'plusjakarta' => 'Plus Jakarta Sans'] as $v => $lab): ?>
@@ -602,7 +602,7 @@ class PluginsAlpha_Settings
         </td>
       </tr>
       <tr>
-        <th scope="row"><label for="pga_st_accent">Cor de destaque</label></th>
+        <th scope="row"><label for="pga_st_accent"><?php esc_html_e('Cor de destaque', 'plugins-alpha'); ?></label></th>
         <td><input name="pga_settings[stories][accent_color]" id="pga_st_accent" type="color" class="regular-text pga-color" value="<?php echo esc_attr($st['accent_color'] ?? '#ffffff'); ?>"></td>
       </tr>
       <tr>
@@ -659,7 +659,7 @@ class PluginsAlpha_Settings
               <?php checked($autoplay, 1); ?>>
             <?php esc_html_e('Ativar autoplay por padrão', 'plugins-alpha'); ?>
           </label>
-          <label for="pga_st_duration">Tempo por página (s)</label>
+          <label for="pga_st_duration"><?php esc_html_e('Tempo por página (s)', 'plugins-alpha'); ?></label>
           <select name="pga_settings[stories][duration]" id="pga_st_duration">
             <?php foreach (['5', '7', '10', '12'] as $d): ?>
               <option value="<?php echo esc_attr($d); ?>" <?php selected(($st['duration'] ?? '7'), $d); ?>><?php echo esc_html($d) ?>s</option>
@@ -675,21 +675,21 @@ class PluginsAlpha_Settings
         <th scope="row">Modo</th>
         <td>
           <?php $mode = $st['ga_mode'] ?? 'auto'; ?>
-          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="auto" <?php checked($mode, 'auto');   ?>> Auto</label><br>
-          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="manual" <?php checked($mode, 'manual'); ?>> Manual</label><br>
-          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="off" <?php checked($mode, 'off');    ?>> Desativado</label>
+          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="auto" <?php checked($mode, 'auto');   ?>> <?php esc_html_e('Auto', 'plugins-alpha'); ?></label><br>
+          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="manual" <?php checked($mode, 'manual'); ?>> <?php esc_html_e('Manual', 'plugins-alpha'); ?></label><br>
+          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="off" <?php checked($mode, 'off');    ?>> <?php esc_html_e('Desativado', 'plugins-alpha'); ?></label>
         </td>
       </tr>
       <tr>
-        <th scope="row"><label for="pga_ga_manual_id">GA4 Measurement ID (Manual)</label></th>
+        <th scope="row"><label for="pga_ga_manual_id"><?php esc_html_e('GA4 Measurement ID (Manual)', 'plugins-alpha'); ?></label></th>
         <td>
           <input name="pga_settings[stories][ga_manual_id]" id="pga_ga_manual_id" type="text" class="regular-text" placeholder="G-XXXXXXXXXX" value="<?php echo esc_attr($st['ga_manual_id'] ?? ''); ?>">
-          <p class="description">Usado apenas se “Manual” estiver selecionado.</p>
+          <p class="description"><?php esc_html_e('Usado apenas se “Manual” estiver selecionado.', 'plugins-alpha'); ?></p>
         </td>
       </tr>
     </table>
 
-    <h2 class="title">Imagens / IA para Stories</h2>
+    <h2 class="title"><?php esc_html_e('Imagens / IA para Stories', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row">
@@ -701,7 +701,7 @@ class PluginsAlpha_Settings
             <option value="gemini" <?php selected($text_provider, 'gemini'); ?>>Gemini</option>
           </select>
           <p class="description">
-            Usada para gerar as páginas de Web Stories (texto).
+            <?php esc_html_e('Usada para gerar as páginas de Web Stories (texto).', 'plugins-alpha'); ?>
           </p>
         </td>
       </tr>
@@ -716,7 +716,7 @@ class PluginsAlpha_Settings
             <option value="openai" <?php selected($images_provider, 'openai'); ?>>OpenAI (DALL·E)</option>
             <option value="pexels" <?php selected($images_provider, 'pexels'); ?>>Pexels</option>
             <option value="unsplash" <?php selected($images_provider, 'unsplash'); ?>>Unsplash</option>
-            <option value="none" <?php selected($images_provider, 'none'); ?>>Não gerar imagens automáticas</option>
+            <option value="none" <?php selected($images_provider, 'none'); ?>><?php esc_html_e('Não gerar imagens automáticas', 'plugins-alpha'); ?></option>
           </select>
         </td>
       </tr>

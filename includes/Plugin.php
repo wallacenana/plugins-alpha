@@ -81,9 +81,15 @@ class PluginsAlpha_Plugin
     wp_enqueue_script(
       'pga-admin',
       PGA_URL . 'assets/admin.js',
-      ['jquery', 'wp-util', 'sweetalert2'],
+      ['jquery', 'wp-util', 'sweetalert2', 'wp-i18n'],
       pga_asset_ver('assets/admin.js'),
       true
+    );
+
+    wp_set_script_translations(
+      'pga-admin',
+      'plugins-alpha',
+      plugin_dir_path(__FILE__) . 'languages'
     );
 
     wp_localize_script('pga-admin', 'PGA_CFG', [

@@ -23,17 +23,20 @@ class PluginsAlpha_Orion_Templates
     {
         return [
             'article' => [
-                'label'   => 'Artigo',
-                'enabled' => 1,
-                'builtin' => 1,
+                'label'      => __('Artigo', 'plugins-alpha'),
+                'enabled'    => 1,
+                'builtin'    => 1,
+                'is_default' => 1,
             ],
             'modelar_youtube' => [
-                'label'   => 'Modelar YouTube',
-                'enabled' => 1,
-                'builtin' => 1,
+                'label'      => __('Modelar YouTube', 'plugins-alpha'),
+                'enabled'    => 1,
+                'builtin'    => 1,
+                'is_default' => 1,
             ],
         ];
     }
+
 
     public static function get_all(): array
     {
@@ -46,10 +49,13 @@ class PluginsAlpha_Orion_Templates
             $slug = sanitize_key($slug);
             if (!$slug) continue;
 
+            $row = is_array($row) ? $row : [];
+
             $norm[$slug] = [
-                'label'   => sanitize_text_field($row['label'] ?? $slug),
-                'enabled' => !empty($row['enabled']) ? 1 : 0,
-                'builtin' => !empty($row['builtin']) ? 1 : 0, // se quiser guardar
+                'label'      => sanitize_text_field($row['label'] ?? $slug),
+                'enabled'    => !empty($row['enabled']) ? 1 : 0,
+                'builtin'    => !empty($row['builtin']) ? 1 : 0,
+                'is_default' => !empty($row['is_default']) ? 1 : 0, // ✅ AQUI
             ];
         }
 
@@ -59,6 +65,9 @@ class PluginsAlpha_Orion_Templates
             if (!isset($all[$slug])) {
                 $row['builtin'] = 0;
                 $all[$slug] = $row;
+            } else {
+                // ✅ se existir salvo pro builtin, respeita o is_default salvo
+                $all[$slug]['is_default'] = !empty($row['is_default']) ? 1 : 0;
             }
         }
 
@@ -68,23 +77,34 @@ class PluginsAlpha_Orion_Templates
         $all['modelar_youtube']['enabled'] = 1;
         $all['modelar_youtube']['builtin'] = 1;
 
+        // ✅ regra: se for default, enabled = 1
+        foreach ($all as $slug => $row) {
+            if (!empty($row['is_default'])) {
+                $all[$slug]['enabled'] = 1;
+            }
+        }
+
         return $all;
     }
+
     public static function defaults(): array
     {
         return [
             'article' => [
-                'label'   => __('Artigo', 'plugins-alpha'),
-                'builtin' => 1,
-                'enabled' => 1,
+                'label'      => __('Artigo', 'plugins-alpha'),
+                'builtin'    => 1,
+                'enabled'    => 1,
+                'is_default' => 1,
             ],
             'modelar_youtube' => [
-                'label'   => __('Modelar vídeo do YouTube', 'plugins-alpha'),
-                'builtin' => 1,
-                'enabled' => 1,
+                'label'      => __('Modelar vídeo do YouTube', 'plugins-alpha'),
+                'builtin'    => 1,
+                'enabled'    => 1,
+                'is_default' => 1,
             ],
         ];
     }
+
     public static function get_enabled(): array
     {
         $all = self::get_all(); // ou get_option etc
@@ -99,8 +119,8 @@ class PluginsAlpha_Orion_Templates
         }
 
         // garante core
-        if (empty($out['article'])) $out['article'] = ['label' => 'Artigo (padrão)', 'enabled' => 1, 'builtin' => 1];
-        if (empty($out['modelar_youtube'])) $out['modelar_youtube'] = ['label' => 'Modelar YouTube', 'enabled' => 1, 'builtin' => 1];
+        if (empty($out['article'])) $out['article'] = ['label' => __('Artigo (padrão)', 'plugins-alpha'), 'enabled' => 1, 'builtin' => 1];
+        if (empty($out['modelar_youtube'])) $out['modelar_youtube'] = ['label' => __('Modelar YouTube', 'plugins-alpha'), 'enabled' => 1, 'builtin' => 1];
 
         return $out;
     }
@@ -117,24 +137,34 @@ class PluginsAlpha_Orion_Templates
             $slug = sanitize_key($slug);
             if (!$slug) continue;
 
-            // ignora tentativa de “mexer” em builtin
+            $row = is_array($row) ? $row : [];
+
+            $label      = sanitize_text_field($row['label'] ?? $slug);
+            $enabled    = !empty($row['enabled']) ? 1 : 0;
+            $is_default = !empty($row['is_default']) ? 1 : 0;
+
+            // se for padrão, tem que estar ativo
+            if ($is_default) $enabled = 1;
+
             if (isset($builtins[$slug])) {
+                // ✅ builtin: mantém enabled=1 e builtin=1, mas salva is_default
+                $out[$slug] = [
+                    'label'      => $builtins[$slug]['label'], // ou $label se quiser permitir renomear
+                    'enabled'    => 1,
+                    'builtin'    => 1,
+                    'is_default' => $is_default,
+                ];
                 continue;
             }
 
-            $row = is_array($row) ? $row : [];
-
-            $label = sanitize_text_field($row['label'] ?? $slug);
-            $enabled = !empty($row['enabled']) ? 1 : 0;
-
             $out[$slug] = [
-                'label'   => $label,
-                'enabled' => $enabled,
-                'builtin' => 0,
+                'label'      => $label,
+                'enabled'    => $enabled,
+                'builtin'    => 0,
+                'is_default' => $is_default,
             ];
         }
 
-        // salva substituindo tudo (isso resolve o "remover volta")
         update_option(self::OPTION, $out, false);
     }
 }

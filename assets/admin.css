@@ -327,8 +327,6 @@
   display: none;
 }
 
-#pga_plan {}
-
 .button.pga-collapse-toggle:focus {
   background: var(--pga-soft);
   border-color: transparent;
