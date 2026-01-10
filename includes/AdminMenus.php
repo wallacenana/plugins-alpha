@@ -7,6 +7,55 @@ class PluginsAlpha_AdminMenus
   {
     $icon_url = PGA_URL . 'assets/images/favicon-plugins-alpha.png?v=' . pga_asset_ver('assets/images/favicon-plugins-alpha.png');
 
+    add_filter('admin_body_class', function ($classes) {
+      $page = sanitize_text_field($_GET['page'] ?? '');
+      if ($page === 'plugins-alpha-orion-posts') { // ajuste pro seu slug
+        $classes .= ' pga-orion-fullwidth';
+      }
+      return $classes;
+    });
+
+    add_action('admin_enqueue_scripts', function ($hook) {
+      $page = sanitize_text_field($_GET['page'] ?? '');
+      if ($page !== 'plugins-alpha-orion-posts') return;
+
+      wp_add_inline_style('wp-admin', '
+          body.pga-orion-fullwidth #wpwrap,
+          body.pga-orion-fullwidth #wpcontent,
+          body.pga-orion-fullwidth #wpbody,
+          body.pga-orion-fullwidth #wpbody-content {
+            width: 100%;
+          }
+
+          body.pga-orion-fullwidth #adminmenumain {
+            display: none
+          }
+          body.pga-orion-fullwidth #wpcontent,
+          body.pga-orion-fullwidth #wpfooter
+          {
+            margin-left: 0 !important;
+          }
+
+          body.pga-orion-fullwidth #wpcontent {
+            padding-left: 0 !important;
+          }
+
+          body.pga-orion-fullwidth .wrap,
+          body.pga-orion-fullwidth .wrap.pga-layout,
+          body.pga-orion-fullwidth .pga-wrap {
+            max-width: none !important;
+            width: 100% !important;
+            margin: 0 !important;
+          }
+
+          body.pga-orion-fullwidth .pga-header-fixed,
+          body.pga-orion-fullwidth .pga-main,
+          body.pga-orion-fullwidth .pga-footer-fixed {
+            max-width: none !important;
+          }
+        ');
+    });
+
     // TOP LEVEL
     add_menu_page(
       __('Alpha Suite', 'plugins-alpha'),

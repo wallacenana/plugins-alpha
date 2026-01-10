@@ -78,7 +78,6 @@ class PluginsAlpha_Orion_Migrator
 
         if (is_wp_error($r)) {
             // opcional: log
-            error_log('[PGA] Orion migration error: ' . $r->get_error_message());
             return false;
         }
 

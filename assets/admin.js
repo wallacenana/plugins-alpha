@@ -161,11 +161,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   $(document).on('click', '.pga-collapse-toggle', function () {
     const $box = $(this).closest('.pga-gen-box');
     $box.toggleClass('pga-collapse--open');
-
-    const isOpen = $box.hasClass('pga-collapse--open');
-    $(this).find('.pga-collapse-chevron')
-      .toggleClass('dashicons-arrow-up-alt2', isOpen)
-      .toggleClass('dashicons-arrow-down-alt2', !isOpen);
   });
 
   // ---------- Remover GRUPO (colapse inteiro) ----------
@@ -178,14 +173,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     // se for o único grupo, em vez de remover, só limpamos os campos
     if (totalBoxes <= 1) {
-      const ok = window.Swal
-        ? (await Swal.fire({
-          icon: 'warning',
-          title: __('Limpar este grupo?', 'plugins-alpha'),
-          text: __('Este é o único grupo. Em vez de remover, vamos apenas limpar os campos.', 'plugins-alpha'),
-          showCancelButton: true,
-        })).isConfirmed
-        : confirm('Este é o único grupo. Limpar os campos deste grupo?');
+      const ok = await pgaConfirm({
+        icon: 'warning',
+        title: __('Limpar este grupo?', 'plugins-alpha'),
+        text: __('Este é o único grupo. Em vez de remover, vamos apenas limpar os campos.', 'plugins-alpha'),
+        confirmButtonText: __('Limpar', 'plugins-alpha'),
+        cancelButtonText: __('Cancelar', 'plugins-alpha')
+      });
 
       if (!ok) return;
 
@@ -203,16 +197,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     }
 
     // confirmação para remover o grupo
-    const ok = window.Swal
-      ? (await Swal.fire({
-        icon: 'warning',
-        title: __('Remover grupo?', 'plugins-alpha'),
-        text: __('Este grupo de geração será removido (as keywords dentro dele não serão salvas).', 'plugins-alpha'),
-        showCancelButton: true,
-        confirmButtonText: __('Remover', 'plugins-alpha'),
-        cancelButtonText: __('Cancelar', 'plugins-alpha'),
-      })).isConfirmed
-      : confirm(__('Remover este grupo de geração?', 'plugins-alpha'));
+    const ok = await pgaConfirm({
+      icon: 'warning',
+      title: __('Remover grupo?', 'plugins-alpha'),
+      text: __('Este grupo de geração será removido (as keywords dentro dele não serão salvas).', 'plugins-alpha'),
+      confirmButtonText: __('Remover', 'plugins-alpha'),
+      cancelButtonText: __('Cancelar', 'plugins-alpha')
+    });
 
     if (!ok) return;
 
@@ -415,91 +406,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     }
   }
 
-  // recria os grupos a partir do localStorage
-  function pgaLoadBoxesFromLocal() {
-    let data = [];
-
-    // 1) tenta ler por TAB
-    let rawTab = '';
-    try {
-      rawTab = localStorage.getItem(pgaGroupsStorageKey()) || '';
-    } catch (e) { rawTab = ''; }
-
-    // 2) parse tab (se tiver)
-    let tabData = [];
-    if (rawTab) {
-      try { tabData = JSON.parse(rawTab || '[]'); } catch (e) { tabData = []; }
-      if (!Array.isArray(tabData)) tabData = [];
-    }
-
-    // 3) fallback legado se TAB não tem dados reais (vazio OU [])
-    if (!tabData.length) {
-      let rawLegacy = '';
-      try {
-        rawLegacy = localStorage.getItem(GROUPS_KEY) || '';
-      } catch (e) { rawLegacy = ''; }
-
-      if (rawLegacy) {
-        try { data = JSON.parse(rawLegacy || '[]'); } catch (e) { data = []; }
-        if (!Array.isArray(data)) data = [];
-      } else {
-        data = [];
-      }
-    } else {
-      data = tabData;
-    }
-
-    const $container = $('#pga_gen_container');
-    const $template = $container.find('.pga-gen-box').first();
-
-    if (!Array.isArray(data) || !data.length || !$template.length) {
-      // sem dados → só atualiza título do que já existe
-      $container.find('.pga-gen-box').each(function () {
-        pgaUpdateBoxTitle($(this));
-      });
-      return;
-    }
-
-    // 4) trava saves enquanto recria/aplica (ESSENCIAL)
-    PGA_LOADING_GROUPS = true;
-
-    const $tplClone = $template.clone(true, true);
-    $container.empty();
-
-    data.forEach((cfg, idx) => {
-      const n = idx + 1;
-      const $box = $tplClone.clone(true, true);
-
-      $box.attr('data-gen', n);
-
-      // IDs só no primeiro grupo
-      if (n > 1) {
-        $box.find('#pga_keywords').removeAttr('id');
-        $box.find('#pga_locale').removeAttr('id');
-        $box.find('#pga_template_key').removeAttr('id');
-        $box.find('#pga_category').removeAttr('id');
-        $box.find('#pga_total').removeAttr('id');
-        $box.find('#pga_per_day').removeAttr('id');
-        $box.find('#pga_first_delay_hours').removeAttr('id');
-        $box.find('#pga_length').removeAttr('id');
-      }
-
-      pgaApplyBoxConfig($box, cfg);
-      $container.append($box);
-    });
-
-    // 5) destrava saves
-    PGA_LOADING_GROUPS = false;
-
-    // 6) migra legado -> tab, MAS só se tab estava vazia e data tem conteúdo
-    try {
-      const hasTabRaw = !!rawTab && rawTab !== '[]';
-      if (!hasTabRaw && data.length) {
-        localStorage.setItem(pgaGroupsStorageKey(), JSON.stringify(data));
-      }
-    } catch (e) { }
-  }
-
   // === Botão "Adicionar grupo" ===
   $(document).on('click', '#pga_add_box', function () {
     const $container = $('#pga_gen_container');
@@ -588,19 +494,20 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
   // ------------------ utils ------------------
   async function fetchJSON(url, options = {}) {
-    const { silent, ...fetchOpts } = options; // 👈 novo: flag silent
+    // opções: method, headers, body, silent
+    const { silent, method = 'GET', headers = {}, body, ...rest } = options || {};
 
-    const res = await fetch(url, fetchOpts);
+    const res = await fetch(url, { method, headers, body, ...rest });
+
     const text = await res.text();
     let data = null;
 
     try {
-      data = JSON.parse(text);
+      data = text ? JSON.parse(text) : null;
     } catch (e) {
       if (!silent) {
         if (window.Swal) {
           const safe = String(text || '').replace(/[<>&]/g, s => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[s]));
-
           await Swal.fire({
             icon: 'error',
             title: __('Resposta não-JSON', 'plugins-alpha'),
@@ -623,19 +530,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     if (!res.ok) {
       const msg = (data && (data.message || data.code)) || sprintf(__('HTTP %d', 'plugins-alpha'), res.status);
-
       if (!silent) {
         if (window.Swal) {
-          await Swal.fire({
-            icon: 'error',
-            title: __('Falha na chamada', 'plugins-alpha'),
-            text: String(msg)
-          });
+          await Swal.fire({ icon: 'error', title: __('Falha na chamada', 'plugins-alpha'), text: String(msg) });
         } else {
           alert(sprintf(__('Erro: %s', 'plugins-alpha'), String(msg)));
         }
       }
-
       const err = new Error(String(msg));
       err.status = res.status;
       err.body = data;
@@ -854,6 +755,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     return true;
   }
 
+  // ✅ monta fila global por PESO (perDay) sem tocar no DOM
+  // exemplo (total=9, perDay: [2,1]) => 1,1,2,1,1,2...
   function pgaBuildPlannedKeywordsByPerDay(groups, totalGlobal) {
     const out = [];
     const idx = groups.map(() => 0);
@@ -863,15 +766,26 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
       for (let gi = 0; gi < groups.length && out.length < totalGlobal; gi++) {
         const g = groups[gi];
+
         const w = Math.max(0, parseInt(g.perDay || 0, 10) || 0);
         if (!w) continue;
 
         for (let k = 0; k < w && out.length < totalGlobal; k++) {
           const pos = idx[gi];
-          const kw = (g.keywords[pos] || '').trim();
-          if (!kw) break;
+          const kw = String((g.keywords[pos] || '')).trim();
 
-          out.push({ kw, boxEl: g.$box[0] }); // ✅ guarda origem
+          // ✅ se tiver linha vazia no meio, pula sem travar o grupo
+          if (!kw) {
+            idx[gi] = pos + 1;
+            continue;
+          }
+
+          out.push({
+            kw,
+            boxEl: g.boxEl,     // ✅ origem
+            cfg: g.cfg,         // ✅ config do colapse (snapshot)
+          });
+
           idx[gi] = pos + 1;
           added++;
         }
@@ -882,6 +796,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     return out;
   }
+
 
   function pgaGlobalIsOn() {
     return !!document.getElementById('pga_plan_global_toggle')?.checked;
@@ -901,11 +816,113 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
   $(document).off('change.pgaGlobal').on('change.pgaGlobal', '#pga_plan_global_toggle', function () {
     pgaGlobalToggleUI();
-    window.PGA_IS_GENERATING = true;
   });
 
   // init
   pgaGlobalToggleUI();
+
+  // =========================
+  // STORAGE OFICIAL DE GRUPOS (ÚNICO) + MIGRAÇÃO
+  // =========================
+
+  // legado antigo (você já tem acima, mas deixo aqui pra ficar claro)
+  const LEGACY_PILLAR_GROUPS_KEY = GROUPS_KEY; // pga_gen_groups_v1_${pillarId}
+
+  // legado "por tab" antigo (aquele que usava pgaGroupsStorageKey)
+  function legacyTabGroupsKey_fromOldSystem() {
+    const tabId = (getTabIdFromUrl() || localStorage.getItem(KEY_ACTIVE_TAB) || 'default');
+    return `${LEGACY_PILLAR_GROUPS_KEY}_${tabId}`;
+  }
+
+  function safeGetLS(key) {
+    try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+  }
+  function safeSetLS(key, val) {
+    try { localStorage.setItem(key, val); return true; } catch (e) { return false; }
+  }
+
+  function loadGroupsForTab(tabId) {
+    const raw = safeGetLS(tabGroupsKey(tabId));
+    if (!raw) return [];
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveGroupsForTab(tabId, groups) {
+    if (!tabId) return false;
+    if (!Array.isArray(groups) || !groups.length) return false;
+    return safeSetLS(tabGroupsKey(tabId), JSON.stringify(groups));
+  }
+
+  // pega grupos do DOM (fonte única do autosave)
+  function serializeAllGroupsFromDom() {
+    const out = [];
+    $('#pga_gen_container .pga-gen-box').each(function () {
+      out.push(pgaSerializeBox($(this)));
+    });
+    return out;
+  }
+
+  // aplica grupos no DOM
+  function applyGroupsToDom(groups) {
+    if (!Array.isArray(groups) || !groups.length) {
+      // só garante título coerente
+      $('#pga_gen_container .pga-gen-box').each(function () {
+        pgaSyncLinkOptionsForBox($(this));
+        pgaUpdateBoxTitle($(this));
+      });
+      return;
+    }
+
+    ensureBoxesCount(groups.length); // você já tem
+
+    const $boxes = $('#pga_gen_container .pga-gen-box');
+
+    groups.forEach((g, i) => {
+      const $box = $boxes.eq(i);
+      if (!$box.length) return;
+      pgaApplyBoxConfig($box, g);
+    });
+
+    // garante IDs no primeiro (pra teu fluxo atual não quebrar)
+    const $first = $('#pga_gen_container .pga-gen-box').first();
+    if ($first.length) pgaActivateBox($first);
+  }
+
+  // migração 1 vez: só roda se a tab NOVA ainda não tiver grupos salvos
+  function migrateLegacyGroupsToTabOnce(tabId) {
+    if (!tabId) return false;
+
+    // já tem no novo? não faz nada
+    if (loadGroupsForTab(tabId).length) return false;
+
+    // tenta 1) legado por tab antigo
+    let raw = safeGetLS(legacyTabGroupsKey_fromOldSystem());
+    let data = [];
+    if (raw) {
+      try { data = JSON.parse(raw || '[]'); } catch (e) { data = []; }
+      if (!Array.isArray(data)) data = [];
+    }
+
+    // tenta 2) legado pillar antigo (se 1 falhou)
+    if (!data.length) {
+      raw = safeGetLS(LEGACY_PILLAR_GROUPS_KEY);
+      if (raw) {
+        try { data = JSON.parse(raw || '[]'); } catch (e) { data = []; }
+        if (!Array.isArray(data)) data = [];
+      }
+    }
+
+    if (!data.length) return false;
+
+    // grava no novo padrão
+    return saveGroupsForTab(tabId, data);
+  }
+
 
   // ============================================================
   // ========== BLOCO: GERADOR (keywords/plan/generate) ==========
@@ -939,9 +956,49 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         </div>
       `;
     }
+    function prefsFromBox($box) {
+      const manualVals = $box.find('.pga_link_manual, .pga-link-manual-select').val() || [];
 
-    // ---------- Preferências da UI (localStorage) ----------
-    loadPrefs()
+      return {
+        locale: $box.find('.pga_locale').val() || 'pt_BR',
+        length: $box.find('.pga_length').val() || 'short',
+        template_key: $box.find('.pga_template_key').val() || 'discover_article',
+        source_url: '',
+        category_id: parseInt($box.find('.pga_category').val() || '0', 10) || 0,
+
+        // ✅ esses 3 serão setados no global por job
+        total: 1,
+        per_day: 1,
+        first_delay_hours: '',
+
+        mode: 'multi',
+
+        internal_links: {
+          mode: ($box.find('.pga_link_mode').val() || 'none'),
+          max: parseInt($box.find('.pga_link_max').val() || '0', 10) || 0,
+          manual_ids: Array.isArray(manualVals) ? manualVals.join(',') : String(manualVals || '')
+        }
+      };
+    }
+    function pgaAddDays(startStr, days) {
+      // aceita "YYYY-MM-DD HH:MM" ou "YYYY-MM-DDTHH:MM"
+      const s = String(startStr || '').trim().replace(' ', 'T');
+      const d = new Date(s);
+
+      if (isNaN(d.getTime())) return startStr; // fallback: não quebra
+
+      d.setDate(d.getDate() + (parseInt(days || 0, 10) || 0));
+
+      const pad = (n) => String(n).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth() + 1);
+      const dd = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const mi = pad(d.getMinutes());
+
+      // volta no mesmo formato que você já usa nos inputs
+      return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+    }
 
     function collectPrefs() {
       // tenta achar o BOX que está "ativo" (aquele que tem o #pga_keywords dentro)
@@ -994,13 +1051,12 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     function savePrefsToLocal() {
       try { localStorage.setItem(PREF_KEY, JSON.stringify(collectPrefs())); } catch (e) { }
     }
-    loadPrefs();
 
     // ---------- Keywords: listar ----------
     async function refreshKeywords() {
       const j = await fetchJSON(`${REST}/keywords`, { headers: { 'X-WP-Nonce': NONCE } });
-      $kw.val(arrayToTextarea(j.pending || []));
 
+      // ✅ NÃO sobrescreve mais o campo #pga_keywords (isso joga tudo no primeiro gerador)
       renderDone(j.done || []);
     }
 
@@ -1092,16 +1148,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
       // se for o único, só limpa
       if (totalBoxes <= 1) {
-        const ok = window.Swal
-          ? (await Swal.fire({
-            icon: 'warning',
-            title: __('Limpar este gerador?', 'plugins-alpha'),
-            text: __('Este é o único gerador. Vamos apenas limpar os campos.', 'plugins-alpha'),
-            showCancelButton: true,
-            confirmButtonText: __('Limpar', 'plugins-alpha'),
-            cancelButtonText: __('Cancelar', 'plugins-alpha'),
-          })).isConfirmed
-          : confirm(__('Este é o único gerador. Limpar os campos?'));
+        const ok = await pgaConfirm({
+          icon: 'warning',
+          title: __('Limpar este gerador?', 'plugins-alpha'),
+          text: __('Este é o único gerador. Vamos apenas limpar os campos.', 'plugins-alpha'),
+          confirmButtonText: __('Limpar', 'plugins-alpha'),
+          cancelButtonText: __('Cancelar', 'plugins-alpha')
+        });
 
         if (!ok) return;
 
@@ -1118,16 +1171,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         return;
       }
 
-      const ok = window.Swal
-        ? (await Swal.fire({
-          icon: 'warning',
-          title: __('Excluir gerador?', 'plugins-alpha'),
-          text: __('Este gerador será removido.', 'plugins-alpha'),
-          showCancelButton: true,
-          confirmButtonText: __('Excluir', 'plugins-alpha'),
-          cancelButtonText: __('Cancelar', 'plugins-alpha'),
-        })).isConfirmed
-        : confirm(__('Excluir este gerador?', 'plugins-alpha'));
+      const ok = await pgaConfirm({
+        icon: 'warning',
+        title: __('Excluir gerador?', 'plugins-alpha'),
+        text: __('Este gerador será removido.', 'plugins-alpha'),
+        confirmButtonText: __('Excluir', 'plugins-alpha'),
+        cancelButtonText: __('Cancelar', 'plugins-alpha')
+      });
 
       if (!ok) return;
 
@@ -1155,25 +1205,32 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
       try {
         savePrefsToLocal();
-        pgaSaveBoxesToLocal();
+        // ✅ salva grupos da tab atual no storage oficial
+        try {
+          const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
+          if (tabId) saveGroupsForTab(tabId, serializeAllGroupsFromDom());
+        } catch (e) { }
 
-        const all = [];
-        $('.pga_keywords').each(function () {
-          all.push(...textareaToArray($(this).val()));
-        });
-        const pending_text = (all || []).join('\n');
+        // ✅ agora salvar keywords = salvar grupos (local), e servidor só mantém "done" (se precisar)
+        try {
+          const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
+          if (tabId) saveGroupsForTab(tabId, serializeAllGroupsFromDom());
+        } catch (e) { }
 
-        // toast leve (não bloqueia)
-        pgaToast('info', __('Salvando…', 'plugins-alpha'), 1200);
+        // opcional: se você ainda quer manter o "done" vindo do servidor
+        try {
+          const j = await fetchJSON(`${REST}/keywords`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+            // manda vazio pra não sobrescrever pending no backend (ou remove o POST se não precisar)
+            body: JSON.stringify({ pending_text: '' }),
+            silent: true
+          });
+          renderDone(j.done || []);
+        } catch (e) {
+          // ignora
+        }
 
-        const j = await fetchJSON(`${REST}/keywords`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-          body: JSON.stringify({ pending_text }),
-          silent: true
-        });
-
-        renderDone(j.done || []);
 
         // ✅ marcou como salvo
         window.PGA_IS_GENERATING = false;
@@ -1190,7 +1247,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // "Salvar configurações" dentro do grupo apenas reaproveita o salvar global
     $(document).off('click.pgaSaveBox').on('click.pgaSaveBox', '.pga_save_box', function () {
       $('#pga_save_keywords').trigger('click');
-      pgaSaveBoxesToLocal();
+      try {
+        const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
+        if (tabId) saveGroupsForTab(tabId, serializeAllGroupsFromDom());
+      } catch (e) { }
     });
 
     // ---------- Gerar SOMENTE deste grupo ----------
@@ -1234,11 +1294,17 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         skipKeywordWarning = false,
         groupTitle = '',
         plannedOrigins = null,
+
+        // ✅ novos
+        kwOverride = null,
+        prefsOverride = null,
       } = options;
 
-      const prefs = collectPrefs();
-      const kwList = textareaToArray($('#pga_keywords').val());
+      const prefs = (options && options.prefsOverride) ? options.prefsOverride : collectPrefs();
 
+      const kwList = (options && Array.isArray(options.kwOverride))
+        ? options.kwOverride.map(s => String(s || '').trim()).filter(Boolean)
+        : textareaToArray($('#pga_keywords').val());
 
       const transition = {
         strict: false,
@@ -1415,6 +1481,31 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
           text: __('Plano vazio.', 'plugins-alpha')
         });
         return;
+      }
+
+      // ✅ GLOBAL: aplica config correta por origem (template/category/length/locale/internal_links)
+      if (Array.isArray(plannedOrigins) && plannedOrigins.length) {
+        for (let i = 0; i < jobs.length; i++) {
+          const origin = plannedOrigins[i];
+          const boxEl = origin?.boxEl || null;
+          const $b = boxEl ? $(boxEl) : null;
+
+          // origem do done
+          jobs[i].boxEl = boxEl || activeBoxEl;
+
+          // se achar o box, aplica as prefs dele no job (sem mexer em inputs)
+          if ($b && $b.length) {
+            const p = prefsFromBox($b);
+
+            jobs[i].locale = p.locale;
+            jobs[i].length = p.length;
+            jobs[i].template_key = p.template_key;
+            jobs[i].category_id = p.category_id;
+            jobs[i].internal_links = p.internal_links;
+          }
+
+          jobs[i].__originKw = origin?.kw || '';
+        }
       }
 
       // ✅ box ativo = o que recebeu #pga_keywords via pgaActivateBox()
@@ -1747,7 +1838,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         window.PGA_IS_GENERATING = false;
       }
 
-      // 👉 agora quem chama decide como mostrar o resumo
+      // ✅ salva no final: prefs + grupos (porque agora KW já foi removida/movida)
+
       return { okCount, failCount, editLinks, failedKeywords };
     };
 
@@ -1756,25 +1848,34 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // ---------- Planejar & Gerar (TODOS os grupos) ----------
     $('#pga_plan').off('click').on('click', async () => {
 
+      // ==========================
+      // MODO NORMAL (não-global)
+      // ==========================
       if (!pgaGlobalIsOn()) {
-        // modo normal: gera apenas do box ativo (primeiro/ativo)
         const $active = $('#pga_gen_container .pga-gen-box').filter(function () {
           return $(this).find('#pga_keywords').length > 0;
         }).first();
 
         pgaActivateBox($active.length ? $active : $('#pga_gen_container .pga-gen-box').first());
+
         const res = await generateForActiveBox({ groupTitle: __('Gerador atual', 'plugins-alpha') });
         if (!res) return;
 
         const html = buildSummaryHtml(res.okCount, res.failCount, res.editLinks, res.failedKeywords);
-        await Swal.fire({ icon: res.failCount ? 'warning' : 'success', title: __('Finalizado', 'plugins-alpha'), html });
+        await Swal.fire({
+          icon: res.failCount ? 'warning' : 'success',
+          title: __('Finalizado', 'plugins-alpha'),
+          html
+        });
         return;
       }
 
+      // ==========================
+      // MODO GLOBAL (planejamento)
+      // ==========================
       const $boxes = $('#pga_gen_container .pga-gen-box');
       if (!$boxes.length) return;
 
-      // 🔹 IDs do seu footer atual (troque se for pga_plan_total/start)
       const totalGlobal = Math.max(1, parseInt($('#pga_plan_total').val() || '1', 10) || 1);
       const startGlobal = String($('#pga_plan_start').val() || '').trim();
 
@@ -1787,7 +1888,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         return;
       }
 
-      // monta groups (loop via each = OK)
+      // monta lista de groups (snapshot 1x, SEM ALTERAR DOM)
       const groups = [];
       $boxes.each(function () {
         const $box = $(this);
@@ -1795,10 +1896,16 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         const kwsArr = textareaToArray($box.find('.pga_keywords').val());
         const perDay = parseInt($box.find('.pga_per_day').val() || '0', 10) || 0;
 
-        // ignora grupos sem KW ou sem peso
+        // ignora grupos sem KW ou sem peso (exceto template modelar)
         if (templateKey !== 'modelar' && (!kwsArr.length || perDay <= 0)) return;
 
-        groups.push({ $box, templateKey, keywords: kwsArr, perDay });
+        groups.push({
+          $box,
+          templateKey,
+          keywords: kwsArr,
+          perDay,              // ✅ PESO da fila
+          boxEl: $box[0],
+        });
       });
 
       if (!groups.length) {
@@ -1810,28 +1917,11 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         return;
       }
 
-      // alerta template diferente (same como você já tinha)
-      const masterTemplate = groups[0].templateKey;
-      const diffTpl = groups.some(g => g.templateKey !== masterTemplate);
-      if (diffTpl) {
-        const r = await Swal.fire({
-          icon: 'warning',
-          title: __('Modelos diferentes', 'plugins-alpha'),
-          html: sprintf(
-            __(
-              '<p style="font-size:14px;">No planejamento global, as configurações (modelo/categoria/locale/links) serão as do <b>primeiro colapse</b>.<br>Deseja continuar?</p>',
-              'plugins-alpha'
-            )
-          ),
-          showCancelButton: true,
-          confirmButtonText: __('Continuar', 'plugins-alpha'),
-          cancelButtonText: __('Cancelar', 'plugins-alpha'),
-        });
-        if (!r.isConfirmed) return;
-      }
-
-      // ✅ lista planejada (usa sua função atual)
+      // ✅ fila global (ordem 2,1,2,1...)
+      // precisa que sua função retorne {kw, boxEl}
       const plannedKw = pgaBuildPlannedKeywordsByPerDay(groups, totalGlobal);
+
+      console.log(plannedKw);
 
       if (!plannedKw.length) {
         await Swal.fire({
@@ -1861,51 +1951,63 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         if (!r.isConfirmed) return;
       }
 
-      // master = primeiro colapse
-      const $master = groups[0].$box;
-      pgaActivateBox($master);
+      // acumuladores globais
+      let okAll = 0, failAll = 0;
+      const editAll = [];
+      const failedAll = [];
 
-      // injeta keywords no master
-      // injeta keywords no master (somente texto)
-      const plannedText = plannedKw.map(x => x.kw).join('\n');
-      $('#pga_keywords').val(plannedText);
+      // ✅ 1 chamada só: mantém “0 de N” e marca done no colapse certo
+      const masterBoxEl = plannedKw[0]?.boxEl;
+      const $master = masterBoxEl ? $(masterBoxEl) : $boxes.first();
 
-      // sobrescreve total + início no master (mesmo se campos estiverem ocultos)
-      $('#pga_total').val(plannedKw.length);
-      $('#pga_first_delay_hours').val(startGlobal);
+      const masterPrefs = prefsFromBox($master);
 
-      // ⚠️ IMPORTANTE: per_day aqui define "quantos posts por dia" no calendário.
-      // Se você setar soma, o backend vai publicar vários por dia.
-      // Se sua intenção é 1 post por dia (mesmo com mistura por colapse), deixe 1.
-      $('#pga_per_day').val(1);
+      // ⚠️ calendário global: 1 por dia (como você queria) e startGlobal vem do input global
+      masterPrefs.total = plannedKw.length;
+      masterPrefs.per_day = 1;
+      masterPrefs.first_delay_hours = startGlobal;
 
-      savePrefsToLocal();
+      // lista final de keywords (ordem 2,1,2,1…)
+      const kwAll = plannedKw.map(x => String(x.kw || '').trim()).filter(Boolean);
 
-      // gera uma vez só
+      // plannedOrigins precisa ser o “espelho” (mesma ordem da lista)
+      const originsAll = plannedKw.map(x => ({
+        kw: String(x.kw || '').trim(),
+        boxEl: x.boxEl
+      }));
+
       const res = await generateForActiveBox({
         skipKeywordWarning: true,
         groupTitle: __('Planejamento global', 'plugins-alpha'),
-        plannedOrigins: plannedKw, // ✅ IMPORTANTE
+
+        // ✅ não mexe no textarea
+        kwOverride: kwAll,
+
+        // ✅ prefs “master” só pra conduzir plan + calendário
+        prefsOverride: masterPrefs,
+
+        // ✅ marca done por origem correta
+        plannedOrigins: originsAll,
       });
 
-      if (!res) return;
+      if (res) {
+        okAll += (res.okCount || 0);
+        failAll += (res.failCount || 0);
+        if (Array.isArray(res.editLinks)) editAll.push(...res.editLinks);
+        if (Array.isArray(res.failedKeywords)) failedAll.push(...res.failedKeywords);
+      }
 
-      const html = buildSummaryHtml(
-        res.okCount,
-        res.failCount,
-        res.editLinks || [],
-        res.failedKeywords || []
-      );
+
+      const html = buildSummaryHtml(okAll, failAll, editAll, failedAll);
 
       await Swal.fire({
-        icon: res.failCount ? 'warning' : 'success',
+        icon: failAll ? 'warning' : 'success',
         title: __('Geração concluída', 'plugins-alpha'),
-        html,
+        html
       });
-    });
 
-    try { await refreshKeywords(); } catch (e) { }
-    pgaLoadBoxesFromLocal();
+    });
+    // try { await refreshKeywords(); } catch (e) { }
 
     $(document)
       .off('input.pgaDirty change.pgaDirty')
@@ -1949,23 +2051,31 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     return Swal.fire({ icon: 'warning', title, html, confirmButtonText: __('Ok', 'plugins-alpha') });
   }
 
-  // Fetch JSON com tratamento de erro padronizado
-  async function restJson(path, opts = {}) {
-    const res = await fetch(`${PGA_CFG.rest}${path}`, {
-      method: 'GET',
-      headers: { 'X-WP-Nonce': PGA_CFG.nonce, 'Content-Type': 'application/json' },
-      ...opts
-    });
-    let body = null;
-    try { body = await res.json(); } catch (_) { body = null; }
+  // Helper unificado para confirmações (Swal ou fallback confirm)
+  async function pgaConfirm(opts = {}) {
+    const {
+      title = '',
+      text = '',
+      icon = 'warning',
+      confirmButtonText = __('Ok', 'plugins-alpha'),
+      cancelButtonText = __('Cancelar', 'plugins-alpha')
+    } = opts || {};
 
-    if (!res.ok) {
-      const msg = body && (body.message || body.error || body.code) ? (body.message || body.error || body.code) : `HTTP ${res.status}`;
-      throw new Error(msg);
+    if (window.Swal) {
+      const res = await Swal.fire({
+        icon,
+        title,
+        html: text,
+        showCancelButton: true,
+        confirmButtonText,
+        cancelButtonText
+      });
+      return !!res.isConfirmed;
     }
-    return body;
-  }
 
+    // fallback simples
+    return confirm(String((title || text) || __('Confirma?', 'plugins-alpha')));
+  }
 
   // Atualiza UI de status/mensagem da licença
   function updateLicenseUI(lic) {
@@ -2092,16 +2202,15 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     const $ta = $box.find('.pga_keywords');
     const cmd = ($ta.val() || '').trim();
 
-    const ok = await Swal.fire({
+    const ok = await pgaConfirm({
       icon: 'question',
       title: __('Gerar keywords?', 'plugins-alpha'),
       text: __('Isso vai substituir o conteúdo do campo por keywords geradas. Tem certeza?', 'plugins-alpha'),
-      showCancelButton: true,
       confirmButtonText: __('Gerar', 'plugins-alpha'),
-      cancelButtonText: __('Cancelar', 'plugins-alpha'),
+      cancelButtonText: __('Cancelar', 'plugins-alpha')
     });
 
-    if (!ok.isConfirmed) return;
+    if (!ok) return;
 
     // opcional: evita clique duplo
     const $btn = $(this);
@@ -2127,18 +2236,17 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         category: ($box.find('.pga_category').val() || ''),
       };
 
-      const r = await fetch(PGA_CFG.rest + '/orion/keywords', {
+      const j = await fetchJSON(PGA_CFG.rest + '/orion/keywords', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-WP-Nonce': PGA_CFG.nonce,
         },
         body: JSON.stringify(payload),
+        silent: true
       });
 
-      const j = await r.json().catch(() => ({}));
-
-      if (!r.ok || !j || !j.ok) {
+      if (!j || !j.ok) {
         throw new Error((j && j.message) ? j.message : __('Falha ao gerar keywords.', 'plugins-alpha'));
       }
 
@@ -2175,15 +2283,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     }[m]));
   }
 
-  async function safeJson(resp, label) {
-    const txt = await resp.text();
-    try { return JSON.parse(txt); }
-    catch (e) {
-      console.error(label, 'Resposta NÃO é JSON. HTTP=', resp.status, 'CT=', resp.headers.get('content-type'));
-      console.error('Primeiros 800 chars:', txt.slice(0, 800));
-      throw new Error(label + __(': Servidor não retornou JSON. Veja o console (Network/Response).', 'plugins-alpha'));
-    }
-  }
+  // safeJson removed: use fetchJSON(...) instead for unified handling
 
   function pad2(n) { return String(n).padStart(2, '0'); }
   function exportFilename(prefix = 'orion-prompts') {
@@ -2212,15 +2312,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         Swal.fire({ title: __('Exportando…', 'plugins-alpha'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
       }
 
-      const r = await fetch(ajaxurl + '?action=pga_orion_prompts_export', {
+      const j = await fetchJSON(ajaxurl + '?action=pga_orion_prompts_export', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
         body: new URLSearchParams({ _ajax_nonce: nonce })
       });
-
-      const j = await safeJson(r, 'EXPORT');
-      if (!r.ok || !j.success) throw new Error(j?.data?.message || __('Falha no export.', 'plugins-alpha'));
+      if (!j || !j.success) throw new Error(j?.data?.message || __('Falha no export.', 'plugins-alpha'));
 
       const blob = new Blob([JSON.stringify(j.data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -2275,10 +2373,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       fd.append('_ajax_nonce', nonce);
       fd.append('file', file);
 
-      const r = await fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: fd });
-      const j = await safeJson(r, 'IMPORT_PREPARE');
-
-      if (!r.ok || !j.success) throw new Error(j?.data?.message || __('Falha ao ler o JSON.', 'plugins-alpha'));
+      const j = await fetchJSON(ajaxurl, { method: 'POST', credentials: 'same-origin', body: fd });
+      if (!j || !j.success) throw new Error(j?.data?.message || __('Falha ao ler o JSON.', 'plugins-alpha'));
 
       const token = j.data?.token || '';
       const items = Array.isArray(j.data?.items) ? j.data.items : [];
@@ -2450,15 +2546,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       body.set('overwrite', res.value.overwrite ? '1' : '0');
       body.set('keys', JSON.stringify(res.value.keys || []));
 
-      const r2 = await fetch(ajaxurl, {
+      const j2 = await fetchJSON(ajaxurl, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
         body
       });
-
-      const j2 = await safeJson(r2, 'IMPORT_APPLY');
-      if (!r2.ok || !j2.success) throw new Error(j2?.data?.message || __('Falha ao aplicar import.', 'plugins-alpha'));
+      if (!j2 || !j2.success) throw new Error(j2?.data?.message || __('Falha ao aplicar import.', 'plugins-alpha'));
 
       if (window.Swal) {
         Swal.fire({
@@ -2500,42 +2594,31 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         slug
       });
 
-      const r = await fetch(ajaxurl, {
+      const j = await fetchJSON(ajaxurl, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
         body
       });
-
-      const txt = await r.text();
-      let j;
-      try { j = JSON.parse(txt); } catch (e) { throw new Error(__('Servidor não retornou JSON.', 'plugins-alpha')); }
-
-      if (!r.ok || !j.success) throw new Error(j?.data?.message || __('Falha ao remover.', 'plugins-alpha'));
-
+      if (!j || !j.success) throw new Error(j?.data?.message || __('Falha ao remover.', 'plugins-alpha'));
       tr.remove();
     };
 
-    if (window.Swal) {
-      const res = await Swal.fire({
-        title: __('Remover modelo?', 'plugins-alpha'),
-        text: __('Isso apaga do banco o modelo e TODOS os prompts dele.', 'plugins-alpha'),
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: __('Remover de vez', 'plugins-alpha'),
-        cancelButtonText: __('Cancelar', 'plugins-alpha')
-      });
-      if (!res.isConfirmed) return;
-      try {
-        Swal.fire({ title: __('Removendo…', 'plugins-alpha'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        await go();
-        Swal.fire({ icon: 'success', title: __('Removido', 'plugins-alpha'), timer: 900, showConfirmButton: false });
-      } catch (err) {
-        Swal.fire({ icon: 'error', title: __('Erro', 'plugins-alpha'), text: String(err.message || err) });
-      }
-    } else {
-      if (!confirm(__('Remover do banco este modelo e todos os prompts dele?', 'plugins-alpha'))) return;
-      try { await go(); } catch (err) { alert(String(err.message || err)); }
+    const ok = await pgaConfirm({
+      icon: 'warning',
+      title: __('Remover modelo?', 'plugins-alpha'),
+      text: __('Isso apaga do banco o modelo e TODOS os prompts dele.', 'plugins-alpha'),
+      confirmButtonText: __('Remover de vez', 'plugins-alpha'),
+      cancelButtonText: __('Cancelar', 'plugins-alpha')
+    });
+    if (!ok) return;
+    try {
+      if (window.Swal) Swal.fire({ title: __('Removendo…', 'plugins-alpha'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      await go();
+      if (window.Swal) Swal.fire({ icon: 'success', title: __('Removido', 'plugins-alpha'), timer: 900, showConfirmButton: false });
+    } catch (err) {
+      if (window.Swal) Swal.fire({ icon: 'error', title: __('Erro', 'plugins-alpha'), text: String(err.message || err) });
+      else alert(String(err.message || err));
     }
   });
 
@@ -2701,7 +2784,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // ✅ cria grupos default já na tab nova
     try {
       const groups = buildGroupsForNewProject();
-      localStorage.setItem(tabGroupsKey(tab.id), JSON.stringify(groups));
+      saveGroupsForTab(tab.id, groups);
     } catch (e) { }
     localStorage.setItem(KEY_ACTIVE_TAB, tab.id);
     window.location.href = buildTabUrl(tab.id);
@@ -2725,65 +2808,53 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   }
 
   function loadTabGroups(tabId) {
-    const groups = parseJson(localStorage.getItem(tabGroupsKey(tabId)), []);
+    // 1) migra 1 vez (se necessário)
+    migrateLegacyGroupsToTabOnce(tabId);
 
-    // se nunca salvou essa tab, não mexe: deixa o padrão da tela como está
-    if (!Array.isArray(groups) || !groups.length) return;
+    // 2) carrega do storage oficial
+    const groups = loadGroupsForTab(tabId);
 
-    // garante que tem boxes suficientes no DOM
-    ensureBoxesCount(groups.length);
-
-    // ✅ REBUSCA DEPOIS DE CRIAR
-    const $boxes = $('#pga_gen_container .pga-gen-box');
-
-    groups.forEach((g, i) => {
-      const $box = $boxes.eq(i);
-      if (!$box.length) return;
-
-      // ✅ sempre pelo box, não por ID global
-      $box.find('.pga_template_key').val(g.template_key || 'article').trigger('change');
-      // $box.find('.pga_keywords').val(g.keywords || '');
-      $box.find('.pga_category').val(g.category || '0').trigger('change');
-      // $box.find('.pga_length').val(g.length || 'short').trigger('change');
-      // $box.find('.pga_locale').val(g.locale || 'pt_BR').trigger('change');
-
-      // usa suas funções já existentes
-      if (typeof window.pgaApplyBoxConfig === 'function') {
-        window.pgaApplyBoxConfig($box, cfg);
-      }
-      if (typeof window.pgaUpdateBoxTitle === 'function') {
-        window.pgaUpdateBoxTitle($box);
-      }
-    });
+    // 3) aplica no DOM
+    applyGroupsToDom(groups);
   }
 
+
   function saveCurrentTabGroups(tabId) {
-    const groups = [];
-    $('#pga_gen_container .pga-gen-box').each(function () {
-      const $box = $(this);
-      if (typeof window.pgaSerializeBox === 'function') {
-        groups.push(window.pgaSerializeBox($box));
-      }
-    });
-    localStorage.setItem(tabGroupsKey(tabId), JSON.stringify(groups));
+    const groups = serializeAllGroupsFromDom();
+    saveGroupsForTab(tabId, groups);
   }
 
   function bindAutoSave(tabId) {
+    // evita duplicar handlers se esse init rodar mais de uma vez
+    $(document).off('change.pgaTab click.pgaTab');
+    // beforeunload: não dá pra "off" fácil, então guardamos flag
+    if (!window.PGA_TAB_BEFOREUNLOAD_BOUND) {
+      window.PGA_TAB_BEFOREUNLOAD_BOUND = true;
+      window.addEventListener('beforeunload', function () {
+        try {
+          const tid = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
+          if (tid) saveCurrentTabGroups(tid);
+        } catch (e) { }
+      });
+    }
+
+    // debounce simples
+    let t = null;
+    const scheduleSave = () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        try { saveCurrentTabGroups(tabId); } catch (e) { }
+      }, 450);
+    };
+
     // salva em mudanças
-    $(document).on('change.pgaTab', '#pga_gen_container .pga-gen-box :input', function () {
-      saveCurrentTabGroups(tabId);
+    $(document).on('change.pgaTab', '#pga_gen_container .pga-gen-box :input', function (e) {
+      if (e && e.isTrigger) return;
+      scheduleSave();
     });
 
-    // salva antes de gerar / salvar
-    $(document).on('click.pgaTab', '#pga_plan, #pga_save_keywords', function () {
-      saveCurrentTabGroups(tabId);
-    });
-
-    // salva ao sair
-    window.addEventListener('beforeunload', function () {
-      try { saveCurrentTabGroups(tabId); } catch (e) { }
-    });
   }
+
 
   async function pgaDeleteTab(tabId) {
     if (!tabId) return;
@@ -2794,26 +2865,16 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     const name = tabs[idx].title || __('Projeto', 'plugins-alpha');
 
-    // SweetAlert2 confirm
-    let ok = false;
-    if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
-      const res = await Swal.fire({
-        title: __('Excluir aba?', 'plugins-alpha'),
-        html: sprintf(
-          __('Você tem certeza que deseja excluir <b>%s</b>?<br><br><small>Isso apaga os grupos salvos dessa aba.</small>', 'plugins-alpha'),
-          escapeHtml(name)
-        ),
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: __('Sim, excluir', 'plugins-alpha'),
-        cancelButtonText: __('Cancelar', 'plugins-alpha'),
-        reverseButtons: true,
-        focusCancel: true
-      });
-      ok = !!res.isConfirmed;
-    } else {
-      ok = confirm(__('Excluir a aba "%s"?\n\nIsso apaga os grupos salvos dessa aba.', 'plugins-alpha'), name);
-    }
+    const ok = await pgaConfirm({
+      title: __('Excluir aba?', 'plugins-alpha'),
+      text: sprintf(
+        __('Você tem certeza que deseja excluir <b>%s</b>?<br><br><small>Isso apaga os grupos salvos dessa aba.</small>', 'plugins-alpha'),
+        escapeHtml(name)
+      ),
+      icon: 'warning',
+      confirmButtonText: __('Sim, excluir', 'plugins-alpha'),
+      cancelButtonText: __('Cancelar', 'plugins-alpha')
+    });
 
     if (!ok) return;
 
@@ -2827,7 +2888,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     // se ficou vazio, recria uma default
     if (!tabs.length) {
-      const first = { id: pgaMakeId(), title: __('Projeto 1', 'plugins-alpha') };
+      const first = { id: makeId(), title: __('Projeto 1', 'plugins-alpha') };
       tabs.push(first);
       saveTabs(tabs);
 
@@ -2877,13 +2938,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         const res = await Swal.fire({
           html: `
             <div class="pga-modal-content">
-              <h3 style="margin:0"><?php _e('Novo projeto', 'plugins-alpha'); ?></h3>
+              <h3 style="margin:0">${__('Novo projeto', 'plugins-alpha')}</h3>
               <div class="pga-descricao">
-                <?php _e('Crie um novo projeto para organizar seus geradores de conteúdo.', 'plugins-alpha'); ?>
+                ${__('Crie um novo projeto para organizar seus geradores de conteúdo.', 'plugins-alpha')}
               </div>
               <div class="pga-field">
-                <label for="pga_new_project_name"><?php _e('Nome do Projeto', 'plugins-alpha'); ?></label>
-                <input id="pga_new_project_name" class="swal2-input" placeholder="<?php _e('Ex: Blog de Marketing', 'plugins-alpha'); ?>" style="width:100%;margin:0" />
+                <label for="pga_new_project_name">${__('Nome do Projeto', 'plugins-alpha')}</label>
+                <input id="pga_new_project_name" class="swal2-input" placeholder="${__('Ex: Blog de Marketing', 'plugins-alpha')}" style="width:100%;margin:0" />
               </div>
             </div>
           `,
@@ -2914,8 +2975,9 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // 5) autosave
     bindAutoSave(st.tabId);
     setTimeout(() => {
-      pgaSaveBoxesToLocal();
-    }, 4000);
+      try { saveCurrentTabGroups(st.tabId); } catch (e) { }
+    }, 800);
+
   });
 
 })(jQuery);

@@ -57,7 +57,7 @@
 
 .pga-row {
   display: flex;
-  gap: 15px;
+  gap: 10px;
   flex-wrap: wrap;
   align-items: center;
 }
@@ -80,11 +80,6 @@
   display: block;
   font-weight: 600;
   margin-bottom: 6px;
-}
-
-#pga_keywords {
-  width: 100%;
-  min-height: 320px;
 }
 
 .pga-sidebar .pga-card {
@@ -253,13 +248,14 @@
   border-radius: 9px;
 }
 
-.pga-done-dropup.is-open .pga-done-panel {
-  display: block;
+.pga-done-dropup {
+  position: fixed;
+  bottom: 40px;
+  right: 30px;
 }
 
-#pga_keywords {
-  width: 100%;
-  min-height: 320px;
+.pga-done-dropup.is-open .pga-done-panel {
+  display: block;
 }
 
 .border-b {
@@ -602,19 +598,24 @@ div:where(.swal2-container).swal2-center>.swal2-popup {
 }
 
 .pga-generator-footer button svg,
-.pga-actions-unit button svg {
+.pga-actions-unit button svg,
+.pga-back-admin svg,
+#pga_done_toggle svg {
   width: 15px;
   height: 15px;
 }
 
 .pga-generator-footer button:hover,
-.pga-actions-unit button:hover {
-  background: var(--pga-soft) !important;
-  opacity: 1;
+.pga-actions-unit button:hover,
+.pga-back-admin:hover,
+#pga_done_toggle:hover {
+  opacity: .6;
   transition: all 0.2s;
 }
 
 .pga-generator-footer button,
+#pga_done_toggle,
+.pga-back-admin,
 div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-cancel) {
   background: var(--pga-soft) !important;
   border: 1px solid var(--pga-border) !important;
@@ -701,6 +702,13 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
   font-size: .875rem;
   line-height: 1.25rem;
 }
+.select2-selection .select2-selection--multiple,
+.select2-container--default .select2-selection--multiple {
+  border: 1px solid #d1d5db!important;
+  border-radius: 6px!important;
+  background-color: var(--pga-bg)!important;
+  min-height: 37px!important;
+}
 
 .pga-model {
   font-size: 1rem;
@@ -711,11 +719,14 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 }
 
 .pga-category-colapse {
-  font-size: 11px;
+  font-size: 10px;
   background: #EEEFF2;
   margin-left: 9px;
-  padding: 5px 12px;
+  padding: 4px 8px;
   border-radius: 6px;
+}
+.pga-model{
+  text-transform: capitalize;
 }
 
 #pga_tab_add {
@@ -736,7 +747,11 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 }
 
 #pga_gen_container {
-  padding: 25px 0;
+  padding: 25px 30px;
+}
+
+.pga-add-generator {
+  padding: 0 30px;
 }
 
 .pga-tabsbar .button-primary {
@@ -775,10 +790,10 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 }
 
 .pga-tabsbar {
-  padding-top: 1rem;
   border: 1px solid #E5E7EB;
   border-width: 1px 0;
   display: flex;
+  padding: 1rem 30px 0 30px;
 }
 
 .pga-header-fixed .pga-a-center {
@@ -790,7 +805,7 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 .pga-header-fixed {
   display: flex;
   justify-content: space-between;
-  padding: 1.25rem 0;
+  padding: 1rem 30px;
 }
 
 .pga-wrap .pga-descricao {
@@ -887,6 +902,7 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 .pga-collapse-body {
   background-color: var(--pga-soft);
   padding: 20px;
+  padding-top: 10px;
 }
 
 .pga-collapse-body .pga-card {

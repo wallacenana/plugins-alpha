@@ -42,9 +42,19 @@ class PluginsAlpha_Pages_Generator
       ?>
       <div class="wrap pga-layout">
         <div class="pga-header-fixed">
-          <div class="pga-header-col">
-            <h1><?php esc_html_e('Gerador — Alpha Órion', 'plugins-alpha'); ?></h1>
-            <p class="pga-descricao"><?php esc_html_e('Criação e automação de conteúdo com IA', 'plugins-alpha'); ?></p>
+          <div class="pga-header-col pga-a-center">
+            <div>
+              <a href="<?php echo esc_url(admin_url('admin.php?page=plugins-alpha-dashboard')); ?>"
+                class="pga-back-admin button" title="<?php esc_html_e('Voltar', 'plugins-alpha'); ?>">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
+                  <path d="M680-160v-400H313l144 144-56 57-241-241 240-240 57 57-144 143h447v480h-80Z" />
+                </svg>
+              </a>
+            </div>
+            <div>
+              <h1><?php esc_html_e('Gerador — Alpha Órion', 'plugins-alpha'); ?></h1>
+              <p class="pga-descricao"><?php esc_html_e('Criação e automação de conteúdo com IA', 'plugins-alpha'); ?></p>
+            </div>
           </div>
           <div class="pga-header-col pga-a-center ">
             <button
@@ -68,7 +78,7 @@ class PluginsAlpha_Pages_Generator
                 <span class="pga-switch-ui" aria-hidden="true"></span>
                 <span class="pga-switch-label">Global</span>
               </label>
-              <div id="pga_plan_custom_top" style="display:none;align-items:center;gap:10px;">
+              <div id="pga_plan_custom_top" class="pga-field" style="display:none;align-items:center;gap:10px;">
                 <label style="display:flex;align-items:center;gap:8px;">
                   <span><?php echo esc_html__('Total', 'plugins-alpha'); ?></span>
                   <input id="pga_plan_total" type="number" min="1" step="1" value="30" style="width:90px;">
@@ -154,7 +164,7 @@ class PluginsAlpha_Pages_Generator
                       <textarea
                         id="pga_keywords"
                         class="pga_keywords"
-                        rows="16"
+                        rows="14"
                         placeholder="<?php esc_html_e('Digite uma keyword por linha...', 'plugins-alpha'); ?>"></textarea>
                     </div>
                   </div>
@@ -354,49 +364,47 @@ class PluginsAlpha_Pages_Generator
               </div>
             </div>
           </div>
-          <button class="pga-add-container" id="pga_add_box">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus h-4 w-4">
-              <path d="M5 12h14"></path>
-              <path d="M12 5v14"></path>
-            </svg>
-            <?php esc_html_e('Adicionar gerador', 'plugins-alpha'); ?>
-          </button>
+          <div class="pga-add-generator">
+            <button class="pga-add-container" id="pga_add_box">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus h-4 w-4">
+                <path d="M5 12h14"></path>
+                <path d="M12 5v14"></path>
+              </svg>
+              <?php esc_html_e('Adicionar gerador', 'plugins-alpha'); ?>
+            </button>
+          </div>
         </div>
       </div>
     </div>
-    <div class="pga-footer-fixed">
-      <div class="pga-footer-actions">
-        <div class="pga-actions-unit pga-icon-buttons">
-          <div class="pga-done-dropup">
-            <button
-              type="button"
-              id="pga_done_toggle"
-              class="button pga-floating-btn pga-icon-btn"
-              aria-expanded="false"
-              aria-controls="pga_done_panel"
-              data-tooltip="Ver frases já geradas">
-              ✔
-            </button>
+    <div class="pga-done-dropup">
+      <button
+        type="button"
+        id="pga_done_toggle"
+        class="button pga-floating-btn pga-icon-btn"
+        aria-expanded="false"
+        aria-controls="pga_done_panel"
+        data-tooltip="Ver frases já geradas">
+        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
+          <path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" />
+        </svg>
+      </button>
 
-            <div
-              id="pga_done_panel"
-              class="pga-card pga-done-panel"
-              aria-hidden="true">
-              <div class="pga-row">
-                <h2>Concluídas</h2>
-                <button
-                  type="button"
-                  id="pga_kw_clear_done"
-                  class="pga-icon-btn pga-btn-delete"
-                  data-tooltip="Limpar frases geradas">
-                  <span class="pga-icon">🗑️</span>
-                </button>
-              </div>
-              <ul id="pga_kw_done" class="pga-list done"></ul>
-            </div>
-          </div>
+      <div
+        id="pga_done_panel"
+        class="pga-card pga-done-panel"
+        aria-hidden="true">
+        <div class="pga-row">
+          <h2>Concluídas</h2>
+          <button
+            type="button"
+            id="pga_kw_clear_done"
+            class="pga-icon-btn pga-btn-delete"
+            data-tooltip="Limpar frases geradas">
+            <span class="pga-icon">🗑️</span>
+          </button>
         </div>
+        <ul id="pga_kw_done" class="pga-list done"></ul>
       </div>
     </div>
 <?php

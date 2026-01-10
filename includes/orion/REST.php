@@ -669,85 +669,10 @@ class PluginsAlpha_REST
         ]);
         if (is_wp_error($resp)) return $resp;
 
-        $txt = '';
-
-        if (is_string($resp)) {
-            $txt = $resp;
-        } elseif (is_array($resp)) {
-            $txt = (string)($resp['content'] ?? '');
-            if ($txt === '' && isset($resp['data'])) {
-                if (is_string($resp['data'])) $txt = $resp['data'];
-                elseif (is_array($resp['data'])) $txt = (string)($resp['data']['content'] ?? '');
-                elseif (is_object($resp['data'])) $txt = (string)($resp['data']->content ?? '');
-            }
-        } elseif (is_object($resp)) {
-            if (isset($resp->content)) $txt = (string)$resp->content;
-            elseif (isset($resp->data) && is_string($resp->data)) $txt = (string)$resp->data;
-            elseif (isset($resp->data) && is_object($resp->data) && isset($resp->data->content)) $txt = (string)$resp->data->content;
-        }
-
-        $txt = trim((string)$txt);
-
-        $maybe = trim($txt);
-        $maybe = preg_replace('/^```[a-zA-Z0-9_-]*\s*/', '', $maybe);
-        $maybe = preg_replace('/\s*```$/', '', $maybe);
-        $maybe = trim($maybe);
-
-        if ($maybe !== '') {
-            $j = json_decode($maybe, true);
-
-            if (!is_array($j)) {
-                if (preg_match('/\{.*\}/s', $maybe, $m)) {
-                    $j = json_decode($m[0], true);
-                }
-            }
-
-            if (is_array($j) && isset($j['content'])) {
-                $txt = (string)$j['content'];
-            }
-        }
-
-        $txt = ltrim($txt);
-        $txt = preg_replace('/^\s*\{\s*/', '', $txt);
-        $txt = preg_replace('/\s*\}\s*$/', '', $txt);
-        $txt = preg_replace('/^\s*"content"\s*:\s*"/u', '', $txt);
-        $txt = preg_replace('/"\s*,?\s*$/u', '', $txt);
-        $txt = str_replace(["\\r\\n", "\\r", "\\n", '\\"'], ["\n", "\n", "\n", '"'], $txt);
-        $txt = trim($txt);
-
-        $txt = wp_strip_all_tags($txt);
-        $txt = html_entity_decode($txt, ENT_QUOTES, 'UTF-8');
-        $txt = preg_replace("/\r\n|\r/", "\n", $txt);
-
-        if (strpos($txt, ',') !== false && strpos($txt, "\n") === false) {
-            $txt = str_replace(',', "\n", $txt);
-        }
-
-        $lines = preg_split("/\n+/", $txt);
-        $lines = array_values(array_filter(array_map('trim', $lines), fn($s) => $s !== ''));
-
-        $norm = function (string $s): string {
-            $s = mb_strtolower(trim($s));
-            $s = preg_replace('/[^\p{L}\p{N}\s]+/u', '', $s);
-            $s = preg_replace('/\s+/u', ' ', $s);
-            return $s;
-        };
-
-        $seen = [];
-        $out  = [];
-        foreach ($lines as $l) {
-            $k = $norm($l);
-            if ($k === '' || isset($seen[$k])) continue;
-            $seen[$k] = true;
-            $out[] = $l;
-            if (count($out) >= $count) break;
-        }
 
         return [
             'ok' => true,
-            'keywords_text' => implode("\n", $out),
-            'count' => count($out),
-            'category_name' => $category_name,
+            'keywords_text' => (string)($resp['content'] ?? ''),
         ];
     }
 

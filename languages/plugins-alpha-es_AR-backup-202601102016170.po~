@@ -92,7 +92,7 @@ msgstr "Artículo"
 
 #: includes/orion/Templates.php:122
 msgid "Artigo (padrão)"
-msgstr "Artículo (predeterminado)"
+msgstr ""
 
 #: includes/License.php:431
 msgid "Ativa"
@@ -522,7 +522,7 @@ msgstr "Modelar video de YouTube"
 
 #: includes/orion/Templates.php:32 includes/orion/Templates.php:123
 msgid "Modelar YouTube"
-msgstr "Modelar YouTube"
+msgstr ""
 
 #: includes/orion/Pages_Generator.php:174
 msgid "Modelo de Post"
@@ -822,7 +822,7 @@ msgstr "Ver Órion Post"
 
 #: includes/orion/Pages_Generator.php:48
 msgid "Voltar"
-msgstr "Volver"
+msgstr ""
 
 #. Author of the plugin
 msgid "Wallace Tavares"

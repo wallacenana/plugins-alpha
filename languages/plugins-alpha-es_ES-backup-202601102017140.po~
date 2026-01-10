@@ -3,10 +3,10 @@ msgstr ""
 "Project-Id-Version: Alpha Suite\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-01-09 15:31+0000\n"
-"PO-Revision-Date: 2026-01-10 20:16+0000\n"
+"PO-Revision-Date: 2026-01-10 20:17+0000\n"
 "Last-Translator: \n"
-"Language-Team: Spanish (Argentina)\n"
-"Language: es_AR\n"
+"Language-Team: Spanish (Spain)\n"
+"Language: es_ES\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -58,7 +58,7 @@ msgstr "Agregar nuevo"
 
 #: includes/orion/CPT_Posts_Orion.php:362
 msgid "Adicionar novo Órion Post"
-msgstr "Agregar nuevo Publicación Órion"
+msgstr "Agregar nueva Publicación Órion"
 
 #: includes/AdminMenus.php:103 includes/AdminMenus.php:104
 #: includes/License.php:727
@@ -92,7 +92,7 @@ msgstr "Artículo"
 
 #: includes/orion/Templates.php:122
 msgid "Artigo (padrão)"
-msgstr "Artículo (predeterminado)"
+msgstr ""
 
 #: includes/License.php:431
 msgid "Ativa"
@@ -280,16 +280,16 @@ msgid ""
 "Este post não pôde ser publicado porque a licença do módulo Alpha Órion não "
 "está ativa ou não inclui este módulo."
 msgstr ""
-"Este post no pudo ser publicado porque la licencia del módulo Alpha Órion no "
-"está activa o no incluye este módulo."
+"Esta publicación no pudo ser publicada porque la licencia del módulo Alpha "
+"Órion no está activa o no incluye este módulo."
 
 #: includes/stories/autoload.php:272
 msgid ""
 "Este story não pôde ser publicado porque a licença do módulo Alpha Stories "
 "não está ativa ou não inclui este módulo."
 msgstr ""
-"Este story no pudo ser publicado porque la licencia del módulo Alpha Stories "
-"no está activa o no incluye este módulo."
+"Esta historia no pudo ser publicada porque la licencia del módulo Alpha "
+"Stories no está activa o no incluye este módulo."
 
 #: includes/Settings.php:582
 msgid "Estilo & Playback (padrão)"
@@ -355,11 +355,11 @@ msgstr "Generar palabras clave"
 
 #: includes/AdminMenus.php:93 includes/AdminMenus.php:94
 msgid "Gerar Posts"
-msgstr "Generar Posts"
+msgstr "Generar publicaciones"
 
 #: includes/Dashboard.php:18
 msgid "Gerencie seus geradores e descubra novos módulos."
-msgstr "Administra tus generadores y descubre nuevos módulos."
+msgstr "Gestiona tus generadores y descubre nuevos módulos."
 
 #. Author URI of the plugin
 msgid "https://pluginsalpha.com/"
@@ -375,7 +375,7 @@ msgstr "IA para generación de TEXTO"
 
 #: includes/Settings.php:696
 msgid "IA para geração de TEXTO dos stories"
-msgstr "IA para generación de TEXTO de los stories"
+msgstr "IA para generación de TEXTO de las historias"
 
 #: includes/orion/Pages_Generator.php:281
 msgid "Idioma"
@@ -408,23 +408,23 @@ msgstr "Inactiva"
 #: includes/License.php:756
 msgid "Informe o e-mail e pelo menos um ID de compra (Órion ou Stories)."
 msgstr ""
-"Ingrese el correo electrónico y al menos un ID de compra (Órion o Stories)."
+"Indica el correo electrónico y al menos un ID de compra (Órion o Stories)."
 
 #: includes/License.php:570
 msgid ""
 "Informe o ID da compra para o módulo Alpha Stories (deixe em branco se não "
 "tiver)."
 msgstr ""
-"Ingrese el ID de compra para el módulo Alpha Stories (deje en blanco si no "
-"tiene)."
+"Indica el ID de compra para el módulo Alpha Stories (deja en blanco si no "
+"tienes)."
 
 #: includes/License.php:556
 msgid ""
 "Informe o ID da compra para o módulo Alpha Órion (deixe em branco se não "
 "tiver)."
 msgstr ""
-"Ingrese el ID de compra para el módulo Alpha Órion (deje en blanco si no "
-"tiene)."
+"Indica el ID de compra para el módulo Alpha Órion (deja en blanco si no "
+"tienes)."
 
 #: includes/orion/Pages_Generator.php:306
 msgid "Inicio"
@@ -453,7 +453,7 @@ msgstr "Palabras clave (1 por línea)"
 #: includes/orion/Pages_Generator.php:1414
 #: includes/orion/Pages_Generator.php:1436
 msgid "Leia também:"
-msgstr "Lea también:"
+msgstr "Leer también:"
 
 #: includes/License.php:36 includes/License.php:37
 msgid "Licença"
@@ -468,25 +468,25 @@ msgid ""
 "Licença do módulo Alpha Stories inativa. Ative o módulo para continuar "
 "criando e publicando stories."
 msgstr ""
-"Licencia del módulo Alpha Stories inactiva. Active el módulo para continuar "
-"creando y publicando stories."
+"Licencia del módulo Alpha Stories inactiva. Activa el módulo para continuar "
+"creando y publicando historias."
 
 #: includes/orion/CPT_Posts_Orion.php:322
 msgid ""
 "Licença do módulo Alpha Órion inativa. Ative o módulo para continuar gerando "
 "e publicando posts."
 msgstr ""
-"Licencia del módulo Alpha Órion inactiva. Active el módulo para continuar "
-"generando y publicando posts."
+"Licencia del módulo Alpha Órion inactiva. Activa el módulo para continuar "
+"generando y publicando publicaciones."
 
 #: includes/License.php:652
 msgid "Licença expirada. Renove ou atualize sua assinatura."
-msgstr "Licencia expirada. Renueve o actualice su suscripción."
+msgstr "Licencia expirada. Renueva o actualiza tu suscripción."
 
 #: includes/License.php:641
 msgid "Licença inativa. Ative ou revalide a licença no painel Plugins Alpha."
 msgstr ""
-"Licencia inactiva. Active o revalide la licencia en el panel Plugins Alpha."
+"Licencia inactiva. Activa o revalida la licencia en el panel Plugins Alpha."
 
 #: includes/License.php:462
 msgid "Licença — Plugins Alpha"
@@ -518,11 +518,11 @@ msgstr "Manual"
 
 #: includes/orion/Templates.php:100
 msgid "Modelar vídeo do YouTube"
-msgstr "Modelar video de YouTube"
+msgstr "Modelar vídeo de YouTube"
 
 #: includes/orion/Templates.php:32 includes/orion/Templates.php:123
 msgid "Modelar YouTube"
-msgstr "Modelar YouTube"
+msgstr ""
 
 #: includes/orion/Pages_Generator.php:174
 msgid "Modelo de Post"
@@ -534,11 +534,11 @@ msgstr "Modelo de texto"
 
 #: includes/stories/includes/MetaBox.php:189
 msgid "Mostrar botão Play/Pause"
-msgstr "Mostrar botón Reproducir/Pausar"
+msgstr "Mostrar botón Reproducir/Pausa"
 
 #: includes/orion/Pages_Generator.php:216
 msgid "Médio"
-msgstr "Mediano"
+msgstr "Medio"
 
 #: includes/orion/Pages_Generator.php:17
 msgid "Módulo não ativado."
@@ -610,15 +610,15 @@ msgstr "No generar imágenes automáticas"
 
 #: includes/License.php:542
 msgid "O mesmo e-mail usado na compra (Hotmart / Stripe)."
-msgstr "El mismo correo usado en la compra (Hotmart / Stripe)."
+msgstr "El mismo correo electrónico usado en la compra (Hotmart / Stripe)."
 
 #: includes/ai/Images.php:254
 msgid ""
 "OpenAI está com instabilidade no momento ao gerar imagens. Tente novamente "
 "em instantes."
 msgstr ""
-"OpenAI está con inestabilidad en este momento al generar imágenes. Intente "
-"nuevamente en unos instantes."
+"OpenAI está experimentando inestabilidad al generar imágenes. Intente "
+"nuevamente en unos momentos."
 
 #: includes/stories/includes/MetaBox.php:42
 msgid "Opções"
@@ -726,7 +726,7 @@ msgstr "Respuesta inesperada del servidor de licencias."
 
 #: includes/License.php:910
 msgid "Resposta inválida do servidor de licença."
-msgstr "Respuesta inválida del servidor de licencia."
+msgstr "Respuesta inválida del servidor de licencias."
 
 #: includes/License.php:592
 msgid "Revalidar licenças neste domínio"
@@ -806,7 +806,7 @@ msgstr "Usada para generar títulos, secciones, planes, etc."
 
 #: includes/Settings.php:544
 msgid "Usada para thumbnails e imagens geradas pelo módulo Órion."
-msgstr "Usada para miniaturas e imágenes generadas por el módulo Orión."
+msgstr "Usada para miniaturas e imágenes generadas por el módulo Órion."
 
 #: includes/Settings.php:687
 msgid "Usado apenas se “Manual” estiver selecionado."
@@ -822,7 +822,7 @@ msgstr "Ver Órion Post"
 
 #: includes/orion/Pages_Generator.php:48
 msgid "Voltar"
-msgstr "Volver"
+msgstr ""
 
 #. Author of the plugin
 msgid "Wallace Tavares"

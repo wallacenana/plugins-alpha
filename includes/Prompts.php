@@ -1,5 +1,4 @@
 <?php
-// includes/Prompts.php
 if (!defined('ABSPATH')) exit;
 
 class PluginsAlpha_Prompts
@@ -9,7 +8,7 @@ class PluginsAlpha_Prompts
         add_action('wp_ajax_pga_orion_prompts_export', [__CLASS__, 'ajax_export']);
         add_action('wp_ajax_pga_orion_prompts_import_prepare', [__CLASS__, 'ajax_import_prepare']);
         add_action('wp_ajax_pga_orion_prompts_import_apply', [__CLASS__, 'ajax_import_apply']);
-        add_action('wp_ajax_pga_orion_template_delete', ['PluginsAlpha_Prompts', 'ajax_delete_template']);
+        add_action('wp_ajax_pga_orion_template_delete', [__CLASS__, 'ajax_delete_template']);
     }
 
     public static function ajax_delete_template(): void
@@ -265,6 +264,10 @@ class PluginsAlpha_Prompts
             'locale'       => $locale,
             'articleTitle' => $articleTitle,
             'url'          => trim((string)$url),
+            'videoTitle'   => $videoTitle,
+            'chapters'     => $chapters,
+            'videoDescription' => $videoDescription,
+            'tags'         => $tags,
         ]);
 
         // CONTEXTO INTERNO: o que deixa fiel
@@ -330,14 +333,14 @@ class PluginsAlpha_Prompts
         string $keyword,
         int $min = 3,
         int $max = 5,
-        string $locale = 'pt_BR',
-        string $url = ''
+        string $locale = 'pt_BR'
     ): string {
         $tpl = self::get_prompt_for($template, 'title');
 
         $base = self::replace_vars($tpl, [
             'keyword' => $keyword,
-            'url'     => $url,
+            'locale'  => $locale,
+            'template' => $template,
         ]);
 
         return
@@ -371,6 +374,8 @@ class PluginsAlpha_Prompts
             'keyword'      => $keyword,
             'articleTitle' => $articleTitle,
             'url'          => $url,
+            'locale'       => $locale,
+            'template'     => $template,
         ]);
 
         $suffix = self::outline_json_suffix([
@@ -460,12 +465,20 @@ class PluginsAlpha_Prompts
 
         $tpl = self::get_prompt_for($template, $stage);
 
-        return self::replace_vars($tpl, [
+        $s = "Você é um gerador de prompts para imagens realistas.\n"
+            . "Crie um prompt para gerar uma thumbnail relacionada a: .\n"
+            . "- Título: \"{$title}\".\n"
+            . "- Palavra-chave: \"{$keyword}\".\n"
+            . "Regras:\n";
+
+        $base = self::replace_vars($tpl, [
             'keyword'  => $keyword,
             'locale'   => $locale,
             'template' => $template,
             'title'    => $title,
         ]);
+
+        return  $s . "\n" . $base;
     }
 
     /* =============================
@@ -479,15 +492,16 @@ class PluginsAlpha_Prompts
         // Regra dinâmica por provider
         $imageProvider = trim((string)$imageProvider);
         if ($imageProvider === 'pexels' || $imageProvider === 'unsplash') {
-            $tpl .= "\n\n";
+            $tpl .= "Você é um gerador de TAGS de busca para bancos de imagens (Pexels/Unsplash).\n";
             $tpl .= "- O resultado final deve ser APENAS uma frase curta (no máximo 4 PALAVRAS SIMPLES), como TAGS de busca.\n";
             $tpl .= "- Ex.: \"cachorro no sofá\", \"mulher sorrindo notebook\".\n";
             $tpl .= "- Não use prefixos como \"Imagem de\".\n";
+            $tpl .= "Contexto: {$title}.\n";
         } else {
             $tpl .= "\n\n";
-            $tpl .= "Regras específicas para IA:\n";
-            $tpl .= "- FOTO REALISTA HORIZONTAL 16:9, luz natural, estilo cinematográfico.\n";
-            $tpl .= "- Sem texto, sem logos, sem marca d'água.\n";
+            $tpl .= "Regras específicas para IA:\n"
+                . "title: \"{$title}\".\n"
+                . "context: {$content}.\n";
         }
 
         $plain = wp_strip_all_tags($content);
@@ -531,11 +545,17 @@ class PluginsAlpha_Prompts
             'title'             => $title,
             'content'           => $content,
             'brief'             => $brief,
-            'locale'            => $locale,
             'image_prompt_rule' => $image_rule,
         ]);
 
-        return $base . "\n\n" . self::story_json_format_block();
+        $s  = "Você é uma especialista em transformar posts de blog em Web Stories AMP.\n\n";
+        $s .= "- Título: {$title}\n";
+        $s .= "- Conteúdo: {$content}\n";
+        $s .= "- Brief: {$brief}\n";
+        $s .= "- Locale: {$locale}\n\n";
+        $s .= "Tarefa:\n";
+
+        return $s . "\n\n" . $base . "\n\n" . self::story_json_format_block();
     }
 
     public static function ajax_export(): void
@@ -815,6 +835,7 @@ class PluginsAlpha_Prompts
 
                         <?php
                         $globalStages = [
+                            'image' => __('Imagem Thumbnail', 'plugins-alpha'),
                             'post_thumbnail_regen' => __('Regenerar thumbnail', 'plugins-alpha'),
                             'image_stock'          => __('Imagem (Pexels / Unsplash)', 'plugins-alpha'),
                             'story'                => __('Web Stories', 'plugins-alpha'),
@@ -908,7 +929,6 @@ class PluginsAlpha_Prompts
                                         $label = (string)($row['label'] ?? $slug);
                                         $enabled = !empty($row['enabled']) ? 1 : 0;
                                         $is_default = !empty($row['is_default']) ? 1 : 0;
-                                        error_log('log: ' . print_r($row, true));
                                     ?>
                                         <tr data-slug="<?php echo esc_attr($slug); ?>" data-builtin="<?php echo $is_builtin ? '1' : '0'; ?>">
                                             <td>
@@ -1001,40 +1021,66 @@ class PluginsAlpha_Prompts
                                 <div class="pga-vars-pop" id="pga-vars-pop" aria-hidden="true">
                                     <div class="pga-vars-pop__body">
                                         <div class="pga-vars-grid">
-                                            <h3>Título (titles)</h3>
+                                            <h3><?php esc_html_e('Título (titles)', 'plugins-alpha'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{locale}}</code>
-                                            <code>{{url}}</code>
+                                            <code>{{template}}</code>
 
-                                            <h3>Outline</h3>
+                                            <h3><?php esc_html_e('Outline', 'plugins-alpha'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
                                             <code>{{locale}}</code>
-                                            <code>{{url}}</code>
+                                            <code>{{template}}</code>
 
-                                            <h3>Sessão (section)</h3>
-                                            <code>{{keyword}}</code>
+                                            <h3><?php esc_html_e('Outline Youtube', 'plugins-alpha'); ?></h3>
                                             <code>{{articleTitle}}</code>
                                             <code>{{locale}}</code>
                                             <code>{{url}}</code>
+                                            <code>{{videoTitle}}</code>
+                                            <code>{{chapters}}</code>
+                                            <code>{{videoDescription}}</code>
+                                            <code>{{tags}}</code>
+
+                                            <h3><?php esc_html_e('Sessão', 'plugins-alpha'); ?></h3>
+                                            <code>{{keyword}}</code>
+                                            <code>{{articleTitle}}</code>
+                                            <code>{{locale}}</code>
                                             <code>{{section_number}}</code>
+                                            <code>{{section_heading}}</code>
                                             <code>{{section_level}}</code>
                                             <code>{{section_bullets}}</code>
                                             <code>{{section_children}}</code>
                                             <code>{{sections_count}}</code>
 
-                                            <h3>Thumb e re-geração (image / post_thumbnail_regen / image_stock)</h3>
+                                            <h3><?php esc_html_e('Descrição', 'plugins-alpha'); ?></h3>
                                             <code>{{keyword}}</code>
+                                            <code>{{articleTitle}}</code>
+                                            <code>{{locale}}</code>
+                                            <code>{{content}}</code>
+
+                                            <h3><?php esc_html_e('Slug', 'plugins-alpha'); ?></h3>
+                                            <code>{{keyword}}</code>
+                                            <code>{{articleTitle}}</code>
+                                            <code>{{locale}}</code>
+
+                                            <h3><?php esc_html_e('Re-geração (image_stock)', 'plugins-alpha'); ?></h3>
+                                            <code>{{content}}</code>
                                             <code>{{title}}</code>
                                             <code>{{locale}}</code>
 
-                                            <h3>Stories</h3>
+                                            <h3><?php esc_html_e('Imagem', 'plugins-alpha'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{title}}</code>
+                                            <code>{{template}}</code>
                                             <code>{{locale}}</code>
+
+                                            <h3><?php esc_html_e('Stories', 'plugins-alpha'); ?></h3>
+                                            <code>{{title}}</code>
+                                            <code>{{content}}</code>
+                                            <code>{{brief}}</code>
                                             <code>{{image_prompt_rule}}</code>
 
-                                            <h3>Keywords</h3>
+                                            <h3><?php esc_html_e('Keywords', 'plugins-alpha'); ?></h3>
                                             <code>{{locale}}</code>
                                         </div>
                                     </div>
@@ -1509,39 +1555,12 @@ class PluginsAlpha_Prompts
 
         // ✅ normaliza slugs válidos que ficaram na tabela (inclui nativos)
         $keep = [];
-        $clean_templates = [];
-
         foreach ($templates as $slug => $row) {
             $slug = sanitize_key((string)$slug);
-            if ($slug === '' || $slug === 'global') continue;
-
-            $label      = sanitize_text_field((string)($row['label'] ?? $slug));
-            $enabled    = !empty($row['enabled']) ? 1 : 0;
-            $is_default = !empty($row['is_default']) ? 1 : 0;
-
-            // se for padrão, tem que estar ativo
-            if ($is_default) $enabled = 1;
-
-            // builtin: sempre enabled=1 e builtin=1, MAS is_default pode ser 0/1 (usuário escolhe)
-            if (in_array($slug, ['article', 'modelar_youtube'], true)) {
-                $clean_templates[$slug] = [
-                    'label'      => $label ?: $slug,
-                    'enabled'    => 1,
-                    'builtin'    => 1,
-                    'is_default' => $is_default, // ✅ deixa o usuário decidir
-                ];
-            } else {
-                $clean_templates[$slug] = [
-                    'label'      => $label ?: $slug,
-                    'enabled'    => $enabled,
-                    'builtin'    => 0,
-                    'is_default' => $is_default,
-                ];
-            }
+            if ($slug === '') continue;
+            if ($slug === 'global') continue;
+            $keep[$slug] = true;
         }
-
-        update_option('pga_orion_templates', $clean_templates, false);
-
         $keep['article'] = true;
         $keep['modelar_youtube'] = true;
 
@@ -1563,24 +1582,7 @@ class PluginsAlpha_Prompts
             $templates_post = (array) wp_unslash($_POST['pga_orion_templates']);
         }
 
-        // sempre manter nativos
-        $builtin = [
-            'article'        => ['label' => 'Artigo (padrão)',        'enabled' => 1, 'builtin' => 1, 'is_default' => 0],
-            'modelar_youtube' => ['label' => 'Modelar vídeo do YouTube', 'enabled' => 1, 'builtin' => 1, 'is_default' => 0],
-        ];
-
         $clean_templates = [];
-
-        // 1) primeiro, injeta nativos SEMPRE
-        foreach ($builtin as $bslug => $bmeta) {
-            $clean_templates[$bslug] = [
-                'label'      => sanitize_text_field((string) ($bmeta['label'] ?? $bslug)) ?: $bslug,
-                'enabled'    => 1,
-                'builtin'    => 1,
-                'is_default' => 0,
-            ];
-        }
-
         // 2) depois, normaliza o que veio do POST
         foreach ($templates_post as $slug => $row) {
             $slug = sanitize_key((string) $slug);
@@ -2092,7 +2094,7 @@ class PluginsAlpha_Prompts
             'section_children' => $children,
             'section_bullets'  => $bullets,
             'sections_count'   => (string)$sectionsCount,
-            'section_number'       => $section_number,
+            'section_number'   => $section_number,
             'url'              => $url,
         ]);
 
@@ -2233,19 +2235,19 @@ class PluginsAlpha_Prompts
         }
 
         $suffix =
-            "Responda SOMENTE em JSON UTF-8 válido, sem markdown.\n"
+            "Responda APENAS em JSON UTF-8 válido (uma única linha), sem markdown.\n"
             . "Regras técnicas (não discuta, apenas cumpra):\n"
             . "- Gere {$count} keywords NOVAS e DIFERENTES.\n"
             . "- Gere em {$locale}.\n"
             . "- Categoria: {$category}.\n"
             . "- Use o comando como direção: {$command}.\n"
-            . "- Uma keyword por linha dentro do campo \"content\".\n"
-            . "- Não use bullets, não use numeração, não use aspas etras fora do JSON.\n"
+            . "- No campo \"content\", use UMA keyword por linha.\n"
+            . "- Não use bullets, não use numeração, não use vírgulas para separar.\n"
+            . "- Não inclua barras \\ , pipes | ou ponto-e-vírgula ; como separadores.\n"
             . "- Não adicione explicações.\n\n"
-            . "Responda APENAS em JSON UTF-8 válido, no seguinte formato:\n\n"
-            . "{\n"
-            . "  \"content\": \"keyword 1\n keyword 2\n keyword 3\"\n"
-            . "}\n";
+            . "Seja extremamente especifica no Formato obrigatório (JSON válido), se atente a quebra de linha em cada frase chave:\n"
+            . "{\"content\":\"keyword 1\n keyword 2\n keyword 3 \n ...\"}";
+
 
         return $base . $ban . "\n\n" . $suffix;
     }
@@ -2411,32 +2413,21 @@ class PluginsAlpha_Prompts
 
     private static function default_image_prompt(): string
     {
-        return 'Você é um gerador de prompts para imagens realistas.' . "\n"
-            . 'Crie um prompt em {{locale}} para gerar uma thumbnail fotográfica relacionada a "{{keyword}}".' . "\n"
-            . 'Considere o título: "{{title}}" e o tipo de conteúdo: "{{template}}".' . "\n\n"
-            . "Regras:\n"
-            . "- Cena única marcante, proporção 16:9.\n"
+        return "- Cena única marcante, proporção 16:9.\n"
             . "- Sem texto, sem marcas d’água, sem logos.\n";
     }
 
     private static function default_post_thumbnail_regen_prompt(): string
     {
         return "Ultra-realistic natural photo, 16:9 aspect ratio.\n"
-            . "title (pt-BR): \"{{title}}\".\n"
-            . "context: {{content}}.\n"
-            . "Avoid text, watermarks, clutter.\n";
+            . "Avoid text, watermarks, clutter.\n"
+            . "- FOTO REALISTA HORIZONTAL 16:9, luz natural, estilo cinematográfico.\n"
+            . "- Sem texto, sem logos, sem marca d'água.\n";
     }
 
     public static function story_default_template(): string
     {
-        $s  = "Você é uma especialista em transformar posts de blog em Web Stories AMP.\n\n";
-        $s .= "Você receberá:\n";
-        $s .= "- Título: {{title}}\n";
-        $s .= "- Conteúdo: {{content}}\n";
-        $s .= "- Brief: {{brief}}\n";
-        $s .= "- Locale: {{locale}}\n\n";
-        $s .= "Tarefa:\n";
-        $s .= "- Gere 7 a 10 páginas curtas.\n";
+        $s = "- Gere 7 a 10 páginas curtas.\n";
         $s .= "- Linguagem simples e envolvente.\n";
         $s .= "- No campo \"prompt\": {{image_prompt_rule}}\n";
         $s .= "- Responda somente em JSON.\n";
