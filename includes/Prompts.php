@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) exit;
 
 class PluginsAlpha_Prompts
 {
+    public static function init(): void {}
     public static function register_ajax(): void
     {
         add_action('wp_ajax_pga_orion_prompts_export', [__CLASS__, 'ajax_export']);
@@ -730,7 +731,7 @@ class PluginsAlpha_Prompts
                                 aria-selected="<?php echo $isActive ? 'true' : 'false'; ?>"
                                 data-pga-tab="tpl"
                                 data-tpl="<?php echo esc_attr($tpl_slug); ?>">
-                                <span><?php echo esc_html($label); ?></span>
+                                <span><?php esc_html_e($label); ?></span>
                             </button>
                         <?php endforeach; ?>
 
@@ -752,7 +753,6 @@ class PluginsAlpha_Prompts
                     foreach ($tpls as $tpl_slug => $tpl_meta):
                         $tpl_slug = sanitize_key((string)$tpl_slug);
                         $label    = (string)($tpl_meta['label'] ?? $tpl_slug);
-                        $builtin  = !empty($tpl_meta['builtin']);
                         $isActive = ($panelIndex === 0);
                         $panelIndex++;
 
@@ -774,7 +774,7 @@ class PluginsAlpha_Prompts
                                             class="pga-stage-tab <?php echo ($stage_key === $firstStage) ? 'is-active' : ''; ?>"
                                             data-pga-tab="stage"
                                             data-stage="<?php echo esc_attr($stage_key); ?>">
-                                            <?php echo esc_html($stage_label); ?>
+                                            <?php esc_html_e($stage_label); ?>
                                         </button>
                                     </span>
                                 <?php endforeach; ?>
@@ -801,7 +801,7 @@ class PluginsAlpha_Prompts
 
                                     <div class="pga-stage-head">
                                         <!-- <h3>
-                                            <?php echo esc_html($stage_label); ?>
+                                            <?php esc_html_e($stage_label); ?>
                                             <?php if ($stage_key === 'titles'): ?>
                                                 <span class="pga-stage-chip">Google Discover</span>
                                             <?php endif; ?>
@@ -852,7 +852,7 @@ class PluginsAlpha_Prompts
                                         class="pga-stage-tab <?php echo ($stage_key === $firstGlobal) ? 'is-active' : ''; ?>"
                                         data-pga-tab="stage"
                                         data-stage="<?php echo esc_attr($stage_key); ?>">
-                                        <?php echo esc_html($stage_label); ?>
+                                        <?php esc_html_e($stage_label); ?>
                                     </button>
                                 </span>
                             <?php endforeach; ?>
@@ -876,7 +876,7 @@ class PluginsAlpha_Prompts
                                 style="<?php echo ($stage_key === $firstGlobal) ? '' : 'display:none'; ?>">
                                 <div class="pga-card">
                                     <div class="pga-stage-head">
-                                        <!-- <h3><?php echo esc_html($stage_label); ?></h3> -->
+                                        <!-- <h3><?php esc_html_e($stage_label); ?></h3> -->
 
                                         <!-- ✅ nos globais: restaurar sempre -->
                                         <button type="button"
@@ -990,7 +990,7 @@ class PluginsAlpha_Prompts
                                 <tfoot>
                                     <tr>
                                         <td colspan="4">
-                                            <button type="button" class="pga-btn" id="pga-add-tpl-row">+ <?php esc_html_e('Adicionar modelo custom', 'plugins-alpha'); ?></button>
+                                            <button type="button" class="pga-btn" id="pga-add-tpl-row">+ <?php esc_html_e('Adicionar modelo personalizado', 'plugins-alpha'); ?></button>
                                             <span class="pga-mini" style="margin-left:10px;"><?php esc_html_e('Ex.: receitas, review, modelar_url', 'plugins-alpha'); ?></span>
                                         </td>
                                     </tr>
@@ -1021,18 +1021,18 @@ class PluginsAlpha_Prompts
                                 <div class="pga-vars-pop" id="pga-vars-pop" aria-hidden="true">
                                     <div class="pga-vars-pop__body">
                                         <div class="pga-vars-grid">
-                                            <h3><?php esc_html_e('Título (titles)', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Título', 'plugins-alpha'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{locale}}</code>
                                             <code>{{template}}</code>
 
-                                            <h3><?php esc_html_e('Outline', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Esboço', 'plugins-alpha'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
                                             <code>{{locale}}</code>
                                             <code>{{template}}</code>
 
-                                            <h3><?php esc_html_e('Outline Youtube', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Esboço', 'plugins-alpha'); ?> Youtube</h3>
                                             <code>{{articleTitle}}</code>
                                             <code>{{locale}}</code>
                                             <code>{{url}}</code>

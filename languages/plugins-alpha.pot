@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Alpha Suite\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-10 20:14+0000\n"
+"POT-Creation-Date: 2026-01-10 21:54+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: \n"
@@ -247,7 +247,7 @@ msgstr ""
 msgid "E-mail da compra"
 msgstr ""
 
-#: includes/Adminbar.php:42 includes/orion/CPT_Posts_Orion.php:363
+#: includes/Adminbar.php:43 includes/orion/CPT_Posts_Orion.php:363
 msgid "Editar Órion Post"
 msgstr ""
 
@@ -477,7 +477,7 @@ msgstr ""
 msgid "Links internos"
 msgstr ""
 
-#: includes/Adminbar.php:115
+#: includes/Adminbar.php:116
 msgid "Links permanentes do Órion recarregados com sucesso."
 msgstr ""
 
@@ -560,6 +560,7 @@ msgid "Nome do blog"
 msgstr ""
 
 #: includes/orion/Pages_Generator.php:114
+#: includes/Prompts.php:954
 msgid "Novo projeto"
 msgstr ""
 
@@ -681,11 +682,11 @@ msgstr ""
 msgid "Reativar / trocar licença"
 msgstr ""
 
-#: includes/Adminbar.php:79
+#: includes/Adminbar.php:80
 msgid "Recarregar links permanentes"
 msgstr ""
 
-#: includes/Settings.php:577 includes/stories/includes/MetaBox.php:283
+#: includes/Settings.php:577 includes/stories/includes/MetaBox.php:283 includes/Prompts.php:981
 msgid "Remover"
 msgstr ""
 
@@ -735,7 +736,7 @@ msgstr ""
 msgid "Sem link interno"
 msgstr ""
 
-#: includes/Adminbar.php:87 includes/License.php:421
+#: includes/Adminbar.php:88 includes/License.php:421
 msgid "Sem permissão."
 msgstr ""
 
@@ -808,6 +809,130 @@ msgstr ""
 #: includes/orion/CPT_Posts_Orion.php:359
 msgid "Órion Post"
 msgstr ""
+
+#: includes/Prompts.php:690
+msgid "Prompts do Órion"
+msgstr ""
+
+#: includes/Prompts.php:692
+msgid "Configure o comportamento da IA por modelo e etapa. Campos vazios herdam automaticamente o padrão interno."
+msgstr ""
+
+#: includes/Prompts.php:697
+msgid "Exportar prompts"
+msgstr ""
+
+#: includes/Prompts.php:701
+msgid "Importar prompts"
+msgstr ""
+
+#: includes/Prompts.php:838
+msgid "Imagem Thumbnail"
+msgstr ""
+
+#: includes/Prompts.php:839
+msgid "Regenerar thumbnail"
+msgstr ""
+
+#: includes/Prompts.php:840
+msgid "Imagem (Pexels / Unsplash)"
+msgstr ""
+
+#: includes/Prompts.php:886
+#: includes/Prompts.php:821
+msgid "Restaurar padrão"
+msgstr ""
+
+#: includes/Prompts.php:907
+msgid "Modelos de conteúdo"
+msgstr ""
+
+#: includes/Prompts.php:908
+msgid "Fechar"
+msgstr ""
+
+#: includes/Prompts.php:912
+msgid "Aqui você escolhe quais modelos aparecem no gerador do Órion. O plugin mantém 2 nativos: Artigo e Modelar YouTube."
+msgstr ""
+
+#: includes/Prompts.php:918
+msgid "Modelo"
+msgstr ""
+
+#: includes/Prompts.php:919
+#: includes/Prompts.php:968
+msgid "Ativo"
+msgstr ""
+
+#: includes/Prompts.php:920
+msgid "Padrão"
+msgstr ""
+
+#: includes/Prompts.php:921
+msgid "Ações"
+msgstr ""
+
+#: includes/Prompts.php:968
+msgid "Inativo"
+msgstr ""
+
+#: includes/Prompts.php:968
+msgid "Inativo"
+msgstr ""
+
+#: includes/Prompts.php:993
+msgid "Adicionar modelo personalizado"
+msgstr ""
+
+#: includes/Prompts.php:994
+msgid "Ex.: receitas, review, modelar_url"
+msgstr ""
+
+#: includes/Prompts.php:1004
+msgid "Carregando…"
+msgstr ""
+
+#: includes/Prompts.php:1011
+msgid "Salvar prompts"
+msgstr ""
+
+#: includes/Prompts.php:1015
+msgid "Modelos"
+msgstr ""
+
+#: includes/Prompts.php:1018
+msgid "Variáveis Disponíveis"
+msgstr ""
+
+#: includes/Prompts.php:1024
+msgid "Título"
+msgstr ""
+
+#: includes/Prompts.php:1029
+msgid "Esboço"
+msgstr ""
+
+#: includes/Prompts.php:1029
+#: includes/Prompts.php:1035
+msgid "Esboço"
+msgstr ""
+
+#: includes/Prompts.php:1044
+msgid "Sessão"
+msgstr ""
+
+#: includes/Prompts.php:1055
+msgid "Descrição"
+msgstr ""
+
+#: includes/Prompts.php:1066
+msgid "Re-geração (image_stock)"
+msgstr ""
+
+#: includes/Prompts.php:1071
+msgid "Imagem"
+msgstr ""
+
 
 #: includes/AdminMenus.php:83 includes/AdminMenus.php:84
 #: includes/Settings.php:272 includes/orion/CPT_Posts_Orion.php:358

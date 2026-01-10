@@ -31,7 +31,8 @@ class PluginsAlpha_Adminbar
         // NÓ PAI — ÍCONE + TEXTO
         $admin_bar->add_node([
             'id'    => 'pga-orion-root',
-            'title' => '<span class="ab-icon pga-orion-icon"></span><span class="ab-label"><img src=' . PGA_URL . 'assets/images/favicon-plugins-alpha.png style="width: 17px;margin-right: 9px;float: left;margin-top: 7px;">Plugins Alpha</span>',
+            'title' => '<span class="ab-icon pga-orion-icon"></span><span class="ab-label">
+            <img src=' . PGA_URL . 'assets/images/favicon-plugins-alpha.png style="width: 17px;margin-right: 9px;float: left;margin-top: 7px;">Alpha Suite</span>',
             'href'  => get_edit_post_link($post_id, ''),
         ]);
 

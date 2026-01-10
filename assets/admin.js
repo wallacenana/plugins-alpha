@@ -1590,7 +1590,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         const onStatus = typeof opts.onStatus === 'function' ? opts.onStatus : () => { };
 
         // 1) OUTLINE -------------------------------------------------
-        onStatus(__('Gerando outline…', 'plugins-alpha'));
+        onStatus(__('Gerando esboço…', 'plugins-alpha'));
 
         const outlineRes = await fetchJSON(`${REST}/orion/outline`, {
           method: 'POST',

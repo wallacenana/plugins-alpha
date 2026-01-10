@@ -3,10 +3,10 @@ msgstr ""
 "Project-Id-Version: Alpha Suite\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-01-09 15:31+0000\n"
-"PO-Revision-Date: 2026-01-09 15:48+0000\n"
+"PO-Revision-Date: 2026-01-10 22:52+0000\n"
 "Last-Translator: \n"
-"Language-Team: Spanish (Argentina)\n"
-"Language: es_AR\n"
+"Language-Team: Spanish (Ecuador)\n"
+"Language: es_EC\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -48,9 +48,13 @@ msgstr "Clave de acceso de Unsplash no configurada."
 msgid "Access Key Unsplash"
 msgstr "Clave de acceso Unsplash"
 
-#: includes/orion/Pages_Generator.php:363
+#: includes/orion/Pages_Generator.php:374
 msgid "Adicionar gerador"
 msgstr "Agregar generador"
+
+#: includes/Prompts.php:993
+msgid "Adicionar modelo personalizado"
+msgstr ""
 
 #: includes/orion/CPT_Posts_Orion.php:361
 msgid "Adicionar novo"
@@ -60,13 +64,13 @@ msgstr "Agregar nuevo"
 msgid "Adicionar novo Órion Post"
 msgstr "Agregar nuevo Publicación Órion"
 
-#: includes/AdminMenus.php:54 includes/AdminMenus.php:55
+#: includes/AdminMenus.php:103 includes/AdminMenus.php:104
 #: includes/License.php:727
 msgid "Alpha Stories"
 msgstr "Alpha Stories"
 
 #. Name of the plugin
-#: includes/AdminMenus.php:12
+#: includes/AdminMenus.php:61
 msgid "Alpha Suite"
 msgstr "Alpha Suite"
 
@@ -86,9 +90,19 @@ msgstr "Clave API de YouTube"
 msgid "API Key Pexels"
 msgstr "Clave API de Pexels"
 
-#: includes/orion/Templates.php:94
+#: includes/Prompts.php:912
+msgid ""
+"Aqui você escolhe quais modelos aparecem no gerador do Órion. O plugin "
+"mantém 2 nativos: Artigo e Modelar YouTube."
+msgstr ""
+
+#: includes/orion/Templates.php:26 includes/orion/Templates.php:94
 msgid "Artigo"
 msgstr "Artículo"
+
+#: includes/orion/Templates.php:122
+msgid "Artigo (padrão)"
+msgstr "Artículo (predeterminado)"
 
 #: includes/License.php:431
 msgid "Ativa"
@@ -110,13 +124,25 @@ msgstr "Activar licencias en este dominio"
 msgid "Ative o módulo Alpha Stories para gerar automaticamente."
 msgstr "Active el módulo Alpha Stories para generar automáticamente."
 
-#: includes/orion/Pages_Generator.php:217
+#: includes/Prompts.php:919 includes/Prompts.php:968
+msgid "Ativo"
+msgstr ""
+
+#: includes/Settings.php:678
+msgid "Auto"
+msgstr "Automático"
+
+#: includes/orion/Pages_Generator.php:227
 msgid "Automático"
 msgstr "Automático"
 
 #: includes/stories/includes/MetaBox.php:171
 msgid "Autoplay"
 msgstr "Reproducción automática"
+
+#: includes/Prompts.php:921
+msgid "Ações"
+msgstr ""
 
 #: includes/PermalinkSettings.php:25
 msgid "Base do Alpha Stories"
@@ -126,7 +152,11 @@ msgstr "Base de Alpha Stories"
 msgid "Buscar Órion Posts"
 msgstr "Buscar Publicaciones Órion"
 
-#: includes/orion/Pages_Generator.php:184
+#: includes/Prompts.php:1004
+msgid "Carregando…"
+msgstr ""
+
+#: includes/orion/Pages_Generator.php:194
 msgid "Categoria"
 msgstr "Categoría"
 
@@ -150,7 +180,7 @@ msgstr "Haga clic aquí para activar la licencia."
 msgid "Comprar / Assinar"
 msgstr "Comprar / Suscribirse"
 
-#: includes/AdminMenus.php:64 includes/AdminMenus.php:65
+#: includes/AdminMenus.php:113 includes/AdminMenus.php:114
 msgid "Configurações"
 msgstr "Configuraciones"
 
@@ -162,7 +192,13 @@ msgstr "Configuraciones de Pexels no encontradas."
 msgid "Configurações do Unsplash não encontradas."
 msgstr "Configuraciones de Unsplash no encontradas."
 
-#: includes/stories/includes/MetaBox.php:255
+#: includes/Prompts.php:692
+msgid ""
+"Configure o comportamento da IA por modelo e etapa. Campos vazios herdam "
+"automaticamente o padrão interno."
+msgstr ""
+
+#: includes/Settings.php:605 includes/stories/includes/MetaBox.php:255
 msgid "Cor de destaque"
 msgstr "Color destacado"
 
@@ -198,7 +234,7 @@ msgstr ""
 "Color del texto usado por defecto en las Web Stories (en caso de que la "
 "publicación no tenga un color propio)."
 
-#: includes/orion/Pages_Generator.php:47
+#: includes/orion/Pages_Generator.php:56
 msgid "Criação e automação de conteúdo com IA"
 msgstr "Creación y automatización de contenido con IA"
 
@@ -206,9 +242,13 @@ msgstr "Creación y automatización de contenido con IA"
 msgid "Dados insuficientes para gerar imagem."
 msgstr "Datos insuficientes para generar imagen."
 
-#: plugins-alpha.php:166 includes/AdminMenus.php:24 includes/AdminMenus.php:25
+#: plugins-alpha.php:166 includes/AdminMenus.php:73 includes/AdminMenus.php:74
 msgid "Dashboard"
 msgstr "Panel de control"
+
+#: includes/Settings.php:680
+msgid "Desativado"
+msgstr "Desactivado"
 
 #: includes/License.php:604
 msgid "Desativar a licença neste site?"
@@ -218,7 +258,11 @@ msgstr "¿Desactivar la licencia en este sitio?"
 msgid "Desativar neste site"
 msgstr "Desactivar en este sitio"
 
-#: includes/orion/Pages_Generator.php:158
+#: includes/Prompts.php:1055
+msgid "Descrição"
+msgstr ""
+
+#: includes/orion/Pages_Generator.php:168
 msgid "Digite uma keyword por linha..."
 msgstr "Escriba una palabra clave por línea..."
 
@@ -238,7 +282,7 @@ msgstr "Correo electrónico"
 msgid "E-mail da compra"
 msgstr "Correo electrónico de la compra"
 
-#: includes/Adminbar.php:42 includes/orion/CPT_Posts_Orion.php:363
+#: includes/Adminbar.php:43 includes/orion/CPT_Posts_Orion.php:363
 msgid "Editar Órion Post"
 msgstr "Editar Órion Post"
 
@@ -259,25 +303,33 @@ msgstr "Error al conectar con el servidor de licencias: %s"
 msgid "Erro ao gerar imagem na OpenAI (HTTP %d)."
 msgstr "Error al generar imagen en OpenAI (HTTP %d)."
 
+#: includes/Prompts.php:1029 includes/Prompts.php:1035
+msgid "Esboço"
+msgstr ""
+
 #: includes/License.php:664
 msgid "Este módulo não está disponível no seu plano."
-msgstr "Este módulo no está disponible en tu plan."
+msgstr "Este módulo no está disponible en su plan."
 
 #: includes/orion/CPT_Posts_Orion.php:343
 msgid ""
 "Este post não pôde ser publicado porque a licença do módulo Alpha Órion não "
 "está ativa ou não inclui este módulo."
 msgstr ""
-"Este post no pudo ser publicado porque la licencia del módulo Alpha Órion no "
-"está activa o no incluye este módulo."
+"Esta publicación no pudo ser publicada porque la licencia del módulo Alpha "
+"Órion no está activa o no incluye este módulo."
 
 #: includes/stories/autoload.php:272
 msgid ""
 "Este story não pôde ser publicado porque a licença do módulo Alpha Stories "
 "não está ativa ou não inclui este módulo."
 msgstr ""
-"Este story no pudo ser publicado porque la licencia del módulo Alpha Stories "
-"no está activa o no incluye este módulo."
+"Esta historia no pudo ser publicada porque la licencia del módulo Alpha "
+"Stories no está activa o no incluye este módulo."
+
+#: includes/Settings.php:582
+msgid "Estilo & Playback (padrão)"
+msgstr "Estilo y Reproducción (predeterminado)"
 
 #: includes/Settings.php:410
 msgid "Ex.: gemini-1.5-flash-001 (mais barato), gemini-1.5-pro, etc."
@@ -287,15 +339,23 @@ msgstr "Ej.: gemini-1.5-flash-001 (más barato), gemini-1.5-pro, etc."
 msgid "Ex.: gpt-4.1-mini, gpt-4.1, o3-mini, etc."
 msgstr "Ej.: gpt-4.1-mini, gpt-4.1, o3-mini, etc."
 
-#: includes/orion/Pages_Generator.php:351
+#: includes/Prompts.php:994
+msgid "Ex.: receitas, review, modelar_url"
+msgstr ""
+
+#: includes/orion/Pages_Generator.php:361
 msgid "Excluir"
 msgstr "Eliminar"
 
-#: includes/orion/Pages_Generator.php:203
+#: includes/Prompts.php:697
+msgid "Exportar prompts"
+msgstr ""
+
+#: includes/orion/Pages_Generator.php:213
 msgid "Extensão"
 msgstr "Extensión"
 
-#: includes/orion/Pages_Generator.php:208
+#: includes/orion/Pages_Generator.php:218
 msgid "Extra Longo"
 msgstr "Extra Largo"
 
@@ -307,19 +367,27 @@ msgstr "Fallo al activar licencia."
 msgid "Falha ao gerar imagem (HTTP %d)."
 msgstr "Fallo al generar imagen (HTTP %d)."
 
-#: includes/stories/includes/MetaBox.php:217
+#: includes/Prompts.php:908
+msgid "Fechar"
+msgstr ""
+
+#: includes/Settings.php:595 includes/stories/includes/MetaBox.php:217
 msgid "Fonte"
 msgstr "Fuente"
+
+#: includes/Settings.php:684
+msgid "GA4 Measurement ID (Manual)"
+msgstr "ID de Medición GA4 (Manual)"
 
 #: includes/Settings.php:374
 msgid "Gemini (Google AI – textos)"
 msgstr "Gemini (Google AI – textos)"
 
-#: includes/orion/Pages_Generator.php:46
+#: includes/orion/Pages_Generator.php:55
 msgid "Gerador — Alpha Órion"
 msgstr "Generador — Alpha Órion"
 
-#: includes/orion/Pages_Generator.php:328
+#: includes/orion/Pages_Generator.php:338
 msgid "Gerar agora"
 msgstr "Generar ahora"
 
@@ -329,29 +397,53 @@ msgstr "Generar ahora"
 msgid "Gerar chave."
 msgstr "Generar clave."
 
-#: includes/orion/Pages_Generator.php:340
+#: includes/orion/Pages_Generator.php:350
 msgid "Gerar keywords"
 msgstr "Generar palabras clave"
 
-#: includes/AdminMenus.php:44 includes/AdminMenus.php:45
+#: includes/AdminMenus.php:93 includes/AdminMenus.php:94
 msgid "Gerar Posts"
-msgstr "Generar Posts"
+msgstr "Generar publicaciones"
 
 #: includes/Dashboard.php:18
 msgid "Gerencie seus geradores e descubra novos módulos."
-msgstr "Administra tus generadores y descubre nuevos módulos."
+msgstr "Administre sus generadores y descubra nuevos módulos."
 
 #. Author URI of the plugin
 msgid "https://pluginsalpha.com/"
 msgstr "https://pluginsalpha.com/"
 
+#: includes/Settings.php:533
+msgid "IA / Fonte para IMAGEM"
+msgstr "IA / Fuente para IMAGEN"
+
+#: includes/Settings.php:518
+msgid "IA para geração de TEXTO"
+msgstr "IA para generación de TEXTO"
+
 #: includes/Settings.php:696
 msgid "IA para geração de TEXTO dos stories"
-msgstr "IA para generación de TEXTO de los stories"
+msgstr "IA para generación de TEXTO de las historias"
 
-#: includes/orion/Pages_Generator.php:271
+#: includes/orion/Pages_Generator.php:281
 msgid "Idioma"
 msgstr "Idioma"
+
+#: includes/Settings.php:510
+msgid "Idioma padrão"
+msgstr "Idioma predeterminado"
+
+#: includes/Prompts.php:1071
+msgid "Imagem"
+msgstr ""
+
+#: includes/Prompts.php:840
+msgid "Imagem (Pexels / Unsplash)"
+msgstr ""
+
+#: includes/Prompts.php:838
+msgid "Imagem Thumbnail"
+msgstr ""
 
 #: includes/ai/Images.php:294
 msgid "Imagem vazia retornada pela OpenAI."
@@ -365,9 +457,21 @@ msgstr "Imagen vacía devuelta por Pexels."
 msgid "Imagem vazia retornada pelo Unsplash."
 msgstr "Imagen vacía devuelta por Unsplash."
 
+#: includes/Settings.php:692
+msgid "Imagens / IA para Stories"
+msgstr "Imágenes / IA para Stories"
+
+#: includes/Prompts.php:701
+msgid "Importar prompts"
+msgstr ""
+
 #: includes/License.php:432
 msgid "Inativa"
 msgstr "Inactiva"
+
+#: includes/Prompts.php:968
+msgid "Inativo"
+msgstr ""
 
 #: includes/License.php:756
 msgid "Informe o e-mail e pelo menos um ID de compra (Órion ou Stories)."
@@ -390,7 +494,7 @@ msgstr ""
 "Ingrese el ID de compra para el módulo Alpha Órion (deje en blanco si no "
 "tiene)."
 
-#: includes/orion/Pages_Generator.php:296
+#: includes/orion/Pages_Generator.php:306
 msgid "Inicio"
 msgstr "Inicio"
 
@@ -398,7 +502,7 @@ msgstr "Inicio"
 msgid "Integrações"
 msgstr "Integraciones"
 
-#: includes/orion/Pages_Generator.php:78
+#: includes/orion/Pages_Generator.php:88
 msgid "Início"
 msgstr "Inicio"
 
@@ -410,12 +514,12 @@ msgstr ""
 "Esto libera el espacio de este dominio en el panel de Plugins Alpha, "
 "permitiendo activarlo en otro sitio (si el plan lo permite)."
 
-#: includes/orion/Pages_Generator.php:153
+#: includes/orion/Pages_Generator.php:163
 msgid "Keywords (1 por linha)"
 msgstr "Palabras clave (1 por línea)"
 
-#: includes/orion/Pages_Generator.php:1406
-#: includes/orion/Pages_Generator.php:1428
+#: includes/orion/Pages_Generator.php:1414
+#: includes/orion/Pages_Generator.php:1436
 msgid "Leia também:"
 msgstr "Lea también:"
 
@@ -433,7 +537,7 @@ msgid ""
 "criando e publicando stories."
 msgstr ""
 "Licencia del módulo Alpha Stories inactiva. Active el módulo para continuar "
-"creando y publicando stories."
+"creando y publicando historias."
 
 #: includes/orion/CPT_Posts_Orion.php:322
 msgid ""
@@ -441,7 +545,7 @@ msgid ""
 "e publicando posts."
 msgstr ""
 "Licencia del módulo Alpha Órion inactiva. Active el módulo para continuar "
-"generando y publicando posts."
+"generando y publicando publicaciones."
 
 #: includes/License.php:652
 msgid "Licença expirada. Renove ou atualize sua assinatura."
@@ -456,27 +560,27 @@ msgstr ""
 msgid "Licença — Plugins Alpha"
 msgstr "Licencia — Plugins Alpha"
 
-#: includes/orion/Pages_Generator.php:214
+#: includes/orion/Pages_Generator.php:224
 msgid "Links internos"
 msgstr "Enlaces internos"
 
-#: includes/Adminbar.php:115
+#: includes/Adminbar.php:116
 msgid "Links permanentes do Órion recarregados com sucesso."
 msgstr "Enlaces permanentes de Órion recargados con éxito."
 
-#: includes/orion/Pages_Generator.php:224
+#: includes/orion/Pages_Generator.php:234
 msgid "Links por post"
 msgstr "Enlaces por publicación"
 
 #: includes/stories/includes/MetaBox.php:263
 msgid "Logo do Publisher"
-msgstr "Logo del Editor"
+msgstr "Logo del Publicador"
 
-#: includes/orion/Pages_Generator.php:207
+#: includes/orion/Pages_Generator.php:217
 msgid "Longo"
 msgstr "Largo"
 
-#: includes/orion/Pages_Generator.php:219
+#: includes/Settings.php:679 includes/orion/Pages_Generator.php:229
 msgid "Manual"
 msgstr "Manual"
 
@@ -484,7 +588,15 @@ msgstr "Manual"
 msgid "Modelar vídeo do YouTube"
 msgstr "Modelar video de YouTube"
 
-#: includes/orion/Pages_Generator.php:164
+#: includes/orion/Templates.php:32 includes/orion/Templates.php:123
+msgid "Modelar YouTube"
+msgstr "Modelar YouTube"
+
+#: includes/Prompts.php:918
+msgid "Modelo"
+msgstr ""
+
+#: includes/orion/Pages_Generator.php:174
 msgid "Modelo de Post"
 msgstr "Modelo de Publicación"
 
@@ -492,13 +604,21 @@ msgstr "Modelo de Publicación"
 msgid "Modelo de texto"
 msgstr "Modelo de texto"
 
+#: includes/Prompts.php:1015
+msgid "Modelos"
+msgstr ""
+
+#: includes/Prompts.php:907
+msgid "Modelos de conteúdo"
+msgstr ""
+
 #: includes/stories/includes/MetaBox.php:189
 msgid "Mostrar botão Play/Pause"
 msgstr "Mostrar botón Reproducir/Pausar"
 
-#: includes/orion/Pages_Generator.php:206
+#: includes/orion/Pages_Generator.php:216
 msgid "Médio"
-msgstr "Mediano"
+msgstr "Medio"
 
 #: includes/orion/Pages_Generator.php:17
 msgid "Módulo não ativado."
@@ -516,7 +636,7 @@ msgstr ""
 "Ningún ítem encontrado en el catálogo. Verifique sus configuraciones o "
 "intente nuevamente más tarde."
 
-#: includes/orion/Pages_Generator.php:266
+#: includes/orion/Pages_Generator.php:276
 msgid "Nenhum post Órion publicado ainda."
 msgstr "Ninguna publicación de Órion publicada aún."
 
@@ -536,7 +656,11 @@ msgstr "Ninguna imagen encontrada en Pexels para este prompt."
 msgid "Nenhuma imagem encontrada no Unsplash para este prompt."
 msgstr "Ninguna imagen encontrada en Unsplash para este prompt."
 
-#: includes/orion/Pages_Generator.php:104
+#: includes/Settings.php:566
+msgid "Nome do blog"
+msgstr "Nombre del blog"
+
+#: includes/orion/Pages_Generator.php:114 includes/Prompts.php:954
 msgid "Novo projeto"
 msgstr "Nuevo proyecto"
 
@@ -556,6 +680,14 @@ msgstr "No se pudo determinar la URL de la imagen de Unsplash."
 msgid "Não foi possível montar o prompt de imagem."
 msgstr "No se pudo montar el prompt de imagen."
 
+#: includes/Settings.php:541
+msgid "Não gerar imagens automaticamente"
+msgstr "No generar imágenes automáticamente"
+
+#: includes/Settings.php:719
+msgid "Não gerar imagens automáticas"
+msgstr "No generar imágenes automáticas"
+
 #: includes/License.php:542
 msgid "O mesmo e-mail usado na compra (Hotmart / Stripe)."
 msgstr "El mismo correo usado en la compra (Hotmart / Stripe)."
@@ -565,14 +697,22 @@ msgid ""
 "OpenAI está com instabilidade no momento ao gerar imagens. Tente novamente "
 "em instantes."
 msgstr ""
-"OpenAI está con inestabilidad en este momento al generar imágenes. Intente "
+"OpenAI está inestable en este momento al generar imágenes. Intente "
 "nuevamente en unos instantes."
 
 #: includes/stories/includes/MetaBox.php:42
 msgid "Opções"
 msgstr "Opciones"
 
-#: includes/orion/Pages_Generator.php:205
+#: includes/Prompts.php:920
+msgid "Padrão"
+msgstr ""
+
+#: includes/Settings.php:507
+msgid "Padrões de geração"
+msgstr "Patrones de generación"
+
+#: includes/orion/Pages_Generator.php:215
 msgid "Pequeno"
 msgstr "Pequeño"
 
@@ -580,7 +720,7 @@ msgstr "Pequeño"
 msgid "Pexels (banco de imagens)"
 msgstr "Pexels (banco de imágenes)"
 
-#: includes/orion/Pages_Generator.php:85
+#: includes/orion/Pages_Generator.php:95
 msgid "Planejar & Gerar"
 msgstr "Planificar y Generar"
 
@@ -588,11 +728,15 @@ msgstr "Planificar y Generar"
 msgid "Plugins Alpha"
 msgstr "Plugins Alpha"
 
+#: includes/Settings.php:278
+msgid "Plugins Alpha — Configurações"
+msgstr "Plugins Alpha — Configuraciones"
+
 #: includes/Dashboard.php:17
 msgid "Plugins Alpha — Dashboard"
 msgstr "Plugins Alpha — Panel de control"
 
-#: includes/orion/Pages_Generator.php:218
+#: includes/orion/Pages_Generator.php:228
 msgid "Post pilar"
 msgstr "Publicación pilar"
 
@@ -608,43 +752,60 @@ msgstr "post_id inválido."
 msgid "post_id ou section_id ausentes."
 msgstr "post_id o section_id ausentes."
 
-#: includes/orion/Pages_Generator.php:244
+#: includes/orion/Pages_Generator.php:254
 msgid "Posts para linkar (modo manual)"
 msgstr "Publicaciones para enlazar (modo manual)"
 
-#: includes/orion/Pages_Generator.php:291
+#: includes/orion/Pages_Generator.php:301
 msgid "Posts por dia"
 msgstr "Publicaciones por día"
 
-#: includes/stories/includes/MetaBox.php:194
+#: includes/Settings.php:585 includes/stories/includes/MetaBox.php:194
 msgid "Preset de estilo"
 msgstr "Preajuste de estilo"
 
-#: includes/AdminMenus.php:73 includes/AdminMenus.php:74
+#: includes/AdminMenus.php:122 includes/AdminMenus.php:123
 msgid "Prompts"
 msgstr "Prompts"
 
+#: includes/Prompts.php:690
+msgid "Prompts do Órion"
+msgstr ""
+
 #: includes/Settings.php:711
 msgid "Provedor para IMAGENS dos stories"
-msgstr "Proveedor para IMÁGENES de las stories"
+msgstr "Proveedor para IMÁGENES de las historias"
 
-#: includes/orion/Pages_Generator.php:281
+#: includes/Settings.php:563
+msgid "Publisher"
+msgstr "Editor"
+
+#: includes/orion/Pages_Generator.php:291
 msgid "Quantidade total"
 msgstr "Cantidad total"
 
-#: includes/orion/Pages_Generator.php:286
+#: includes/orion/Pages_Generator.php:296
 msgid "Quota (posts/dia)"
 msgstr "Cuota (publicaciones/día)"
+
+#: includes/Prompts.php:1066
+msgid "Re-geração (image_stock)"
+msgstr ""
 
 #: includes/License.php:523
 msgid "Reativar / trocar licença"
 msgstr "Reactivar / cambiar licencia"
 
-#: includes/Adminbar.php:79
+#: includes/Adminbar.php:80
 msgid "Recarregar links permanentes"
 msgstr "Recargar enlaces permanentes"
 
-#: includes/stories/includes/MetaBox.php:283
+#: includes/Prompts.php:839
+msgid "Regenerar thumbnail"
+msgstr ""
+
+#: includes/Settings.php:577 includes/stories/includes/MetaBox.php:283
+#: includes/Prompts.php:981
 msgid "Remover"
 msgstr "Eliminar"
 
@@ -662,7 +823,11 @@ msgstr "Respuesta inesperada del servidor de licencias."
 
 #: includes/License.php:910
 msgid "Resposta inválida do servidor de licença."
-msgstr "Respuesta inválida del servidor de licencia."
+msgstr "Respuesta inválida del servidor de licencias."
+
+#: includes/Prompts.php:886 includes/Prompts.php:821
+msgid "Restaurar padrão"
+msgstr ""
 
 #: includes/License.php:592
 msgid "Revalidar licenças neste domínio"
@@ -672,13 +837,17 @@ msgstr "Revalidar licencias en este dominio"
 msgid "Saiba mais"
 msgstr "Saber más"
 
-#: includes/orion/Pages_Generator.php:320
+#: includes/orion/Pages_Generator.php:330
 msgid "Salvar modelo"
 msgstr "Guardar modelo"
 
-#: includes/orion/Pages_Generator.php:51
+#: includes/orion/Pages_Generator.php:61
 msgid "Salvar palavras-chave"
 msgstr "Guardar palabras clave"
+
+#: includes/Prompts.php:1011
+msgid "Salvar prompts"
+msgstr ""
 
 #: includes/License.php:584
 msgid ""
@@ -688,13 +857,21 @@ msgstr ""
 "Si el panel Plugins Alpha genera una clave propia, úsela aquí. De lo "
 "contrario, puede dejarlo en blanco."
 
-#: includes/orion/Pages_Generator.php:216
+#: includes/Settings.php:576
+msgid "Selecionar imagem"
+msgstr "Seleccionar imagen"
+
+#: includes/orion/Pages_Generator.php:226
 msgid "Sem link interno"
 msgstr "Sin enlace interno"
 
-#: includes/Adminbar.php:87 includes/License.php:421
+#: includes/Adminbar.php:88 includes/License.php:421
 msgid "Sem permissão."
 msgstr "Sin permiso."
+
+#: includes/Prompts.php:1044
+msgid "Sessão"
+msgstr ""
 
 #: includes/License.php:476
 msgid "Status da licença"
@@ -704,11 +881,11 @@ msgstr "Estado de la licencia"
 msgid "Stories"
 msgstr "Historias"
 
-#: includes/stories/includes/MetaBox.php:176
+#: includes/Settings.php:662 includes/stories/includes/MetaBox.php:176
 msgid "Tempo por página (s)"
 msgstr "Tiempo por página (s)"
 
-#: includes/orion/Pages_Generator.php:73
+#: includes/orion/Pages_Generator.php:83
 msgid "Total"
 msgstr "Total"
 
@@ -720,13 +897,33 @@ msgstr ""
 "Todo lo que necesitas para crear tus contenidos con la velocidad de un clic "
 "— Alpha Órion, Alpha Stories y mucho más."
 
-#: includes/orion/Pages_Generator.php:111
+#: includes/Prompts.php:1024
 msgid "Título"
 msgstr "Título"
 
 #: includes/Settings.php:446
 msgid "Unsplash (banco de imagens)"
 msgstr "Unsplash (banco de imágenes)"
+
+#: includes/Settings.php:704
+msgid "Usada para gerar as páginas de Web Stories (texto)."
+msgstr "Usada para generar las páginas de Web Stories (texto)."
+
+#: includes/Settings.php:526
+msgid "Usada para gerar títulos, sections, planos etc."
+msgstr "Usada para generar títulos, secciones, planes, etc."
+
+#: includes/Settings.php:544
+msgid "Usada para thumbnails e imagens geradas pelo módulo Órion."
+msgstr "Usada para miniaturas e imágenes generadas por el módulo Orión."
+
+#: includes/Settings.php:687
+msgid "Usado apenas se “Manual” estiver selecionado."
+msgstr "Usado solo si está seleccionado “Manual”."
+
+#: includes/Prompts.php:1018
+msgid "Variáveis Disponíveis"
+msgstr ""
 
 #: includes/Settings.php:360 includes/Settings.php:413
 msgid "Ver modelos."
@@ -735,6 +932,10 @@ msgstr "Ver modelos."
 #: includes/orion/CPT_Posts_Orion.php:365
 msgid "Ver Órion Post"
 msgstr "Ver Órion Post"
+
+#: includes/orion/Pages_Generator.php:48
+msgid "Voltar"
+msgstr "Volver"
 
 #. Author of the plugin
 msgid "Wallace Tavares"
@@ -748,7 +949,7 @@ msgstr "API de YouTube"
 msgid "Órion Post"
 msgstr "Órion Post"
 
-#: includes/AdminMenus.php:34 includes/AdminMenus.php:35
+#: includes/AdminMenus.php:83 includes/AdminMenus.php:84
 #: includes/Settings.php:272 includes/orion/CPT_Posts_Orion.php:358
 #: includes/orion/CPT_Posts_Orion.php:360
 #: includes/orion/CPT_Posts_Orion.php:369
