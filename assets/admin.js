@@ -19,6 +19,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
   // Flag global pra saber se há geração em andamento
   window.PGA_IS_GENERATING = window.PGA_IS_GENERATING || false;
+  window.PGA_IS_DIRTY = false;
 
   if (!window.PGA_BEFOREUNLOAD_BOUND) {
     window.PGA_BEFOREUNLOAD_BOUND = true;
@@ -399,7 +400,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       if (!all.length) return;
 
       localStorage.setItem(pgaGroupsStorageKey(), JSON.stringify(all));
-      window.PGA_IS_GENERATING = false;
+      window.PGA_IS_DIRTY = false;
     } catch (e) {
       // não silencie agora enquanto testa:
       console.warn('[PGA] save failed', e);
@@ -462,7 +463,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     pgaSyncLinkOptionsForBox($clone);
     initLinkManualSelect2($clone);
     pgaUpdateBoxTitle($clone);
-    window.PGA_IS_GENERATING = true;
+    window.PGA_IS_DIRTY = true;
   });
 
   // Atualiza o título do primeiro grupo ao carregar
@@ -1167,7 +1168,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         $box.find('.pga_category').val('0');
 
         pgaUpdateBoxTitle($box);
-        window.PGA_IS_GENERATING = true;
         return;
       }
 
@@ -1195,7 +1195,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       const $first = $boxes.first();
       if ($first.length) pgaActivateBox($first);
 
-      window.PGA_IS_GENERATING = true;
+      window.PGA_IS_DIRTY = true;
     });
 
     // ---------- Salvar (botão global "Salvar" lá em cima) ----------
@@ -1233,7 +1233,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
 
         // ✅ marcou como salvo
-        window.PGA_IS_GENERATING = false;
+        window.PGA_IS_DIRTY = false;
         pgaToast('success', __('Salvo', 'plugins-alpha'));
 
       } catch (e) {
@@ -1483,6 +1483,9 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         return;
       }
 
+      /// ✅ box ativo = o que recebeu #pga_keywords via pgaActivateBox()
+      const activeBoxEl = document.getElementById('pga_keywords')?.closest('.pga-gen-box') || null;
+
       // ✅ GLOBAL: aplica config correta por origem (template/category/length/locale/internal_links)
       if (Array.isArray(plannedOrigins) && plannedOrigins.length) {
         for (let i = 0; i < jobs.length; i++) {
@@ -1507,9 +1510,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
           jobs[i].__originKw = origin?.kw || '';
         }
       }
-
-      // ✅ box ativo = o que recebeu #pga_keywords via pgaActivateBox()
-      const activeBoxEl = document.getElementById('pga_keywords')?.closest('.pga-gen-box') || null;
 
       // ✅ Se veio do planejamento global, aplica origem por job (mesma ordem)
       if (Array.isArray(plannedOrigins) && plannedOrigins.length) {
@@ -2009,17 +2009,14 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     });
     // try { await refreshKeywords(); } catch (e) { }
 
-    $(document)
-      .off('input.pgaDirty change.pgaDirty')
-      .on('input.pgaDirty change.pgaDirty',
-        '#pga_gen_container input, #pga_gen_container textarea, #pga_gen_container select',
-        function (e) {
-          // só marca se veio do usuário (não de .trigger('change') do JS)
-          if (e && e.isTrigger) return;
+    window.PGA_IS_DIRTY = false;
 
-          window.PGA_IS_GENERATING = true;
-        }
-      );
+    $(document).on('input change', '#pga_gen_container input, #pga_gen_container textarea, #pga_gen_container select', function (e) {
+      // ✅ só usuário (evita “mudanças” disparadas por init/JS)
+      if (!e || !e.originalEvent) return;
+      window.PGA_IS_DIRTY = true;
+    });
+
 
   }
 
@@ -2193,7 +2190,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     initLinkManualSelect2($clone);
     pgaUpdateBoxTitle($clone);
 
-    window.PGA_IS_GENERATING = true;
+    window.PGA_IS_DIRTY = true;
   });
 
 
@@ -2971,13 +2968,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     // 4) carrega dados dessa tab nos colapses existentes
     loadTabGroups(st.tabId);
-
-    // 5) autosave
-    bindAutoSave(st.tabId);
-    setTimeout(() => {
-      try { saveCurrentTabGroups(st.tabId); } catch (e) { }
-    }, 800);
-
   });
 
 })(jQuery);

@@ -185,10 +185,11 @@ class PluginsAlpha_Prompts
             . "    {\n"
             . "      \"id\": \"1\",\n"
             . "      \"level\": \"h2\",\n"
+            . "      \"paragraph\": \"p\",\n"
             . "      \"heading\": \"Título H2...\",\n"
             . "      \"bullets\": [\"...\", \"...\"],\n"
             . "      \"children\": [\n"
-            . "        {\"id\":\"1\",\"level\":\"h3\",\"heading\":\"Subtítulo H3...\",\"bullets\":[\"...\",\"...\"]}\n"
+            . "        {\"id\":\"1\",\"level\":\"h3\",\"heading\":\"Subtítulo H3...\",\"paragraph\":\"paragrafo sobre o h3...\",\"bullets\":[\"...\",\"...\"]}\n"
             . "      ]\n"
             . "    }\n"
             . "  ]\n"
@@ -218,6 +219,62 @@ class PluginsAlpha_Prompts
         $chapters = array_values(array_unique(array_filter($chapters, fn($t) => mb_strlen($t) >= 3)));
 
         return array_slice($chapters, 0, 30);
+    }
+
+    public static function build_ws_prompt(array $model, array $source): string
+    {
+        $slides = max(1, min(15, (int)($model['slides'] ?? 10)));
+        $locale = sanitize_text_field((string)($model['locale'] ?? 'pt_BR'));
+
+        $title = trim((string)($source['title'] ?? ''));
+        $content = trim((string)($source['content'] ?? ''));
+
+        // templates por slide (ex.: ["template-1","template-2"...])
+        $templates = $model['slide_templates'] ?? [];
+        if (!is_array($templates)) $templates = [];
+
+        // regra: se não vier, assume template-1
+        $tplText = '';
+        if (!empty($templates)) {
+            $tplText = "Templates por slide (ordem 1..{$slides}):\n- " . implode("\n- ", array_map('strval', $templates)) . "\n";
+        }
+
+        // JSON format block (o MESMO estilo que já funciona no Stories)
+        $format =
+            "{\n" .
+            "  \"pages\": [\n" .
+            "    {\n" .
+            "      \"heading\": \"\",\n" .
+            "      \"body\": \"\",\n" .
+            "      \"cta_text\": \"\",\n" .
+            "      \"cta_url\": \"\",\n" .
+            "      \"prompt\": \"\",\n" .
+            "      \"template\": \"template-1\"\n" .
+            "    }\n" .
+            "  ]\n" .
+            "}\n";
+
+        // Defaults “front de prompt” (o que você chamou)
+        $s  = "Você é um Especialista Sênior em Web Stories AMP (Google Web Stories).\n";
+        $s .= "Objetivo: converter um post em uma Web Story curta e viciante.\n\n";
+        $s .= "Locale: {$locale}\n";
+        $s .= "Quantidade de páginas: {$slides}\n\n";
+        $s .= "Post origem:\n";
+        $s .= "- Título: {$title}\n";
+        $s .= "- Conteúdo (texto limpo):\n{$content}\n\n";
+        if ($tplText) $s .= $tplText . "\n";
+
+        $s .= "Regras:\n";
+        $s .= "- Crie exatamente {$slides} páginas.\n";
+        $s .= "- heading curto (até 40 caracteres), em CAIXA ALTA quando fizer sentido.\n";
+        $s .= "- body curto (1-2 linhas), direto.\n";
+        $s .= "- prompt: descreva a imagem de forma objetiva (sem subjetividade), em português.\n";
+        $s .= "- Inclua o campo template em cada página.\n";
+        $s .= "- Não use bullets, nem numeração no texto.\n";
+        $s .= "- Responda SOMENTE em JSON UTF-8 válido, sem markdown.\n\n";
+        $s .= "Formato obrigatório:\n{$format}";
+
+        return $s;
     }
 
 
@@ -352,6 +409,7 @@ class PluginsAlpha_Prompts
             . "- Hoje é: " . SELF::date() . " (data automatica puxando por função no WordPress, pode usar o ano quando necessário). \n\n"
             . $base
             . "\n\n"
+            . "Não inclua markdown ou comentários seus"
             . self::title_json_suffix();
     }
 
@@ -394,15 +452,17 @@ class PluginsAlpha_Prompts
         }
         $ctx .= "- Título do artigo: {$articleTitle}\n";
         $ctx .= "- Hoje é: " . SELF::date() . ". ";
+        $ctx .= "- Antes de qualquer coisa, entenda que você é especialista em criar esboço, o chat depois de você será especialista em criar sessão a sessão (de h2 a h2), entenda que uma sessão não vai ter o contexto da outra sessão, então você não pode simplesmente dizer \"os critérios serão usados dos itens selecionados\", coisas nesse sentido, pois a sessão não vai saber qual é o item selecionado, precisa ser especifico em quais são esses itens, especialmente se for pedir alguma tabela, precisa especificar quais são os itens.\n";
         $ctx .= "- Regra: inclua uma introdução curta (primeira seção H2) contextualizando o tema.\n";
         $ctx .= "- Não se esqueça, você é um jornalista sênior especializado em Google Discover, notícias e títulos de alto CTR.\n";
-        $ctx .= "- Não use markdown; use somente HTML.\n\n";
+        $ctx .= "- Não use markdown; use somente HTML.\n";
+        $ctx .= "- O conteúdo total vai ter entre {$minWords} e {$maxWords}.\n\n";
         $ctx .= "ESTRUTURA DE KEYWORDS:\n";
-        $ctx .= "- o esboço deve ser contextualizado com base na frase chave de foco também: \"{$keyword}\".\n";
+        $ctx .= "- o esboço deve ser contextualizado com base na frase chave de foco também, mas a prioridade é a compreensão focada em GEO: \"{$keyword}\".\n";
 
         $ctx .= "REGRAS CRÍTICAS SOBRE O TÍTULO:\n";
         $ctx .= "- O conteúdo deste esboço DEVE ser coerente com o título do artigo.\n";
-        $ctx .= "- Se o título promete um certo número de passos, dicas, motivos etc,\n";
+        $ctx .= "- Os h2 devem ser uma resposta ao título, então, se o titulo promete itens, deve ser gerado 1 h2 para cada item, exemplo: \"5 motivos para....\" - resposta h2 > \"motivo 1)\", \"motivo 2\" mas claro, titulo fluido, algo como \"motivo 1 é a linda xxxx\", claro, só dei o exemplo de \"motivo\", mas isso serve para qualquer coisa que remeta a itens (erros, passos, motivos, razões, itens, etc...).\n";
         $ctx .= "  respeite essa estrutura no conjunto das seções (não crie um número diferente).\n";
         $ctx .= "- Não mude o foco do artigo. Não contradiga o que o título promete.\n\n";
         $ctx .= "- Não insira numeração se o título não for especifico sobre quantidades, exemplo 'x motivos para [...]', 'x itens sobre [...] etc'.\n\n";
@@ -433,7 +493,8 @@ class PluginsAlpha_Prompts
         ]);
 
         $default = "Você é um especialista em SEO e Copywriting em {$locale}.\n"
-            . "Sua tarefa é criar uma meta descrição altamente clicável para o Google.\n"
+            . "- Hoje é: " . SELF::date()
+            . "\n Sua tarefa é criar uma meta descrição altamente clicável para o Google.\n"
             . "Título: \"{$articleTitle}\"\n"
             . "Palavra-chave principal: \"{$keyword}\"\n";
 
@@ -451,36 +512,62 @@ class PluginsAlpha_Prompts
         ]);
 
         $default = "Palavra-chave principal: \"{$keyword}\"\n"
-            . "Gere um slug de URL para o título: \"{$articleTitle}\"\n";
+            . "Gere um slug de URL para o título: \"{$articleTitle}\"\n"
+            . "- Hoje é: " . SELF::date() . "\n\n";
 
         return $default . "\n\n" . $base . "\n\n" . self::meta_description_json_suffix();
     }
 
-    public static function build_image_prompt(string $template, string $keyword, string $title, string $locale, string $imageProvider = ''): string
-    {
-        $imageProvider = trim((string)$imageProvider);
+    public static function build_image_prompt(
+        string $template,
+        string $keyword,
+        string $title,
+        string $locale,
+        string $imageProvider = ''
+    ): string {
+        $provider = strtolower(trim((string)$imageProvider));
+        $tpl = self::get_prompt_for($template, 'image');
 
-        $stage = ($imageProvider === 'pexels' || $imageProvider === 'unsplash')
-            ? 'image_stock'
-            : 'image';
-
-        $tpl = self::get_prompt_for($template, $stage);
-
-        $s = "Você é um gerador de prompts para imagens realistas.\n"
-            . "Crie um prompt para gerar uma thumbnail relacionada a: .\n"
-            . "- Título: \"{$title}\".\n"
-            . "- Palavra-chave: \"{$keyword}\".\n"
-            . "Regras:\n";
-
+        // base com vars (serve pros 2 casos)
         $base = self::replace_vars($tpl, [
             'keyword'  => $keyword,
-            'locale'   => $locale,
+            'locale'   => "English",
             'template' => $template,
             'title'    => $title,
         ]);
 
-        return  $s . "\n" . $base;
+        // ---- Caso A: bancos de imagem (Pexels/Unsplash) ----
+        if ($provider === 'pexels' || $provider === 'unsplash') {
+
+            // IMPORTANTÍSSIMO: aqui NÃO pode ter prompt de geração, só query de busca
+            $rules = ""
+                . "Você é um gerador de QUERIES de busca para bancos de imagens (Pexels/Unsplash).\n"
+                . "Saída: APENAS 1 frase curta, entre 2 e 4 palavras simples, minúsculas, sem pontuação.\n"
+                . "Use linguagem de CENA FOTOGRÁFICA (pessoas/objetos/ação + contexto).\n"
+                . "Evite termos de IA/arte: não use 'ilustração', 'render', '3d', 'cinematográfico', 'estilo', 'realista'.\n"
+                . "Não use prefixos tipo 'imagem de', 'foto de'.\n"
+                . "A imagem precisa ter um elemento central, Exemplos: 'mulher celular', 'notebook mesa', 'cachorro comendo ração', 'homem trabalhando notebook'.\n"
+                . "Nunca use palavras genéricas demais, como \"turistas caminhando reserva natural brasil\", isso é muito ruim, \"homem\" ou \"mulher\", estaria definindo muito melhor e \"reserva natual\", poderia ser facilmente trocado por \"floresta\", \"mata\", \"beira do rio\".\n"
+                . "Contexto do artigo: {$title}\n"
+                . "Palavra-chave: {$keyword}\n";
+
+            // se seu template já tiver coisa demais, a regra manda ele se comportar
+            return $rules . "\n" . $base;
+        }
+
+        // ---- Caso B: geração (IA) ----
+        $s = ""
+            . "Você é um gerador de prompts para imagens.\n"
+            . "Crie um prompt para gerar uma thumbnail relacionada ao artigo.\n"
+            . "- Título: \"{$title}\"\n"
+            . "- Palavra-chave: \"{$keyword}\"\n"
+            . "Regras:\n"
+            . "- descreva a cena, elementos principais e ambiente\n"
+            . "- evite texto na imagem\n";
+
+        return $s . "\n" . $base;
     }
+
 
     /* =============================
    * PROMPT: regen thumbnail por post
@@ -536,7 +623,12 @@ class PluginsAlpha_Prompts
         // regra dinâmica do campo prompt
         if ($imageProvider === 'pexels' || $imageProvider === 'unsplash') {
             $image_rule =
-                'No campo "prompt" gere apenas TAGS curtas (até 4 palavras simples) para banco de imagens.';
+                'No campo "prompt" gere (inglês) apenas TAGS curtas (até 3 palavras simples) para banco de imagens, como se estivese procurando algo especiico para um título (título do slide/página). Lembre-se de inserir '
+                . 'algum elemento especifico, como "retrato", "paisagem", "foto aérea", "foto macro", "notebook"/"celular"/"copo"/"carro", "homem"/"mulher", etc (são exemplos ficticios, procure coisas a ver com o título). afinal, a ideia é procurar por algo especifico sobre o slide em questão.' . "\n"
+                . "obrigatório \n"
+                . "- ser elementos obvios, procurando de fato algo em um bando imagens.\n"
+                . "- não insira frases genéricas sem elementos específicos, por exemplo, se procurar \"imagem velocidade carregamento site\", provavelmente vai gerar um resultado nada a ver com nada, além do mais, pra que procurar \"imagem\" num banco de imagens.\n"
+                . "- como especificado, a pesquisa deve ter no máximo 3 termos simples (sem palavras compostas, sem preposições, sem artigos, etc).\n";
         } else {
             $image_rule =
                 'No campo "prompt" gere um prompt de FOTO REALISTA VERTICAL, cinematográfica, luz natural, sem texto, sem logos.';
@@ -558,6 +650,74 @@ class PluginsAlpha_Prompts
 
         return $s . "\n\n" . $base . "\n\n" . self::story_json_format_block();
     }
+
+    /**
+     * $ctx esperado:
+     * - slidesCount (int)
+     * - locale (pt_BR etc)
+     * - title (string)
+     * - content (string)  -> enviado por último no prompt
+     * - cta_pages (array<int>) -> páginas (1-based) que DEVEM ter CTA
+     * - cta_url_default (string) opcional (ex: permalink do post)
+     * - cta_text_default (string) opcional
+     */
+    public static function build_ws_story_prompt(array $a): string
+    {
+        $slidesCount = max(1, (int)($a['slidesCount'] ?? 6));
+        $locale      = (string)($a['locale'] ?? 'pt_BR');
+        $title       = trim((string)($a['title'] ?? ''));
+        $content     = trim((string)($a['content'] ?? ''));
+        $cta_pages   = is_array($a['cta_pages'] ?? null) ? array_values(array_filter(array_map('absint', $a['cta_pages']))) : [];
+        $cta_text_def = trim((string)($a['cta_text_default'] ?? 'Saiba mais'));
+        $cta_url_def  = trim((string)($a['cta_url_default'] ?? ''));
+
+        if ($title === '') $title = 'Web Story';
+        if ($content === '') $content = $title;
+
+        $cta_pages_str = empty($cta_pages) ? 'nenhuma' : implode(', ', $cta_pages);
+
+        // IMPORTANTE: o complete só retorna parsed['content'].
+        // Então a IA DEVE retornar JSON com chave "content"
+        // e content deve ser um JSON (string) no formato do WS: {"pages":[...]}
+        $spec = "{\n"
+            . "  \"pages\": [\n"
+            . "    {\n"
+            . "      \"heading\": \"\",\n"
+            . "      \"body\": \"\",\n"
+            . "      \"cta_text\": \"\",\n"
+            . "      \"cta_url\": \"\",\n"
+            . "      \"prompt\": \"\"\n"
+            . "    }\n"
+            . "  ]\n"
+            . "}";
+
+        $prompt = ""
+            . "Você é um gerador de Web Stories a partir de conteúdo.\n"
+            . "Idioma: {$locale}\n"
+            . "Título: {$title}\n"
+            . "Quantidade de páginas: {$slidesCount}\n"
+            . "Páginas com CTA (1-indexado): {$cta_pages_str}\n"
+            . "Regra de CTA:\n"
+            . "- Apenas as páginas listadas devem conter CTA.\n"
+            . "- Nas páginas com CTA, use cta_text=\"{$cta_text_def}\" e cta_url=\"{$cta_url_def}\".\n"
+            . "- Nas páginas SEM CTA, cta_text e cta_url devem ser string vazia.\n\n"
+            . "Formato obrigatório:\n"
+            . "Responda APENAS em JSON UTF-8 válido, COM UMA CHAVE \"content\".\n"
+            . "A chave \"content\" deve conter UMA STRING que seja um JSON válido no formato abaixo.\n"
+            . "Não use markdown. Não explique nada.\n\n"
+            . "JSON alvo (que deve estar DENTRO de content):\n"
+            . $spec . "\n\n"
+            . "Regras editoriais:\n"
+            . "- heading curto e forte (máx 45 caracteres)\n"
+            . "- body curto (1 a 2 frases)\n"
+            . "- prompt: uma descrição curta para gerar imagem do slide (sem citar marcas registradas)\n"
+            . "- Gere exatamente {$slidesCount} itens em pages.\n\n"
+            . "Conteúdo base (use como fonte, não copie literalmente):\n"
+            . $content;
+
+        return $prompt;
+    }
+
 
     public static function ajax_export(): void
     {
@@ -2012,6 +2172,31 @@ class PluginsAlpha_Prompts
         }
     }
 
+    public static function build_story_prompt_from_post(string $title, string $content, array $config = []): string
+    {
+        $tpl = self::get_prompt_for('story', 'story');
+
+        $base = self::replace_vars($tpl, [
+            'articleTitle' => $title,
+            'content'  => $content,
+        ]);
+
+        $rules = "REGRAS IMPORTANTES PARA A HISTÓRIA:\n"
+            . "- A história deve ser envolvente e cativante.\n"
+            . "- Use uma linguagem simples e clara.\n"
+            . "- Mantenha os parágrafos curtos (máx. 2 frases).\n"
+            . "- Evite jargões técnicos ou termos complexos.\n"
+            . "- Certifique-se de que a história tenha um começo, meio e fim claros.\n"
+            . "- Inclua diálogos para tornar a história mais viva.\n"
+            . "- Use descrições sensoriais para criar uma imagem vívida na mente do leitor.\n"
+            . "- Mantenha o tom apropriado para o público-alvo.\n"
+            . "- Revise a história para garantir que não haja erros gramaticais ou ortográficos.\n";
+
+        $final = $base . "\n\n" . $rules;
+
+        return $final;
+    }
+
     public static function build_section_prompt(
         string $template,
         string $keyword,
@@ -2020,7 +2205,7 @@ class PluginsAlpha_Prompts
         string $length,
         string $locale,
         int    $sectionsCount,
-        int    $section_number,
+        string $section_number,
         string $url = '',
     ): string {
         $tpl = self::get_prompt_for($template, 'section');
@@ -2028,6 +2213,27 @@ class PluginsAlpha_Prompts
         $heading = trim((string)($section['heading'] ?? ''));
         $level   = strtolower(trim((string)($section['level'] ?? 'h2')));
         if ($level !== 'h2' && $level !== 'h3') $level = 'h2';
+
+        $sectionParagraph = trim((string)($section['paragraph'] ?? ''));
+
+        // children detalhado (H3 sugeridos com paragraph)
+        $childrenDetailed = '';
+        if (!empty($section['children']) && is_array($section['children'])) {
+            $list = [];
+            $n = 1;
+            foreach ($section['children'] as $c) {
+                $h = trim((string)($c['heading'] ?? ''));
+                $p = trim((string)($c['paragraph'] ?? ''));
+                if ($h === '') continue;
+
+                // formato “H3 1: ... / Brief: ...”
+                $line = "H3 {$n}: {$h}";
+                if ($p !== '') $line .= " — Brief: {$p}";
+                $list[] = $line;
+                $n++;
+            }
+            if ($list) $childrenDetailed = implode("\n", $list);
+        }
 
         // bullets (da própria seção)
         $bullets = '';
@@ -2061,7 +2267,6 @@ class PluginsAlpha_Prompts
 
         [$minWords, $maxWords] = self::length_to_range($length);
 
-        // fallback: se outline não trouxe word_goal, usa uma meta por seção
         if ($goalMin <= 0 || $goalMax <= 0) {
             // mais curto: por seção
             $per = max(90, (int) floor($maxWords / max(1, $sectionsCount)));
@@ -2070,6 +2275,7 @@ class PluginsAlpha_Prompts
             $goalMin = (int) max(60, floor($per * 0.55));
             $goalMax = (int) max($goalMin + 30, floor($per * 0.75));
         }
+
 
         $childrenCount = 0;
         if (!empty($section['children']) && is_array($section['children'])) {
@@ -2086,17 +2292,20 @@ class PluginsAlpha_Prompts
         $url = trim((string)$url);
 
         $base = self::replace_vars($tpl, [
-            'keyword'          => $keyword,
-            'articleTitle'     => $articleTitle,
-            'locale'           => $locale,
-            'section_heading'  => $heading,
-            'section_level'    => $level,
-            'section_children' => $children,
-            'section_bullets'  => $bullets,
-            'sections_count'   => (string)$sectionsCount,
-            'section_number'   => $section_number,
-            'url'              => $url,
+            'keyword'             => $keyword,
+            'articleTitle'        => $articleTitle,
+            'locale'              => $locale,
+            'section_heading'     => $heading,
+            'section_level'       => $level,
+            'section_paragraph'   => $sectionParagraph,
+            'section_children'    => $children,            // opcional manter
+            'section_children_detailed' => $childrenDetailed,
+            'section_bullets'     => $bullets,
+            'sections_count'      => (string)$sectionsCount,
+            'section_number'      => (string)$section_number,
+            'url'                 => $url,
         ]);
+
 
         $ctx = '';
         $idx = max(1, (int)$section_number);
@@ -2104,19 +2313,16 @@ class PluginsAlpha_Prompts
         $remaining = max(0, $total - $idx);
 
         $state = "ESTADO DE GERAÇÃO (obrigatório):\n"
-            . "- Esta seção é a {$idx} de {$total} (restam {$remaining}).\n"
-            . "- Não repita tópicos já cobertos em outras seções.\n"
-            . "- Esta seção deve avançar o artigo (informação nova).\n"
-            . "do artigo com título exato:\n"
+            . "- Esta seção é a {$idx} de {$total} (restam {$remaining}), use esse dado para desenvolver os itens pedidos abaixo, levando sempre em conta quando pedir algum item especifico em alguma sessão de numero especifico.\n"
+            . "O título do artigo é: \n"
             . "\"{$articleTitle}\"\n\n"
 
             . "REGRAS CRÍTICAS SOBRE O CONTEUDO:\n"
             . "- Cada parágrafo deve ter no máximo 2 frases.\n"
-            . "- Quebre parágrafos com frequência (leitura mobile).\n"
+            . "- Quebre parágrafos com frequência (leitura mobile e focado em GEO).\n"
             . "REGRAS CRÍTICAS SOBRE O TÍTULO:\n"
             . "- O conteúdo desta seção DEVE ser coerente com o título do artigo.\n"
             . "- Se o título promete um certo número de passos, dicas, motivos etc,\n"
-            . "  respeite essa estrutura no conjunto das seções (não crie um número diferente).\n"
             . "- Não mude o foco do artigo. Não contradiga o que o título promete.\n"
             . "- A primeira palavra deve sempre ser capitalizada nos títulos.\n\n"
             . "- Não insira numeração se o título não for especifico sobre quantidades, exemplo 'x motivos para [...]', 'x itens sobre [...] etc'.\n\n";
@@ -2134,13 +2340,19 @@ class PluginsAlpha_Prompts
             . "- NÃO escreva outros H2 fora desta seção.\n"
             . "- NÃO use <h1>.\n"
             . "- Use HTML limpo: <p>, <strong>, <ul>, <ol>, <li>.\n"
-            . "- Esta seção DEVE ter entre {$goalMin} e {$goalMax}. Se passar de {$goalMax}, encurte antes de finalizar.\n"
-            . "- Só use lista se realmente ajudar.\n"
+            . "- Se passar de {$goalMax}, encurte antes de finalizar.\n"
+            . "- Só use bullet points se realmente ajudar.\n"
             . "- Não use markdown; use somente HTML.\n"
-            . "- - Se fizer sentido, inclua H3 dentro desta seção usando os subtítulos sugeridos.\n\n"
-            . "- Esta seção (incluindo QUALQUER H3 e TODO o texto abaixo deles) DEVE ter entre {$goalMin} e {$goalMax} palavras NO TOTAL.\n"
-            . "- Se houver H3, divida o orçamento de palavras entre os blocos (H2 + H3s) para não ultrapassar {$goalMax}.\n";
+            . "- Se fizer sentido, inclua H3 dentro desta seção usando os subtítulos sugeridos.\n\n"
+            . "- Esta seção (incluindo QUALQUER H3 e TODO o texto abaixo deles) DEVE ter entre {$goalMin} e {$goalMax} palavras NO TOTAL.\n";
 
+        $tech .= "- Regra obrigatória: use o BRIEF DA SEÇÃO como fonte principal (expanda, não ignore).\n";
+        if ($childrenDetailed !== '') {
+            $tech .= "- Regra obrigatória: para cada H3 sugerido, siga o Brief do H3 correspondente.\n";
+        }
+        if ($sectionParagraph !== '') {
+            $tech .= "- Regra obrigatória: o conteúdo do {$level} deve expandir o parágrafo-guia (não ficar genérico).\n";
+        }
 
         if ($template === 'modelar_youtube') {
             $tech .= "- Regra obrigatória: NÃO mencione vídeo, canal, link ou URL.\n";
@@ -2150,7 +2362,29 @@ class PluginsAlpha_Prompts
             $tech .= "- Cubra os pontos sugeridos nos bullets (sem listar literalmente; use como guia).\n";
         }
 
-        return $state . "\n" . $tech . "\n" . $base . "\n" . $ctx . "\n\n";
+        $brief = "BRIEF DA SEÇÃO (baseado no outline — siga fielmente):\n"
+            . "- Heading ({$level}): {$heading}\n";
+
+        if ($sectionParagraph !== '') {
+            $brief .= "- Parágrafo-guia do {$level}: {$sectionParagraph}\n";
+        }
+
+        if ($childrenDetailed !== '') {
+            $brief .= "- Subtítulos sugeridos (H3) e seus briefs:\n{$childrenDetailed}\n";
+        } else if ($children !== '') {
+            $brief .= "- Subtítulos sugeridos (H3):\n{$children}\n";
+        }
+
+        if ($bullets !== '') {
+            $brief .= "- Bullets sugeridos:\n{$bullets}\n";
+        }
+
+        $brief .= "\nRegras de uso do BRIEF:\n"
+            . "- Desenvolva com profundidade o parágrafo-guia do {$level} (não reescreva só; expanda com contexto, critérios, exemplos).\n"
+            . "- Se houver H3 sugeridos, crie cada H3 e desenvolva seguindo o Brief de cada um.\n"
+            . "- Não invente novos tópicos fora do escopo do brief.\n";
+
+        return $state . "\n" . $brief . "\n" . $tech . "\n" . $base . "\n" . $ctx . "\n\n";
     }
 
     public static function build_title_prompt_modelar_youtube(
@@ -2236,11 +2470,12 @@ class PluginsAlpha_Prompts
 
         $suffix =
             "Responda APENAS em JSON UTF-8 válido (uma única linha), sem markdown.\n"
+            . "- Hoje é: " . SELF::date()
             . "Regras técnicas (não discuta, apenas cumpra):\n"
             . "- Gere {$count} keywords NOVAS e DIFERENTES.\n"
             . "- Gere em {$locale}.\n"
             . "- Categoria: {$category}.\n"
-            . "- Use o comando como direção: {$command}.\n"
+            . "- Use o comando como direção (caso tenha): \"{$command}\".\n"
             . "- No campo \"content\", use UMA keyword por linha.\n"
             . "- Não use bullets, não use numeração, não use vírgulas para separar.\n"
             . "- Não inclua barras \\ , pipes | ou ponto-e-vírgula ; como separadores.\n"

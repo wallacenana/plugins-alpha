@@ -107,7 +107,8 @@ class PluginsAlpha_Images
                     $prompt,
                     $post_id,
                     $alt,
-                    $context
+                    $context,
+                    $opts['apis']['pexels'] ?? []
                 );
 
             case 'unsplash':
@@ -308,24 +309,16 @@ class PluginsAlpha_Images
         string $prompt,
         int $post_id,
         string $alt = '',
-        string $context = 'thumb'
+        string $context = 'thumb',
+        array $api = []
     ) {
         if ($prompt === '' || $post_id <= 0) {
             return 0;
         }
 
-        if (!class_exists('PluginsAlpha_Settings')) {
-            return new \WP_Error(
-                'pga_pexels_no_cfg',
-                __('Configurações do Pexels não encontradas.', 'plugins-alpha')
-            );
-        }
+        $api = trim((string)($api['key'] ?? ''));
 
-        $opts = PluginsAlpha_Settings::get();
-        $api  = $opts['apis']['pexels'] ?? [];
-        $key  = trim((string) ($api['key'] ?? ''));
-
-        if ($key === '') {
+        if ($api === '') {
             return new \WP_Error(
                 'pga_pexels_no_key',
                 __('Chave de API do Pexels não configurada.', 'plugins-alpha')
@@ -350,12 +343,13 @@ class PluginsAlpha_Images
             'https://api.pexels.com/v1/search'
         );
 
+
         $res = wp_remote_get(
             $endpoint,
             [
                 'timeout' => 30,
                 'headers' => [
-                    'Authorization' => $key,
+                    'Authorization' => $api,
                 ],
             ]
         );

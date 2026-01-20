@@ -402,6 +402,8 @@ class PluginsAlpha_REST
             return new WP_Error('pga_prompts_missing', 'Classe de prompts não encontrada.', ['status' => 500]);
         }
 
+
+
         $meta_img_prompt = PluginsAlpha_Prompts::build_image_prompt(
             $keyword,
             $title,
@@ -445,15 +447,13 @@ class PluginsAlpha_REST
             return new WP_Error('pga_images_missing', 'Classe de imagens não encontrada.', ['status' => 500]);
         }
 
+        error_log('prompt: ' . $meta_img_prompt);
+        error_log('gerado : ' . $img_prompt);
         // 3) Gera thumb usando o PROVIDER DE IMAGEM configurado
         $thumb_id = PluginsAlpha_Images::generate_by_settings(
             $img_prompt,
             $post_id,
-            $image_alt,
-            [
-                'provider' => $imageProvider,
-                // 'context'  => 'thumb', // se sua função aceitar
-            ]
+            $image_alt
         );
 
         if (is_wp_error($thumb_id) || !$thumb_id) {

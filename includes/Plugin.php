@@ -11,7 +11,7 @@ class PluginsAlpha_Plugin
     if (class_exists('PluginsAlpha_Adminbar')) PluginsAlpha_Adminbar::init();
     if (class_exists('PluginsAlpha_Orion_Migrator')) PluginsAlpha_Orion_Migrator::init();
 
-    require_once PGA_PATH . 'includes/stories/autoload.php';
+    // require_once PGA_PATH . 'includes/stories/autoload.php';
     // Menus e assets
     add_action('admin_menu', ['PluginsAlpha_AdminMenus', 'register']);
     add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
@@ -78,19 +78,40 @@ class PluginsAlpha_Plugin
     );
 
     // JS principal
-    wp_enqueue_script(
-      'pga-admin',
-      PGA_URL . 'assets/admin.js',
-      ['jquery', 'wp-util', 'sweetalert2', 'wp-i18n'],
-      pga_asset_ver('assets/admin.js'),
-      true
-    );
+    $page = isset($_GET['page']) ? sanitize_key((string) $_GET['page']) : '';
 
-    wp_set_script_translations(
-      'pga-admin',
-      'plugins-alpha',
-      plugin_dir_path(__FILE__) . 'languages'
-    );
+    if ($page !== 'plugins-alpha-ws-generator') {
+      wp_enqueue_script(
+        'pga-admin',
+        PGA_URL . 'assets/admin.js',
+        ['jquery', 'wp-util', 'sweetalert2', 'wp-i18n'],
+        pga_asset_ver('assets/admin.js'),
+        true
+      );
+    }
+    $page = isset($_GET['page']) ? sanitize_key((string) $_GET['page']) : '';
+
+    wp_enqueue_media();
+    
+    if ($page === 'plugins-alpha-ws-generator') {
+      wp_enqueue_script(
+        'pga-ws-builder',
+        PGA_URL . 'assets/ws-builder.js',
+        ['jquery', 'sweetalert2', 'wp-i18n'],
+        pga_asset_ver('assets/ws-builder.js'),
+        true
+      );
+
+      wp_localize_script('pga-ws-builder', 'PGA_CFG', [
+        'rest'   => esc_url_raw(rest_url('pga/v1')),
+        'nonce'  => wp_create_nonce('wp_rest'),
+        'options' => class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [],
+        'site_url'     => site_url(),
+        'isCPT'  => (bool) $is_cpt_screen,
+      ]);
+
+      wp_enqueue_style('pga-ws-builder', PGA_URL . 'assets/ws-builder.css', [], pga_asset_ver('assets/ws-builder.css'));
+    }
 
     wp_localize_script('pga-admin', 'PGA_CFG', [
       'rest'   => esc_url_raw(rest_url('pga/v1')),

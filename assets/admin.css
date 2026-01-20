@@ -7,7 +7,7 @@
   --pga-soft: #FAFAFA;
   --pga-border: #E8E8E8;
   --pga-text: #1a1a1a;
-  --pga-muted: #6b7280;
+  --pga-muted: #636a79;
   --pga-radius: 6px;
   --pga-shadow: 0 10px 30px rgba(0, 0, 0, .06);
   --pga-badge: ;
@@ -423,33 +423,6 @@ div:where(.swal2-container).swal2-center>.swal2-popup {
   border-radius: 10px !important;
 }
 
-.pga-modal-content .pga-descricao {
-  font-size: 14px;
-  color: #6b7280;
-  margin-bottom: 15px;
-}
-
-.pga-modal-content .swal2-input::placeholder {
-  color: #696f79 !important;
-}
-
-.pga-modal-content .swal2-input {
-  font-size: .975rem;
-  padding: 20px 12px;
-  border: 1px solid var(--pga-border);
-  outline: none;
-  border-radius: 4px !important;
-  box-shadow: none;
-}
-
-.pga-modal-content label {
-  font-size: .975rem;
-  margin-bottom: 5px;
-}
-
-.pga-modal-content {
-  text-align: left;
-}
 
 .pga-copy-box svg {
   fill: var(--pga-text);
@@ -649,7 +622,7 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm) {
   font-size: 14px !important;
   font-weight: 500 !important;
   background: var(--pga-accent) !important;
-  color: var(--pga-branco);
+  color: var(--pga-branco) !important;
   border-radius: 6px !important;
   transition: all 0.2s;
   opacity: 1;
@@ -701,13 +674,15 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
   background-color: var(--pga-bg);
   font-size: .875rem;
   line-height: 1.25rem;
+  max-width: 100%;
 }
+
 .select2-selection .select2-selection--multiple,
 .select2-container--default .select2-selection--multiple {
-  border: 1px solid #d1d5db!important;
-  border-radius: 6px!important;
-  background-color: var(--pga-bg)!important;
-  min-height: 37px!important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px !important;
+  background-color: var(--pga-bg) !important;
+  min-height: 37px !important;
 }
 
 .pga-model {
@@ -725,7 +700,8 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
   padding: 4px 8px;
   border-radius: 6px;
 }
-.pga-model{
+
+.pga-model {
   text-transform: capitalize;
 }
 
@@ -739,7 +715,7 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 .pga-tabsbar .button-primary {
   background: none;
   border: none;
-  color: #636a79;
+  color: var(--pga-muted);
   font-weight: 500;
   font-size: .875rem;
   line-height: 1.25rem;
@@ -747,7 +723,7 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 }
 
 #pga_gen_container {
-  padding: 25px 30px;
+  padding: 25px 0;
 }
 
 .pga-add-generator {
@@ -793,7 +769,7 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
   border: 1px solid #E5E7EB;
   border-width: 1px 0;
   display: flex;
-  padding: 1rem 30px 0 30px;
+  padding-top: 1rem;
 }
 
 .pga-header-fixed .pga-a-center {
@@ -805,7 +781,8 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 .pga-header-fixed {
   display: flex;
   justify-content: space-between;
-  padding: 1rem 30px;
+  padding: 1rem 0;
+  padding-top: 0;
 }
 
 .pga-wrap .pga-descricao {
@@ -978,17 +955,20 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 }
 
 /* Botão Salvar Global */
-#pga_save_keywords {
+#pga_save_keywords,
+.pga_save_box {
   border: none;
   background: none;
   cursor: pointer;
 }
 
-#pga_save_keywords:hover svg {
+#pga_save_keywords:hover svg,
+.pga_save_box:hover svg {
   color: var(--pga-accent);
 }
 
-#pga_save_keywords svg {
+#pga_save_keywords svg,
+.pga_save_box svg {
   width: 18px;
   height: 18px;
   transition: all 0.2s;
@@ -1120,46 +1100,6 @@ details.pga-tpl summary {
 /* evita a barra cobrir o fim da página */
 #pga-orion-prompts-form {
   padding-bottom: 80px;
-}
-
-/* modal */
-.pga-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-}
-
-.pga-modal.is-open {
-  display: block;
-}
-
-.pga-modal__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, .45);
-}
-
-.pga-modal__panel {
-  position: relative;
-  width: min(1100px, calc(100% - 40px));
-  max-height: calc(100% - 80px);
-  overflow: auto;
-  margin: 40px auto;
-  background: #fff;
-  border-radius: 10px;
-  padding: 14px;
-  box-shadow: 0 10px 35px rgba(0, 0, 0, .2);
-}
-
-.pga-modal__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 10px;
 }
 
 /* SweetAlert2 sempre acima de qualquer modal seu */
@@ -1342,11 +1282,9 @@ details.pga-tpl summary {
 
 .pga-textarea {
   width: 100%;
-  min-height: 220px;
   border: 1px solid var(--pga-line);
   border-radius: 12px;
   padding: 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 13px;
   line-height: 1.45;
   background: #fff;
@@ -1443,54 +1381,6 @@ details.pga-tpl summary {
   flex-wrap: wrap;
 }
 
-/* ====== Modal ====== */
-.pga-modal {
-  display: none
-}
-
-.pga-modal.is-open {
-  display: block
-}
-
-.pga-modal__backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, .45);
-  z-index: 99998;
-}
-
-.pga-modal__panel {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(980px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
-  overflow: auto;
-  z-index: 99999;
-  background: #fff;
-  border-radius: 16px;
-  border: 1px solid var(--pga-line);
-  box-shadow: var(--pga-shadow);
-  padding: 14px;
-}
-
-.pga-modal__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  position: sticky;
-  top: 0;
-  background: #fff;
-  padding: 6px 0 10px;
-  border-bottom: 1px solid var(--pga-line);
-  margin-bottom: 10px;
-}
-
-.pga-modal__head h2 {
-  margin: 0
-}
 
 /* table in modal */
 .pga-table {
@@ -1517,20 +1407,6 @@ details.pga-tpl summary {
 .pga-mini {
   color: var(--pga-muted);
   font-size: 12px
-}
-
-.pga-input {
-  width: 100%;
-  max-width: 420px;
-  border: 1px solid var(--pga-line);
-  border-radius: 10px;
-  padding: 8px 10px;
-}
-
-.pga-input:focus {
-  outline: none;
-  border-color: var(--pga-accent);
-  box-shadow: 0 0 0 3px rgba(28, 92, 244, .12);
 }
 
 .pga-switch {
@@ -1590,4 +1466,1026 @@ details.pga-tpl summary {
 
 .pga-import-export {
   margin-left: auto;
+}
+
+
+
+/* Web Stories Generator */
+
+.story-frame {
+  aspect-ratio: 9 / 16;
+  width: 180px;
+  /* Reduzido para caber mais na tela */
+  transition: all 0.3s ease;
+}
+
+.template-1 .content-box {
+  bottom: 15px;
+  text-align: center;
+}
+
+.template-2 .content-box {
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: left;
+  padding: 10px;
+}
+
+.template-3 .content-box {
+  top: 15px;
+  text-align: right;
+}
+
+.tab-active {
+  color: #3b82f6;
+  border-bottom: 2px solid #3b82f6;
+}
+
+.hidden-tab {
+  display: none;
+}
+
+/* Ajuste de scrollbar para manter o minimalismo */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}
+
+.pga-ws .pga-header-fixed .pga-a-center {
+  gap: 10px;
+}
+
+.pga-ws-tabs a {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 10px 15px;
+  font-size: 14px;
+  color: var(--pga-muted);
+}
+
+.pga-ws-tabs a.tab-active {
+  border-bottom: 2px solid var(--pga-accent);
+  color: var(--pga-accent);
+}
+
+.pga-ws-generator-config {
+  display: flex;
+  padding-bottom: 20px;
+  gap: 10px;
+}
+
+.pga-ws-generator-config label {
+  font-weight: 600;
+  color: #33363D;
+  margin-bottom: 4px;
+  font-size: 0.875rem;
+}
+
+.pga-ws-generator-config input,
+.pga-ws-generator-config select {
+  border: 1px solid var(--pga-border);
+  padding: 3px 10px;
+  outline: none;
+  border-radius: 6px;
+  font-size: .825rem;
+}
+
+.pga-ws .pga-tabsbar {
+  padding-bottom: 10px;
+}
+
+.pga-ws .pga_link_manual_wrapper {
+  margin-right: auto;
+}
+
+.pga-ws .pga-main {
+  background: var(--pga-soft);
+  padding: 30px;
+  padding-top: 10px;
+  height: auto;
+  width: 100%;
+  min-height: 80vh;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#frames-container {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 35px;
+  padding-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.pga-ws-story-frame {
+  background: var(--pga-branco);
+  position: relative;
+}
+
+.pga-numb {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 28px;
+  height: 18px;
+  border-radius: 6px;
+
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(15, 23, 42, .45);
+  backdrop-filter: blur(6px);
+
+  --total: 15;
+  --done: 1;
+  --track-w: 160px;
+  --seg: 10px;
+  --gap: 6px;
+  --bar-h: 3px;
+}
+
+.hidden-tab {
+  display: none !important;
+}
+
+.pga-ws-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.pga-ws-tab {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  color: #334155;
+}
+
+.pga-ws-tab.tab-active {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, .12);
+}
+
+.pga-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.pga-template-card {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+}
+
+.pga-template-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pga-template-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.pga-template-sub {
+  margin: 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.pga-template-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pga-template-select {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.pga-template-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #334155;
+  user-select: none;
+}
+
+/* Preview mini (só pra escolher estilo) */
+.pga-template-mini {
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, .35);
+}
+
+.pga-template-mini .pga-mini-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: .95;
+}
+
+.pga-template-mini .pga-mini-content {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0, 0, 0, .62), rgba(0, 0, 0, .12));
+}
+
+.pga-template-mini .pga-mini-title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pga-template-mini .pga-mini-text {
+  margin: 0;
+  font-size: 10px;
+  opacity: .9;
+  line-height: 1.2;
+}
+
+/* CTA */
+.pga-ws-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .65);
+  background: rgba(0, 0, 0, .25);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* POSIÇÕES (igual seu exemplo: baixo/centro/topo) */
+.pga-pos-bottom .pga-mini-content {
+  bottom: 10px;
+  top: auto;
+}
+
+.pga-pos-center .pga-mini-content {
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.pga-pos-top .pga-mini-content {
+  top: 10px;
+  bottom: auto;
+}
+
+/* quando CTA ativo no preview mini */
+.pga-has-cta .pga-ws-cta {
+  display: inline-flex;
+}
+
+.pga-no-cta .pga-ws-cta {
+  display: none;
+}
+
+.pga-ws-template-select {
+  width: 100%;
+  margin-top: 10px;
+  font-size: .815rem !important;
+  border: none;
+  background: var(--pga-branco);
+  padding: 7px 13px !important;
+}
+
+/* =========================================================
+   TABS LEVES (estilo "underline" igual a imagem)
+   ========================================================= */
+
+#pga_tabs.pga-ws-theme-tabs {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+/* label vira “tab” */
+#pga_tabs .pga-ws-style {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 2px 12px 2px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 4px;
+  font-size: .750rem;
+}
+
+/* esconde o radio (mantém acessível) */
+#pga_tabs .pga-ws-style input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+/* texto */
+#pga_tabs .pga-ws-style span {
+  font-size: .8rem;
+  font-weight: 500;
+  color: rgba(15, 23, 42, .72);
+  line-height: 1;
+  transition: color .15s ease;
+}
+
+/* hover leve */
+#pga_tabs .pga-ws-style:hover span {
+  color: rgba(15, 23, 42, .92);
+}
+
+/* underline (inativo fica invisível) */
+#pga_tabs .pga-ws-style::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 1);
+  /* azul */
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .18s ease;
+}
+
+/* ativo (usa teu is-active) */
+#pga_tabs .pga-ws-style.is-active span {
+  color: rgba(37, 99, 235, 1);
+  font-weight: 500;
+}
+
+#pga_tabs .pga-ws-style.is-active::after {
+  transform: scaleX(1);
+}
+
+/* foco teclado */
+#pga_tabs .pga-ws-style:focus-within {
+  outline: none;
+}
+
+#pga_tabs .pga-ws-style:focus-within::after {
+  transform: scaleX(1);
+}
+
+/* opcional: se quiser exatamente “linha mais longa” tipo print */
+#pga_tabs .pga-ws-style {
+  justify-content: center;
+  padding: 11px 16px;
+  background: var(--pga-branco) !important;
+  border: 1px solid #00000009;
+}
+
+
+.pga-stepper-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pga-stepper-label {
+  font-weight: 600;
+  color: rgba(15, 23, 42, .78);
+}
+
+.pga-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(15, 23, 42, .14);
+  background: #fff;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.pga-stepper-btn {
+  width: 44px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(15, 23, 42, .78);
+  transition: background .15s ease, color .15s ease;
+}
+
+.pga-stepper-btn:hover {
+  background: rgba(15, 23, 42, .06);
+  color: rgba(15, 23, 42, .92);
+}
+
+.pga-stepper-btn:active {
+  background: var(--pga-text)
+}
+
+.pga-stepper-input {
+  width: 56px;
+  height: 40px;
+  border: none !important;
+  outline: none;
+  text-align: center;
+  color: var(--pga-text);
+  outline: none;
+}
+
+/* remove setinhas no input number */
+.pga-stepper-input::-webkit-outer-spin-button,
+.pga-stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pga-stepper-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.pga-ws-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+
+
+
+/* =========================
+   PGA Modal (WS Generator)
+   ========================= */
+
+.pga-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: none;
+  /* JS alterna */
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .65);
+  padding: 30px;
+  backdrop-filter: blur(4px);
+}
+
+.pga-modal.hidden {
+  display: none;
+}
+
+.pga-modal.is-open {
+  display: flex;
+}
+
+.pga-modal__panel,
+.pga-modal-card {
+  width: min(550px, 100%);
+  background: var(--pga-branco);
+  border: 1px solid var(--pga-border);
+  border-radius: 6px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .25);
+  overflow: hidden;
+  height: auto;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.pga-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.pga-modal__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.pga-modal__close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.pga-modal__tabs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #eef2f7;
+  background: #fbfdff;
+}
+
+.pga-ws-tabs a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  color: #0f172a;
+}
+
+.pga-ws-tabs a.tab-active {
+  border-color: rgba(59, 130, 246, .55);
+  background: rgba(59, 130, 246, .12);
+}
+
+.pga-grid-2 {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.pga-media {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pga-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px
+}
+
+.pga-pick-item {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: center
+}
+
+.pga-media__preview {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--pga-border);
+}
+
+.pga-media__btns {
+  display: flex;
+  gap: 8px;
+}
+
+.pga-help {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.pga-hr {
+  border: 0;
+  border-top: 1px solid #eef2f7;
+  margin: 4px 0;
+}
+
+.pga-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0;
+  padding-top: 15px;
+  border-top: 1px solid #eef2f7;
+}
+
+.pga-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pga-btn--ghost {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #475569;
+}
+
+.hidden-tab {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  .pga-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pga-story-center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pga-post-title {
+  font-weight: 700;
+  font-size: 13px;
+  max-width: 380px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #0f172a;
+}
+
+.pga-ws-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.pga-ws-status.is-draft {
+  background: #FEF9C3;
+  border-color: #FDE047;
+  color: #854D0E;
+}
+
+.pga-ws-status.is-trash {
+  background: #fec3c3;
+  border-color: #fd4747;
+  color: #850e0e;
+}
+
+.pga-ws-status.is-future {
+  background: #DBEAFE;
+  border-color: #93C5FD;
+  color: #1E40AF;
+}
+
+.pga-ws-status.is-publish {
+  background: #DCFCE7;
+  border-color: #86EFAC;
+  color: #166534;
+}
+
+
+
+/* Form */
+.pga-row {
+  margin-bottom: 12px;
+}
+
+.pga-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width:560px) {
+  .pga-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pga-help {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+.pga-counter {
+  font-size: 11px;
+  color: #64748b;
+  text-align: right;
+  margin-top: 6px;
+}
+
+.pga-color {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0;
+  background: #fff;
+}
+
+.pga-media-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pga-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  object-fit: cover;
+}
+
+.pga-media-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pga-ref {
+  border: 1px dashed #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 12px;
+  color: #0f172a;
+  background: #fafafa;
+}
+
+.pga-status-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* reaproveita teu badge */
+.pga-ws-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid transparent;
+}
+
+.pga-ws-status.is-draft {
+  background: #FEF9C3;
+  border-color: #FDE047;
+  color: #854D0E;
+}
+
+.pga-ws-status.is-future {
+  background: #DBEAFE;
+  border-color: #93C5FD;
+  color: #1E40AF;
+}
+
+.pga-ws-status.is-publish {
+  background: #DCFCE7;
+  border-color: #86EFAC;
+  color: #166534;
+}
+
+
+/* Skeleton: aparece só quando container está carregando */
+#frames-container .pga-skeleton {
+  display: none;
+}
+
+#frames-container.is-loading .pga-skeleton {
+  display: block;
+}
+
+/* Enquanto loading, esconde frames reais */
+#frames-container.is-loading .pga-ws-frame-wrap {
+  display: none;
+}
+
+.pga-ws-frame-wrap {
+  position: relative;
+}
+
+.pga-addMore {
+  position: absolute;
+  right: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 50px;
+  padding: 4px 7px;
+  background: var(--pga-contrast);
+  cursor: pointer;
+}
+
+.pga-addMore:hover {
+  color: var(--pga-branco);
+  background: var(--pga-accent);
+  transition: all 0.2s;
+}
+
+/* Um skeleton simples (ajusta como quiser) */
+.pga-skeleton {
+  padding: 16px;
+}
+
+.pga-skeleton .sk-row {
+  height: 14px;
+  border-radius: 8px;
+  background: #e5e7eb;
+  margin: 10px 0;
+}
+
+.pga-skeleton .sk-big {
+  height: 220px;
+  border-radius: 14px;
+  background: #e5e7eb;
+  margin-bottom: 14px;
+}
+
+/* X excluir */
+.pga-ws-del {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .25);
+  background: rgba(0, 0, 0, .35);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+
+.pga-ws-story-frame:hover .pga-ws-del {
+  opacity: 1;
+}
+
+/* overlay com 3 botões (antes / editar / depois) */
+.pga-ws-hover-actions {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  opacity: 0;
+  transition: opacity .15s ease;
+  z-index: 999;
+  pointer-events: none;
+  background: #00000070;
+  backdrop-filter: blur(5px);
+}
+
+.pga-ws-story-frame:hover .pga-ws-hover-actions {
+  opacity: 1;
+  pointer-events: none;
+}
+
+.pga-ws-hover-actions button {
+  pointer-events: auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .25);
+  background: rgba(0, 0, 0, .45);
+  color: #fff;
+  cursor: pointer;
+}
+
+.pga-ws-hover-actions .pga-ws-edit {
+  margin: 0 auto;
+  width: 52px;
+  height: 52px;
+  font-size: 18px;
+}
+
+.pga-ws-hover-actions button:first-child {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* modal slide (bem simples) */
+#pga_slide_modal {
+  display: none;
+}
+
+#pga_slide_modal.is-open {
+  display: flex;
+}
+
+.pga-modal-head h3 {
+  padding: 0;
+  margin: 0;
+
+}
+
+.pga-modal-head {
+  padding: 20px;
+  position: relative;
+}
+
+
+.pga-modal-x {
+  position: absolute;
+  right: 16px;
+  top: 10px;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.pga-modal-panel {
+  padding: 0 20px 30px 20px;
+}
+
+.pga-ws-notice {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+}
+
+.pga-img-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pga-img-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pga-img-card.is-selected {
+  outline: 2px solid #3b82f6;
+}
+
+.pga-img-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+}
+
+.pga-img-card .meta {
+  padding: 8px;
+  font-size: 12px;
+  color: #6b7280;
 }

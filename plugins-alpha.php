@@ -108,11 +108,27 @@ spl_autoload_register(function ($class) {
 
 // Bootstrap
 add_action('plugins_loaded', function () {
+  add_action('init', function () {
+    register_post_type('ws_story', [
+      'label' => 'WS Generator',
+      'public' => false,
+      'show_ui' => true,
+      'show_in_menu' => true,
+      'supports' => ['title'],
+      'show_in_rest' => true,
+    ]);
+  });
+
+
   if (class_exists('PluginsAlpha_Plugin')) {
     PluginsAlpha_Plugin::init();
 
     if (class_exists('PluginsAlpha_REST')) {
       add_action('rest_api_init', ['PluginsAlpha_REST', 'register_routes']);
+    }
+
+    if (class_exists('PluginsAlpha_REST_Ws_Generator')) {
+      add_action('rest_api_init', ['PluginsAlpha_REST_Ws_Generator', 'register_routes']);
     }
 
     if (class_exists('PluginsAlpha_License')) {
@@ -121,6 +137,10 @@ add_action('plugins_loaded', function () {
 
     if (class_exists('PluginsAlpha_Updater')) {
       PluginsAlpha_Updater::init(__FILE__);
+    }
+
+    if (class_exists('PluginsAlpha_WS_CPT')) {
+      PluginsAlpha_WS_CPT::init();
     }
   }
 });
@@ -150,6 +170,7 @@ register_activation_hook(PGA_FILE, function () {
     PluginsAlpha_License::schedule_cron();
   }
 });
+
 register_deactivation_hook(PGA_FILE, function () {
   do_action('plugins_alpha/deactivate');
 
@@ -159,6 +180,10 @@ register_deactivation_hook(PGA_FILE, function () {
 
   flush_rewrite_rules(false);
 });
+
+add_action('update_option_pga_story_base', function ($old, $new) {
+  if ($old !== $new) flush_rewrite_rules(false);
+}, 10, 2);
 
 
 // Link “Dashboard” na tela de Plugins

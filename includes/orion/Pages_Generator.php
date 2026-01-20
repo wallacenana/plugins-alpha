@@ -44,14 +44,6 @@ class PluginsAlpha_Pages_Generator
         <div class="pga-header-fixed">
           <div class="pga-header-col pga-a-center">
             <div>
-              <a href="<?php echo esc_url(admin_url('admin.php?page=plugins-alpha-dashboard')); ?>"
-                class="pga-back-admin button" title="<?php esc_html_e('Voltar', 'plugins-alpha'); ?>">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
-                  <path d="M680-160v-400H313l144 144-56 57-241-241 240-240 57 57-144 143h447v480h-80Z" />
-                </svg>
-              </a>
-            </div>
-            <div>
               <h1><?php esc_html_e('Gerador — Alpha Órion', 'plugins-alpha'); ?></h1>
               <p class="pga-descricao"><?php esc_html_e('Criação e automação de conteúdo com IA', 'plugins-alpha'); ?></p>
             </div>
@@ -627,6 +619,7 @@ class PluginsAlpha_Pages_Generator
     }
 
     $outline = PluginsAlpha_AI::outline($outlinePrompt, $jobArgs);
+
     if (is_wp_error($outline)) {
       return self::fail_job($draft_id, $outline, 'outline');
     }
@@ -765,6 +758,7 @@ class PluginsAlpha_Pages_Generator
         'alreadyDone' => true,
       ];
     }
+
 
     // --- PROMPT (TUDO ACONTECE AQUI) ---
     $prompt = PluginsAlpha_Prompts::build_section_prompt(

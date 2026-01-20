@@ -7,55 +7,6 @@ class PluginsAlpha_AdminMenus
   {
     $icon_url = PGA_URL . 'assets/images/favicon-plugins-alpha.png?v=' . pga_asset_ver('assets/images/favicon-plugins-alpha.png');
 
-    add_filter('admin_body_class', function ($classes) {
-      $page = sanitize_text_field($_GET['page'] ?? '');
-      if ($page === 'plugins-alpha-orion-posts') { // ajuste pro seu slug
-        $classes .= ' pga-orion-fullwidth';
-      }
-      return $classes;
-    });
-
-    add_action('admin_enqueue_scripts', function ($hook) {
-      $page = sanitize_text_field($_GET['page'] ?? '');
-      if ($page !== 'plugins-alpha-orion-posts') return;
-
-      wp_add_inline_style('wp-admin', '
-          body.pga-orion-fullwidth #wpwrap,
-          body.pga-orion-fullwidth #wpcontent,
-          body.pga-orion-fullwidth #wpbody,
-          body.pga-orion-fullwidth #wpbody-content {
-            width: 100%;
-          }
-
-          body.pga-orion-fullwidth #adminmenumain {
-            display: none
-          }
-          body.pga-orion-fullwidth #wpcontent,
-          body.pga-orion-fullwidth #wpfooter
-          {
-            margin-left: 0 !important;
-          }
-
-          body.pga-orion-fullwidth #wpcontent {
-            padding-left: 0 !important;
-          }
-
-          body.pga-orion-fullwidth .wrap,
-          body.pga-orion-fullwidth .wrap.pga-layout,
-          body.pga-orion-fullwidth .pga-wrap {
-            max-width: none !important;
-            width: 100% !important;
-            margin: 0 !important;
-          }
-
-          body.pga-orion-fullwidth .pga-header-fixed,
-          body.pga-orion-fullwidth .pga-main,
-          body.pga-orion-fullwidth .pga-footer-fixed {
-            max-width: none !important;
-          }
-        ');
-    });
-
     // TOP LEVEL
     add_menu_page(
       __('Alpha Suite', 'plugins-alpha'),
@@ -97,15 +48,33 @@ class PluginsAlpha_AdminMenus
       ['PluginsAlpha_AdminMenus', 'render_generator']
     );
 
-    // 3) Alpha Stories (lista do CPT)
     add_submenu_page(
       'plugins-alpha-dashboard',
-      __('Alpha Stories', 'plugins-alpha'),
-      __('Alpha Stories', 'plugins-alpha'),
+      __('WS Generator', 'plugins-alpha'),
+      __('WS Generator', 'plugins-alpha'),
       'edit_posts',
-      'edit.php?post_type=alpha_storys', // 👈 tela nativa do CPT
-      null
+      'plugins-alpha-ws-generator',
+      ['PluginsAlpha_AdminMenus', 'render_ws_generator']
     );
+
+    add_submenu_page(
+      'plugins-alpha-dashboard',
+      __('WS Lista', 'plugins-alpha'),
+      __('WS Lista', 'plugins-alpha'),
+      'edit_posts',
+      'edit.php?post_type=' . PluginsAlpha_WS_CPT::POST_TYPE
+    );
+
+
+    // 3) Alpha Stories (lista do CPT)
+    // add_submenu_page(
+    //   'plugins-alpha-dashboard',
+    //   __('Alpha Stories', 'plugins-alpha'),
+    //   __('Alpha Stories', 'plugins-alpha'),
+    //   'edit_posts',
+    //   'edit.php?post_type=alpha_storys',
+    //   null
+    // );
 
     // 5) Configurações
     add_submenu_page(
@@ -133,6 +102,15 @@ class PluginsAlpha_AdminMenus
       PluginsAlpha_Dashboard::render();
     } else {
       echo '<div class="wrap"><h1>Plugins Alpha — Dashboard</h1><p>Em breve…</p></div>';
+    }
+  }
+
+  public static function render_ws_generator(): void
+  {
+    if (class_exists('PluginsAlpha_WS_CPT')) {
+      PluginsAlpha_WS_CPT::render();
+    } else {
+      echo '<div class="wrap"><h1>Web Story Generator</h1><p>Em breve…</p></div>';
     }
   }
 
