@@ -405,7 +405,7 @@ class PluginsAlpha_Settings
             id="pga_gemini_model"
             type="text"
             class="regular-text"
-            value="<?php echo esc_attr($gem['model_text'] ?? 'gemini-1.5-flash-001'); ?>">
+            value="<?php echo esc_attr($gem['model_text'] ?? 'gemini-2.5-flash-lite'); ?>">
           <p class="description">
             <?php esc_html_e('Ex. (recomendado): gemini-2.5-flash-lite.', 'plugins-alpha'); ?>
             <br>

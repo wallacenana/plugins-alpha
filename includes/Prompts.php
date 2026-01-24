@@ -686,7 +686,7 @@ class PluginsAlpha_Prompts
             . "Páginas com CTA (0-indexado): {$cta_pages_str}\n"
             . "Regra de CTA:\n"
             . "- Apenas as páginas listadas devem conter CTA.\n"
-            . "- Nas páginas com CTA, use para o cta_text, crie CTAs aleatórios como \"saiba mais\", \"veja mais\", \"ler mais\", \"ver conteúdo\" etc e cta_url=\"{$cta_url_def}\".\n"
+            . "- Nas páginas com CTA, use para o cta_text, crie CTAs que tenham a ver com o conteúdo, não seja obvia demais como \"veja mais\", \"saiba mais\", mas traga coisas nesse sentido com no máximo 3 palavras etc e cta_url=\"{$cta_url_def}\".\n"
             . "- Nas páginas SEM CTA, cta_text e cta_url devem ser string vazia.\n\n"
             . "Formato obrigatório:\n"
             . "Responda APENAS em JSON UTF-8 válido, COM UMA CHAVE \"content\".\n"
@@ -694,6 +694,10 @@ class PluginsAlpha_Prompts
             . "Não use markdown. Não explique nada.\n\n"
             . "JSON alvo (title/desc/slug + pages) que deve estar DENTRO de content:\n"
             . "- Use título, Descrição e slug coerentes com o conteúdo.\n\n"
+            . "Regras para a slug:\n"
+            . "- Retire qualquer preposição, \"como\", \"é\", \"para\", etc\n"
+            . "- Crie uma slug válida com no máximo 5 palavras no formato de tags\n"
+            . "- Não inclua numeros sem sentido\n"
             . "- Regras para o tíutlo:\n"
             . "- Crie algo que vá ser coerente com os slides e coerente com o nivel de funil do título principal\n"
             . "- Obrigatório evitar palavras de outros niveis de funil\n"
@@ -2469,7 +2473,7 @@ class PluginsAlpha_Prompts
                 . implode("\n- ", array_map('trim', $existing_list))
                 . "\n";
         }
-        
+
         $suffix =
             "Responda APENAS em JSON UTF-8 válido (uma única linha), sem markdown.\n"
             . "- Hoje é: " . self::date() . "\n"

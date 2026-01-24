@@ -534,6 +534,7 @@ class PluginsAlpha_License
                                     <td>
                                         <input type="email"
                                             name="email"
+                                            autocomplete="off"
                                             id="pga_email"
                                             class="regular-text"
                                             value="<?php echo esc_attr($lic['email'] ?? ''); ?>"

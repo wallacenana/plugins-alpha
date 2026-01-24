@@ -629,10 +629,6 @@
                     <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
                     </div>
 
-                    <div id="pga_prog" style="text-align:center;font-size:13px;margin-bottom:6px;">
-                    ${sprintf(__('Progresso: %d de %d', 'plugins-alpha'), 0, totalJobs)}
-                    </div>
-
                     <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px;">
                     ${__('Preparando geração…', 'plugins-alpha')}
                     </div>
@@ -798,19 +794,17 @@
         };
     }
 
-    function pgaGetSelectedStatusSafe() {
-        const sel = document.getElementById('pga_story_status');
-        return (sel?.value || '').trim();
-    }
-
     async function saveStory(mode = 'save') {
         let status;
         if (mode === "publish") status = "publish";
-        else status = pgaGetSelectedStatusSafe();
+        else status = document.getElementById('pga_story_status').value;
         const story_id = pgaGetStoryId();
 
         // agendamento
-        const publish_at = pgaGetPublishAt();
+        const publish_at = (() => {
+            const v = (document.querySelector('#pga_story_publish_at')?.value || '').trim();
+            return v ? v.replace('T', ' ') + ':00' : '';
+        })();
 
         const { meta, settings, slug } = pgaCollectModalMetaAndSettings();
 
@@ -856,7 +850,7 @@
 
             await pgaToast('success',
                 status === 'trash' ? 'Excluído' :
-                    status === 'future' ? 'Agendado' :
+                    status === 'future' ? 'Salvo' :
                         status === 'publish' ? 'Publicado' :
                             'Salvo'
             );
@@ -876,6 +870,7 @@
             throw e;
         }
     }
+
     function deleteStoryRedirect(trashUrl) {
         const back = `${window.location.origin}/alpha/wp-admin/admin.php?page=plugins-alpha-ws-generator`;
 

@@ -328,7 +328,7 @@ final class PluginsAlpha_WS_CPT
                             title="<?php esc_attr('Salvar Story', 'plugins-alpha'); ?>"
                             type="button"
                             class="pga_save_box"
-                            onclick="saveStory('save')">
+                            onclick="saveStory('save', true)">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save h-4 w-4 mr-2">
                                 <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
@@ -673,13 +673,6 @@ final class PluginsAlpha_WS_CPT
                                             </select>
 
                                             <span id="pga_story_status_badge" class="pga-ws-status is-draft">Rascunho</span>
-                                        </div>
-                                    </div>
-                                    <!-- Data do agendamento (só se status = future) -->
-                                    <div class="pga-row" id="pga_story_future_row" style="display:none;">
-                                        <div class="pga-field">
-                                            <label class="pga-label">Agendar para</label>
-                                            <input id="pga_story_publish_at" type="datetime-local" class="pga-input" />
                                         </div>
                                     </div>
                                 </div>
