@@ -221,63 +221,6 @@ class PluginsAlpha_Prompts
         return array_slice($chapters, 0, 30);
     }
 
-    public static function build_ws_prompt(array $model, array $source): string
-    {
-        $slides = max(1, min(15, (int)($model['slides'] ?? 10)));
-        $locale = sanitize_text_field((string)($model['locale'] ?? 'pt_BR'));
-
-        $title = trim((string)($source['title'] ?? ''));
-        $content = trim((string)($source['content'] ?? ''));
-
-        // templates por slide (ex.: ["template-1","template-2"...])
-        $templates = $model['slide_templates'] ?? [];
-        if (!is_array($templates)) $templates = [];
-
-        // regra: se não vier, assume template-1
-        $tplText = '';
-        if (!empty($templates)) {
-            $tplText = "Templates por slide (ordem 1..{$slides}):\n- " . implode("\n- ", array_map('strval', $templates)) . "\n";
-        }
-
-        // JSON format block (o MESMO estilo que já funciona no Stories)
-        $format =
-            "{\n" .
-            "  \"pages\": [\n" .
-            "    {\n" .
-            "      \"heading\": \"\",\n" .
-            "      \"body\": \"\",\n" .
-            "      \"cta_text\": \"\",\n" .
-            "      \"cta_url\": \"\",\n" .
-            "      \"prompt\": \"\",\n" .
-            "      \"template\": \"template-1\"\n" .
-            "    }\n" .
-            "  ]\n" .
-            "}\n";
-
-        // Defaults “front de prompt” (o que você chamou)
-        $s  = "Você é um Especialista Sênior em Web Stories AMP (Google Web Stories).\n";
-        $s .= "Objetivo: converter um post em uma Web Story curta e viciante.\n\n";
-        $s .= "Locale: {$locale}\n";
-        $s .= "Quantidade de páginas: {$slides}\n\n";
-        $s .= "Post origem:\n";
-        $s .= "- Título: {$title}\n";
-        $s .= "- Conteúdo (texto limpo):\n{$content}\n\n";
-        if ($tplText) $s .= $tplText . "\n";
-
-        $s .= "Regras:\n";
-        $s .= "- Crie exatamente {$slides} páginas.\n";
-        $s .= "- heading curto (até 40 caracteres), em CAIXA ALTA quando fizer sentido.\n";
-        $s .= "- body curto (1-2 linhas), direto.\n";
-        $s .= "- prompt: descreva a imagem de forma objetiva (sem subjetividade), em português.\n";
-        $s .= "- Inclua o campo template em cada página.\n";
-        $s .= "- Não use bullets, nem numeração no texto.\n";
-        $s .= "- Responda SOMENTE em JSON UTF-8 válido, sem markdown.\n\n";
-        $s .= "Formato obrigatório:\n{$format}";
-
-        return $s;
-    }
-
-
     public static function build_outline_prompt_modelar_youtube(
         string $url,
         array  $video,
@@ -518,6 +461,49 @@ class PluginsAlpha_Prompts
         return $default . "\n\n" . $base . "\n\n" . self::meta_description_json_suffix();
     }
 
+    public static function build_ws_slide_image_prompt(string $title, string $desc, string $imageProvider = 'pexels'): string
+    {
+        $provider = strtolower(trim((string)$imageProvider));
+        $title = trim((string)$title);
+        $desc  = trim((string)$desc);
+
+        if ($title === '' && $desc === '') {
+            $title = 'Nature scene';
+            $desc  = 'Outdoor landscape';
+        }
+
+        // prompt em PT-BR, mas exigindo saída em inglês
+        if ($provider === 'pexels' || $provider === 'unsplash') {
+            return ""
+                . "Você é um gerador de QUERIES de busca para bancos de imagens (Pexels/Unsplash), Obrigatório: gere em inglês.\n"
+                . "Saída: APENAS 1 frase curta, entre 2 e 3 palavras simples, minúsculas, sem pontuação.\n"
+                . "Use linguagem de CENA FOTOGRÁFICA (pessoas/objetos/ação + contexto).\n"
+                . "Evite termos de IA/arte: não use 'ilustração', 'render', '3d', 'cinematográfico', 'estilo', 'realista'.\n"
+                . "Não use prefixos tipo 'imagem de', 'foto de'.\n"
+                . "A imagem precisa ter um elemento central, Exemplos: 'mulher celular', 'notebook mesa', 'cachorro comendo ração', 'homem trabalhando notebook'.\n"
+                . "Nunca use palavras genéricas demais, como \"turistas caminhando reserva natural brasil\", isso é muito ruim, \"homem\" ou \"mulher\", estaria definindo muito melhor e \"reserva natual\", poderia ser facilmente trocado por \"floresta\", \"mata\", \"beira do rio\".\n"
+                . "Responda APENAS em JSON válido UTF-8, sem markdown, sem texto extra.\n"
+                . "Formato obrigatório:\n"
+                . "{ \"content\": \"...\" }\n"
+                . "Título do slide: {$title}\n"
+                . "Texto do slide: {$desc}\n";
+        }
+
+        // IA (pollinations, etc)
+        return ""
+            . "Você é um gerador de PROMPTS para imagens verticais de Web Story (9:16).\n"
+            . "IMPORTANTE: a SAÍDA deve ser em INGLÊS.\n"
+            . "Saída: APENAS 1 prompt (uma frase/parágrafo curto).\n"
+            . "Regras:\n"
+            . "- cena de natureza / viagem ao ar livre, fiel ao slide\n"
+            . "- sem texto, sem letras, sem logos, sem watermark\n"
+            . "- evitar pessoas sensualizadas, glamour, foco em corpo\n"
+            . "- preferir paisagens, trilhas, rios, cachoeiras, florestas\n"
+            . "- descreva luz/ambiente de forma simples (ex: morning light, mist)\n\n"
+            . "Título do slide: {$title}\n"
+            . "Texto do slide: {$desc}\n";
+    }
+
     public static function build_image_prompt(
         string $template,
         string $keyword,
@@ -541,8 +527,8 @@ class PluginsAlpha_Prompts
 
             // IMPORTANTÍSSIMO: aqui NÃO pode ter prompt de geração, só query de busca
             $rules = ""
-                . "Você é um gerador de QUERIES de busca para bancos de imagens (Pexels/Unsplash).\n"
-                . "Saída: APENAS 1 frase curta, entre 2 e 4 palavras simples, minúsculas, sem pontuação.\n"
+                . "Você é um gerador de QUERIES de busca para bancos de imagens (Pexels/Unsplash), Obrigatório: gere em inglês.\n"
+                . "Saída: APENAS 1 frase curta, entre 2 e 3 palavras simples, minúsculas, sem pontuação.\n"
                 . "Use linguagem de CENA FOTOGRÁFICA (pessoas/objetos/ação + contexto).\n"
                 . "Evite termos de IA/arte: não use 'ilustração', 'render', '3d', 'cinematográfico', 'estilo', 'realista'.\n"
                 . "Não use prefixos tipo 'imagem de', 'foto de'.\n"
@@ -668,7 +654,6 @@ class PluginsAlpha_Prompts
         $title       = trim((string)($a['title'] ?? ''));
         $content     = trim((string)($a['content'] ?? ''));
         $cta_pages   = is_array($a['cta_pages'] ?? null) ? array_values(array_filter(array_map('absint', $a['cta_pages']))) : [];
-        $cta_text_def = trim((string)($a['cta_text_default'] ?? 'Saiba mais'));
         $cta_url_def  = trim((string)($a['cta_url_default'] ?? ''));
 
         if ($title === '') $title = 'Web Story';
@@ -680,13 +665,15 @@ class PluginsAlpha_Prompts
         // Então a IA DEVE retornar JSON com chave "content"
         // e content deve ser um JSON (string) no formato do WS: {"pages":[...]}
         $spec = "{\n"
+            . "  \"title\": \"\",\n"
+            . "  \"desc\": \"\",\n"
+            . "  \"slug\": \"\",\n"
             . "  \"pages\": [\n"
             . "    {\n"
             . "      \"heading\": \"\",\n"
             . "      \"body\": \"\",\n"
             . "      \"cta_text\": \"\",\n"
             . "      \"cta_url\": \"\",\n"
-            . "      \"prompt\": \"\"\n"
             . "    }\n"
             . "  ]\n"
             . "}";
@@ -696,28 +683,43 @@ class PluginsAlpha_Prompts
             . "Idioma: {$locale}\n"
             . "Título: {$title}\n"
             . "Quantidade de páginas: {$slidesCount}\n"
-            . "Páginas com CTA (1-indexado): {$cta_pages_str}\n"
+            . "Páginas com CTA (0-indexado): {$cta_pages_str}\n"
             . "Regra de CTA:\n"
             . "- Apenas as páginas listadas devem conter CTA.\n"
-            . "- Nas páginas com CTA, use cta_text=\"{$cta_text_def}\" e cta_url=\"{$cta_url_def}\".\n"
+            . "- Nas páginas com CTA, use para o cta_text, crie CTAs aleatórios como \"saiba mais\", \"veja mais\", \"ler mais\", \"ver conteúdo\" etc e cta_url=\"{$cta_url_def}\".\n"
             . "- Nas páginas SEM CTA, cta_text e cta_url devem ser string vazia.\n\n"
             . "Formato obrigatório:\n"
             . "Responda APENAS em JSON UTF-8 válido, COM UMA CHAVE \"content\".\n"
             . "A chave \"content\" deve conter UMA STRING que seja um JSON válido no formato abaixo.\n"
             . "Não use markdown. Não explique nada.\n\n"
-            . "JSON alvo (que deve estar DENTRO de content):\n"
+            . "JSON alvo (title/desc/slug + pages) que deve estar DENTRO de content:\n"
+            . "- Use título, Descrição e slug coerentes com o conteúdo.\n\n"
+            . "- Regras para o tíutlo:\n"
+            . "- Crie algo que vá ser coerente com os slides e coerente com o nivel de funil do título principal\n"
+            . "- Obrigatório evitar palavras de outros niveis de funil\n"
+            . "- Regras para a descrição:\n"
+            . "- Analise o nivel do funil do conteúdo e crie algo condizente com isso, a descrição deve ter entre 120 e 160 caracteres com cta no final. CTA levando em conta o nivel de funil e assim proibindo palavras de outros niveis\n"
             . $spec . "\n\n"
             . "Regras editoriais:\n"
-            . "- heading curto e forte (máx 45 caracteres)\n"
+            . "- Slide 1 = capa com headline forte (máx 38 caracteres) + gancho (1 frase)\n"
+            . "- Slides 2+ = progressão (máx 45 caracteres no heading)\n"
             . "- body curto (1 a 2 frases)\n"
-            . "- prompt: uma descrição curta para gerar imagem do slide (sem citar marcas registradas)\n"
+            . "- Evite repetição de palavras entre slides\n"
+            . "- Deve ter coerencia do primeiro ao ultimo slide, como uma história contada. Se o primeiro slide promete x itens, então o conteúdo tem q demonstrar esses x itens \n"
+            . "- Sem 'Slide #', sem listas, sem markdown\n"
             . "- Gere exatamente {$slidesCount} itens em pages.\n\n"
             . "Conteúdo base (use como fonte, não copie literalmente):\n"
+            . "Regra CRÍTICA do Slide 1 (capa):\n"
+            . "- O item pages[0].heading deve ser MUITO chamativo e gerar curiosidade (headline forte).\n"
+            . "- Máx 38 caracteres, sem ponto final, sem 'Slide 1', sem emoji.\n"
+            . "- pages[0].body deve ser 1 frase curta (gancho), sem entregar tudo.\n"
+            . "- Interprete o conteúdo e avalie e nivel de funil e proiba palavras de outros niveis de funil, se for meio de funil, proiba palavras de topo e fundo, e assim sucessivamente para todos os niveis.\n\n"
+
+
             . $content;
 
         return $prompt;
     }
-
 
     public static function ajax_export(): void
     {
@@ -2467,21 +2469,24 @@ class PluginsAlpha_Prompts
                 . implode("\n- ", array_map('trim', $existing_list))
                 . "\n";
         }
-
+        
         $suffix =
             "Responda APENAS em JSON UTF-8 válido (uma única linha), sem markdown.\n"
-            . "- Hoje é: " . SELF::date()
+            . "- Hoje é: " . self::date() . "\n"
             . "Regras técnicas (não discuta, apenas cumpra):\n"
             . "- Gere {$count} keywords NOVAS e DIFERENTES.\n"
             . "- Gere em {$locale}.\n"
             . "- Categoria: {$category}.\n"
             . "- Use o comando como direção (caso tenha): \"{$command}\".\n"
+            . "- O JSON deve ser VÁLIDO e em UMA LINHA.\n"
             . "- No campo \"content\", use UMA keyword por linha.\n"
-            . "- Não use bullets, não use numeração, não use vírgulas para separar.\n"
-            . "- Não inclua barras \\ , pipes | ou ponto-e-vírgula ; como separadores.\n"
+            . "- IMPORTANTE: como o JSON é em uma linha, separe as linhas usando \\n (barra invertida + n).\n"
+            . "- NÃO use bullets, NÃO use numeração, NÃO use vírgulas como separador.\n"
+            . "- NÃO inclua barras \\ (exceto nos \\n), pipes | ou ponto-e-vírgula ; como separadores.\n"
             . "- Não adicione explicações.\n\n"
-            . "Seja extremamente especifica no Formato obrigatório (JSON válido), se atente a quebra de linha em cada frase chave:\n"
-            . "{\"content\":\"keyword 1\n keyword 2\n keyword 3 \n ...\"}";
+            . "Exemplo válido:\n"
+            . "{\"content\":\"keyword 1\\nkeyword 2\\nkeyword 3\"}";
+
 
 
         return $base . $ban . "\n\n" . $suffix;

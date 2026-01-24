@@ -669,12 +669,58 @@ class PluginsAlpha_REST
         ]);
         if (is_wp_error($resp)) return $resp;
 
+        $text = (string)($resp['content'] ?? '');
+        $text = wp_strip_all_tags($text);
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+
+        // se veio com \\n (texto literal), vira quebra real
+        if (strpos($text, "\\n") !== false && strpos($text, "\n") === false) {
+            $text = str_replace("\\n", "\n", $text);
+        }
+
+        // remove bullets/numeração no começo da linha
+        $lines = preg_split("/\n+/", $text);
+        $out = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+
+            // tira "1) ", "1. ", "- ", "• ", etc.
+            $line = preg_replace('/^\s*(?:[-•*]|[\d]{1,3}[.)-])\s*/u', '', $line);
+
+            // corrige "\" colado entre palavras: "trilha\segura" -> "trilha segura"
+            $line = preg_replace('/(?<=\p{L})\\\\(?=\p{L})/u', ' ', $line);
+
+            // se ainda sobrou "\" solto, troca por espaço (conservador)
+            $line = str_replace("\\", " ", $line);
+
+            // colapsa espaços
+            $line = preg_replace('/\s+/u', ' ', $line);
+            $line = trim($line);
+
+            if ($line !== '') $out[] = $line;
+        }
+
+        // unique (case/acento-insensitive)
+        $seen = [];
+        $final = [];
+        foreach ($out as $k) {
+            $key = function_exists('mb_strtolower') ? mb_strtolower($k, 'UTF-8') : strtolower($k);
+            $key = preg_replace('/\s+/u', ' ', $key);
+            if (isset($seen[$key])) continue;
+            $seen[$key] = 1;
+            $final[] = $k;
+        }
+
+        $final = array_slice($final, 0, $count);
 
         return [
             'ok' => true,
-            'keywords_text' => (string)($resp['content'] ?? ''),
+            'keywords_text' => implode("\n", $final),
         ];
+
     }
+    
 
     public static function plan($req)
     {

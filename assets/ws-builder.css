@@ -45,7 +45,7 @@
     line-height: 1.1;
     letter-spacing: -0.02em;
     font-weight: 800;
-    font-size: 22px;
+    font-size: 30px;
     text-wrap: balance;
 }
 
@@ -104,10 +104,6 @@
     top: 16px;
 }
 
-.template-3 .pga-ws-frame-title {
-    font-size: 24px;
-}
-
 .template-3 .pga-ws-frame-text {
     opacity: .9;
 }
@@ -149,7 +145,6 @@
 }
 
 #frames-container.theme-news .pga-ws-frame-title {
-    font-size: 23px;
     font-weight: 900;
     letter-spacing: -0.03em;
     text-transform: none;
@@ -271,8 +266,7 @@
 }
 
 #frames-container.theme-pop .pga-ws-frame-title {
-    font-size: 24px;
-    font-weight: 950;
+    font-weight: 900;
     letter-spacing: -0.03em;
     text-shadow: 0 12px 30px rgba(0, 0, 0, .45);
     color: #fff;
@@ -354,7 +348,7 @@
   padding: 10px 14px;
   border-radius: 999px;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 16px;
   letter-spacing: .01em;
 
   transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease, color .15s ease;
@@ -386,13 +380,7 @@
   padding: 10px 14px;
 }
 
-/* template-3 normal: vira “tag” discreta */
-#frames-container.theme-normal .template-3 .pga-ws-cta{
-  background: rgba(0,0,0,.35);
-  color: rgba(255,255,255,.96);
-  border-color: rgba(255,255,255,.18);
-  box-shadow: 0 10px 24px rgba(0,0,0,.22);
-}
+
 /* base newsroom: “tarja editorial” */
 #frames-container.theme-news .pga-ws-cta{
   background: rgba(255,255,255,.96);
@@ -409,13 +397,7 @@
   border: 1px solid rgba(2,6,23,.22);
 }
 
-/* template-3 newsroom: “tag” editorial escura */
-#frames-container.theme-news .template-3 .pga-ws-cta{
-  background: rgba(0,0,0,.48);
-  color: rgba(255,255,255,.96);
-  border: 1px solid rgba(255,255,255,.20);
-  box-shadow: 0 12px 28px rgba(0,0,0,.30);
-}
+
 #frames-container.theme-dark .pga-ws-cta{
   background: rgba(0,0,0,.35);
   color: rgba(255,255,255,.96);
@@ -437,7 +419,7 @@
 /* template-3 dark: tag pequena com glow */
 #frames-container.theme-dark .template-3 .pga-ws-cta{
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: 16px;
   border-radius: 999px;
   box-shadow: 0 0 20px rgba(0,255,255,.14), 0 12px 30px rgba(0,0,0,.35);
 }

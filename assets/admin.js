@@ -25,9 +25,12 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     window.PGA_BEFOREUNLOAD_BOUND = true;
 
     window.addEventListener('beforeunload', function (e) {
-      if (!window.PGA_IS_GENERATING) return;
+      if (!window.PGA_IS_GENERATING && !window.PGA_IS_DIRTY) return;
 
-      const msg = __('O conteúdo ainda está sendo gerado. Sair da página pode interromper a criação. Deseja mesmo sair?', 'plugins-alpha');
+      const msg = window.PGA_IS_GENERATING
+        ? __('O conteúdo ainda está sendo gerado. Sair da página pode interromper a criação. Deseja mesmo sair?', 'plugins-alpha')
+        : __('Existem alterações não salvas. Deseja mesmo sair?', 'plugins-alpha');
+
       e.preventDefault();
       e.returnValue = msg;
       return msg;
@@ -400,7 +403,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       if (!all.length) return;
 
       localStorage.setItem(pgaGroupsStorageKey(), JSON.stringify(all));
-      window.PGA_IS_DIRTY = false;
     } catch (e) {
       // não silencie agora enquanto testa:
       console.warn('[PGA] save failed', e);
@@ -737,21 +739,25 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       .map(l => l.trim())
       .filter(l => l.length > 0);
 
-    // match case-insensitive
     const idx = lines.findIndex(l => l.localeCompare(kw, undefined, { sensitivity: 'accent' }) === 0);
     if (idx === -1) return false;
 
     lines.splice(idx, 1);
     $ta.val(lines.join('\n'));
 
-    // UI done
+    // ✅ agora persiste e renderiza DONE corretamente
+    // UI done + persistência
+    window.pgaAddDone(kw);
+
     const $done = $('#pga_kw_done');
     if ($done.length) {
       const li = document.createElement('li');
       li.textContent = kw;
-      $done.append(li);
+      $done.prepend(li); // topo
     }
 
+
+    // ✅ só salva grupos (não mexe no dirty aqui)
     pgaSaveBoxesToLocal();
     return true;
   }
@@ -934,6 +940,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     const $done = $('#pga_kw_done');
     if (!$kw.length) return;
 
+    renderDone(window.pgaLoadDone());
+
     function buildSummaryHtml(okCount, failCount, editLinks, failedKeywords) {
       const okHtml = `<p style="margin:0 0 4px; font-size: large"><b>${__('Sucesso:', 'plugins-alpha')}</b> ${okCount}</p>`;
       const failHeaderHtml = `<p style="margin:4px 0 0;"><b>${__('Falhas:', 'plugins-alpha')}</b> ${failCount}</p>`;
@@ -1055,10 +1063,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     // ---------- Keywords: listar ----------
     async function refreshKeywords() {
-      const j = await fetchJSON(`${REST}/keywords`, { headers: { 'X-WP-Nonce': NONCE } });
-
-      // ✅ NÃO sobrescreve mais o campo #pga_keywords (isso joga tudo no primeiro gerador)
-      renderDone(j.done || []);
+      renderDone(pgaLoadDone());
     }
 
     function renderDone(list) {
@@ -1081,6 +1086,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       importTargetBox = $(this).closest('.pga-gen-box');
       if (!importTargetBox.length) return;
       $file.trigger('click');
+      window.PGA_IS_DIRTY = true;
     });
 
     // Quando o arquivo é escolhido
@@ -1199,58 +1205,55 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     });
 
     // ---------- Salvar (botão global "Salvar" lá em cima) ----------
-    $('#pga_save_keywords').off('click').on('click', async function () {
-      const btn = this;
-      btn.disabled = true;
+    $('#pga_save_keywords')
+      .off('click.pgaSave')
+      .on('click.pgaSave', async function (e) {
+        e.preventDefault();
+        e.stopPropagation();
 
-      try {
-        savePrefsToLocal();
-        // ✅ salva grupos da tab atual no storage oficial
+        const btn = this;
+
+        // ✅ guard anti re-entrada (evita loop/call stack)
+        if (btn.dataset && btn.dataset.pgaSaving === '1') return;
+        if (btn.dataset) btn.dataset.pgaSaving = '1';
+
+        btn.disabled = true;
+
         try {
+          savePrefsToLocal();
+
+          // ✅ salva grupos 1x só
           const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
-          if (tabId) saveGroupsForTab(tabId, serializeAllGroupsFromDom());
-        } catch (e) { }
+          if (tabId) {
+            saveGroupsForTab(tabId, serializeAllGroupsFromDom());
+          }
 
-        // ✅ agora salvar keywords = salvar grupos (local), e servidor só mantém "done" (se precisar)
-        try {
-          const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
-          if (tabId) saveGroupsForTab(tabId, serializeAllGroupsFromDom());
-        } catch (e) { }
+          // ✅ render done local
+          if (typeof pgaLoadDone === 'function') {
+            renderDone(pgaLoadDone());
+          }
 
-        // opcional: se você ainda quer manter o "done" vindo do servidor
-        try {
-          const j = await fetchJSON(`${REST}/keywords`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-            // manda vazio pra não sobrescrever pending no backend (ou remove o POST se não precisar)
-            body: JSON.stringify({ pending_text: '' }),
-            silent: true
-          });
-          renderDone(j.done || []);
-        } catch (e) {
-          // ignora
+          window.PGA_IS_DIRTY = false;
+          pgaToast('success', __('Salvo', 'plugins-alpha'));
+
+        } catch (err) {
+          console.log(err);
+
+          // ✅ nunca passe objeto Error direto pro Swal title
+          const msg = (err && err.message) ? err.message : String(err || 'Erro');
+          pgaToast('error', msg, 2200);
+
+        } finally {
+          btn.disabled = false;
+          if (btn.dataset) delete btn.dataset.pgaSaving;
         }
-
-
-        // ✅ marcou como salvo
-        window.PGA_IS_DIRTY = false;
-        pgaToast('success', __('Salvo', 'plugins-alpha'));
-
-      } catch (e) {
-        pgaToast('error', e, 2200);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
+      });
 
     // "Salvar configurações" dentro do grupo apenas reaproveita o salvar global
-    $(document).off('click.pgaSaveBox').on('click.pgaSaveBox', '.pga_save_box', function () {
+    $(document).off('click.pgaSaveBox').on('click.pgaSaveBox', '.pga_save_box', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
       $('#pga_save_keywords').trigger('click');
-      try {
-        const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
-        if (tabId) saveGroupsForTab(tabId, serializeAllGroupsFromDom());
-      } catch (e) { }
     });
 
     // ---------- Gerar SOMENTE deste grupo ----------
@@ -1285,6 +1288,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         body: JSON.stringify({ who: 'done' })
       });
       await refreshKeywords();
+      window.pgaClearDoneLocal();
+      renderDone([]);
     });
 
     // ---------- Planejar -> gerar sequencial ----------
@@ -1294,10 +1299,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         skipKeywordWarning = false,
         groupTitle = '',
         plannedOrigins = null,
-
-        // ✅ novos
-        kwOverride = null,
-        prefsOverride = null,
       } = options;
 
       const prefs = (options && options.prefsOverride) ? options.prefsOverride : collectPrefs();
@@ -1587,6 +1588,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       }
 
       async function generateExtraLongPost(job, opts = {}) {
+
         const onStatus = typeof opts.onStatus === 'function' ? opts.onStatus : () => { };
 
         // 1) OUTLINE -------------------------------------------------
@@ -1839,6 +1841,12 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       }
 
       // ✅ salva no final: prefs + grupos (porque agora KW já foi removida/movida)
+      try {
+        const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
+        if (tabId) saveGroupsForTab(tabId, serializeAllGroupsFromDom());
+        renderDone(pgaLoadDone());
+        window.PGA_IS_DIRTY = false;
+      } catch (e) { }
 
       return { okCount, failCount, editLinks, failedKeywords };
     };
@@ -2193,6 +2201,34 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     window.PGA_IS_DIRTY = true;
   });
 
+  function pgaNormalizeKeywordsText(txt) {
+    let t = String(txt || '');
+
+    // \\n -> \n
+    if (t.includes('\\n') && !t.includes('\n')) t = t.replace(/\\n/g, '\n');
+
+    t = t.replace(/\r\n|\r/g, '\n');
+
+    const lines = t.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+      l = l.replace(/^\s*(?:[-•*]|[\d]{1,3}[.)-])\s*/u, '');
+      l = l.replace(/([A-Za-zÀ-ÿ])\\([A-Za-zÀ-ÿ])/g, '$1 $2');
+      l = l.replace(/\\/g, ' ');
+      l = l.replace(/\s+/g, ' ').trim();
+      return l;
+    }).filter(Boolean);
+
+    // unique
+    const seen = new Set();
+    const out = [];
+    for (const l of lines) {
+      const key = l.toLocaleLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(l);
+    }
+    return out.join('\n');
+  }
+
 
   $(document).on('click', '.pga_generate_keywords', async function () {
     const $box = $(this).closest('.pga-gen-box');
@@ -2247,7 +2283,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         throw new Error((j && j.message) ? j.message : __('Falha ao gerar keywords.', 'plugins-alpha'));
       }
 
-      $ta.val(j.keywords_text || '');
+      $ta.val(pgaNormalizeKeywordsText(j.keywords_text || ''));
 
       // fecha loading e mostra sucesso
       Swal.close();
@@ -2670,6 +2706,71 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     } catch (e) { /* ignore */ }
 
     return ['article'];
+  }
+
+  function pgaDoneKey() {
+    const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || 'default';
+    const pillarId = window.PGA_PILLAR_ID || 0;
+    return `pga_orion_done_v1_${pillarId}_${tabId}`;
+  }
+
+  window.pgaLoadDone = function () {
+    try {
+      const raw = localStorage.getItem(pgaDoneKey()) || '[]';
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
+  window.pgaSaveDone = function (list) {
+    try {
+      const arr = Array.isArray(list) ? list : [];
+      localStorage.setItem(pgaDoneKey(), JSON.stringify(arr));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  window.pgaAddDone = function (kw) {
+    const v = String(kw || '').trim();
+    if (!v) return;
+
+    const list = window.pgaLoadDone();
+    const exists = list.some(x => String(x).localeCompare(v, undefined, { sensitivity: 'accent' }) === 0);
+    if (exists) return;
+
+    list.unshift(v); // último feito no topo
+    window.pgaSaveDone(list);
+  };
+
+  window.pgaClearDoneLocal = function () {
+    try { localStorage.removeItem(pgaDoneKey()); } catch (e) { }
+  };
+
+  const $done = $('#pga_kw_done');
+
+  function renderDone(list) {
+    $done.empty();
+    (list || []).forEach(k => $('<li/>').text(k).appendTo($done));
+  }
+
+  function pgaAddDone(kw) {
+    const v = String(kw || '').trim();
+    if (!v) return;
+
+    const list = pgaLoadDone();
+
+    // evita duplicar (case-insensitive)
+    const exists = list.some(x => String(x).localeCompare(v, undefined, { sensitivity: 'accent' }) === 0);
+    if (!exists) {
+      list.push(v);
+      pgaSaveDone(list);
+    }
+
+    renderDone(pgaLoadDone());
   }
 
   function loadTabs() {

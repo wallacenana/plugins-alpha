@@ -50,8 +50,8 @@ class PluginsAlpha_AdminMenus
 
     add_submenu_page(
       'plugins-alpha-dashboard',
-      __('WS Generator', 'plugins-alpha'),
-      __('WS Generator', 'plugins-alpha'),
+      __('WS Generator (beta)', 'plugins-alpha'),
+      __('WS Generator (beta)', 'plugins-alpha'),
       'edit_posts',
       'plugins-alpha-ws-generator',
       ['PluginsAlpha_AdminMenus', 'render_ws_generator']
@@ -65,16 +65,15 @@ class PluginsAlpha_AdminMenus
       'edit.php?post_type=' . PluginsAlpha_WS_CPT::POST_TYPE
     );
 
-
     // 3) Alpha Stories (lista do CPT)
-    // add_submenu_page(
-    //   'plugins-alpha-dashboard',
-    //   __('Alpha Stories', 'plugins-alpha'),
-    //   __('Alpha Stories', 'plugins-alpha'),
-    //   'edit_posts',
-    //   'edit.php?post_type=alpha_storys',
-    //   null
-    // );
+    add_submenu_page(
+      'plugins-alpha-dashboard',
+      __('Alpha Stories', 'plugins-alpha'),
+      __('Alpha Stories', 'plugins-alpha'),
+      'edit_posts',
+      'edit.php?post_type=alpha_storys',
+      null
+    );
 
     // 5) Configurações
     add_submenu_page(

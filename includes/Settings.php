@@ -407,7 +407,7 @@ class PluginsAlpha_Settings
             class="regular-text"
             value="<?php echo esc_attr($gem['model_text'] ?? 'gemini-1.5-flash-001'); ?>">
           <p class="description">
-            <?php esc_html_e('Ex.: gemini-1.5-flash-001 (mais barato), gemini-1.5-pro, etc.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Ex. (recomendado): gemini-2.5-flash-lite.', 'plugins-alpha'); ?>
             <br>
             <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" rel="noopener noreferrer">
               <?php esc_html_e('Ver modelos.', 'plugins-alpha'); ?>

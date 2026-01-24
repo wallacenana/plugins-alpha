@@ -68,16 +68,16 @@ class PluginsAlpha_AI
      * - Lê de: pga_settings[orion_posts][text_provider]
      * - Default: openai
      */
-    public static function get_text_provider(): string
+    public static function get_text_provider($format = 'orion_posts'): string
     {
         $provider = 'openai';
 
         if (class_exists('PluginsAlpha_Settings')) {
             $opts   = PluginsAlpha_Settings::get();
-            $orion  = $opts['orion_posts'] ?? [];
+            $bucket = $opts[$format] ?? [];
 
-            if (!empty($orion['text_provider'])) {
-                $candidate = (string) $orion['text_provider'];
+            if (!empty($bucket['text_provider'])) {
+                $candidate = (string)$bucket['text_provider'];
                 if (in_array($candidate, ['openai', 'gemini'], true)) {
                     $provider = $candidate;
                 }
@@ -98,7 +98,10 @@ class PluginsAlpha_AI
      */
     public static function complete(string $prompt, array $schema = [], array $args = [])
     {
-        $provider = $args['provider'] ?? self::get_text_provider();
+        $formato = isset($args['format']) ? (string)$args['format'] : '';
+
+        $provider = $args['provider'] ?? self::get_text_provider($formato ?: 'orion_posts');
+
 
         $ok = self::ensure_text_provider($provider);
         if (is_wp_error($ok)) {

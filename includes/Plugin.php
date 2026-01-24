@@ -11,7 +11,7 @@ class PluginsAlpha_Plugin
     if (class_exists('PluginsAlpha_Adminbar')) PluginsAlpha_Adminbar::init();
     if (class_exists('PluginsAlpha_Orion_Migrator')) PluginsAlpha_Orion_Migrator::init();
 
-    // require_once PGA_PATH . 'includes/stories/autoload.php';
+    require_once PGA_PATH . 'includes/stories/autoload.php';
     // Menus e assets
     add_action('admin_menu', ['PluginsAlpha_AdminMenus', 'register']);
     add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);

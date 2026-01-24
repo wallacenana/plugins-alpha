@@ -8,6 +8,9 @@
     // -------------------------------------------------------
     const REST = PGA_CFG.rest;
     const NONCE = PGA_CFG.nonce;
+    const siteUrl = PGA_CFG.site_url;
+
+    const sprintf = (window.wp && window.wp.i18n && window.wp.i18n.sprintf) ? window.wp.i18n.sprintf : function (s) { return s; };
 
     const __ = (window.wp && window.wp.i18n && window.wp.i18n.__)
         ? window.wp.i18n.__
@@ -45,29 +48,29 @@
     // -------------------------------------------------------
     // Tabs unit/multi
     // -------------------------------------------------------
-    let currentTab = 'unit';
+    // let currentTab = 'unit';
 
-    window.switchTab = function (tab) {
-        currentTab = (tab === 'multi') ? 'multi' : 'unit';
+    // window.switchTab = function (tab) {
+    //     currentTab = (tab === 'multi') ? 'multi' : 'unit';
 
-        // tenta primeiro dentro do modal, depois fora
-        const scope = pgaGetModalPanel('publish') || document;
+    //     // tenta primeiro dentro do modal, depois fora
+    //     const scope = pgaGetModalPanel('publish') || document;
 
-        const unitEl = scope.querySelector('#unit-selection');
-        const multiEl = scope.querySelector('#multi-selection');
+    //     const unitEl = scope.querySelector('#unit-selection');
+    //     const multiEl = scope.querySelector('#multi-selection');
 
-        // se não existe ainda, só atualiza estado e sai
-        if (!unitEl || !multiEl) return;
+    //     // se não existe ainda, só atualiza estado e sai
+    //     if (!unitEl || !multiEl) return;
 
-        unitEl.classList.toggle('hidden-tab', currentTab !== 'unit');
-        multiEl.classList.toggle('hidden-tab', currentTab !== 'multi');
+    //     unitEl.classList.toggle('hidden-tab', currentTab !== 'unit');
+    //     multiEl.classList.toggle('hidden-tab', currentTab !== 'multi');
 
-        const tabUnitBtn = scope.querySelector('#tab-unit') || document.getElementById('tab-unit');
-        const tabMultiBtn = scope.querySelector('#tab-multi') || document.getElementById('tab-multi');
+    //     const tabUnitBtn = scope.querySelector('#tab-unit') || document.getElementById('tab-unit');
+    //     const tabMultiBtn = scope.querySelector('#tab-multi') || document.getElementById('tab-multi');
 
-        if (tabUnitBtn) tabUnitBtn.classList.toggle('tab-active', currentTab === 'unit');
-        if (tabMultiBtn) tabMultiBtn.classList.toggle('tab-active', currentTab === 'multi');
-    };
+    //     if (tabUnitBtn) tabUnitBtn.classList.toggle('tab-active', currentTab === 'unit');
+    //     if (tabMultiBtn) tabMultiBtn.classList.toggle('tab-active', currentTab === 'multi');
+    // };
 
 
     function showSkeleton() {
@@ -221,10 +224,12 @@
     window.generateFrames = function () {
         const container = document.getElementById('frames-container');
         if (!container) return;
+
         const count = getSlidesCountFromState();
         const themeClass = getSelectedTheme();
 
-        applyTheme(themeClass);
+        // aplica tema no wrapper geral (se existir)
+        if (typeof applyTheme === 'function') applyTheme(themeClass);
 
         // preserva skeleton (se existir)
         const skeleton = container.querySelector('.pga-skeleton');
@@ -238,67 +243,123 @@
         for (let i = 1; i <= count; i++) {
             const st = ensureState(i);
 
-            const wrap = document.createElement('div');
-            wrap.className = 'pga-ws-frame-wrap';
-            wrap.setAttribute('data-slide', String(i));
+            // -------------------------------
+            // DEFAULTS embaralhados (1x)
+            // -------------------------------
+            if (!st.__defaultsApplied) {
+                const tplDefaults = { 2: 'template-3', 4: 'template-2', 6: 'template-1' };
+                if (!st.template) st.template = tplDefaults[i] || 'template-1';
 
+                const ctaDefaults = {
+                    2: { text: 'Ver o post', url: 'https://example.com/post' },
+                    4: { text: 'Leia agora', url: 'https://example.com/post' },
+                    6: { text: 'Abrir guia', url: 'https://example.com/post' },
+                };
+
+                if (ctaDefaults[i]) {
+                    if (!st.cta_text) st.cta_text = ctaDefaults[i].text;
+                    if (!st.cta_url) st.cta_url = ctaDefaults[i].url;
+                }
+
+                st.__defaultsApplied = 1;
+            }
+
+            // -------------------------------
+            // Agora calcula render (com defaults já aplicados)
+            // -------------------------------
             const title = st.heading || `Slide #${i}`;
             const body = st.body || `Texto inteligente gerado para capturar atenção.`;
             const ctaText = (st.cta_text || '').trim();
-
             const hasCTA = ctaText.length > 0;
 
             const img = (st.image_url && st.image_url.trim())
                 ? st.image_url.trim()
                 : getSlidePlaceholderUrl(i);
 
+            const wrap = document.createElement('div');
+            wrap.className = 'pga-ws-frame-wrap';
+            wrap.setAttribute('data-slide', String(i));
+
             wrap.innerHTML = `
-            <div id="preview-${i}" class="pga-ws-story-frame ${themeClass} ${st.template} ${hasCTA ? 'has-cta' : ''}">
-                <div class="pga-frame-img" style="background-image:url('${img.replace(/'/g, "%27")}')"></div>
+      <div id="preview-${i}" class="pga-ws-story-frame ${themeClass} ${st.template || 'template-1'} ${hasCTA ? 'has-cta' : ''}">
+        <div class="pga-frame-img" style="background-image:url('${String(img).replace(/'/g, "%27")}')"></div>
 
-                <button type="button" class="pga-ws-del" data-action="del" title="Excluir">✕</button>
+        <button type="button" class="pga-ws-del" data-action="del" title="Excluir">✕</button>
 
-                <div class="pga-ws-hover-actions">
-                    <button type="button" data-action="img" title="Imagem">✨</button>
-                    
-                    <button type="button" class="pga-ws-edit" data-action="edit" data-i="${i}" title="Editar">✎</button>
-                    
-                </div>
+        <div class="pga-ws-hover-actions">
+          <button type="button" data-action="img" title="Imagem">✨</button>
+          <button type="button" class="pga-ws-edit" data-action="edit" data-i="${i}" title="Editar">✎</button>
+        </div>
 
-                <div class="pga-ws-frame-content">
-                    <h3 class="pga-ws-frame-title">${title}</h3>
-                    <div class="pga-ws-frame-divider" aria-hidden="true"></div>
-                        <p class="pga-ws-frame-text">${body}</p>
-                        <a href="${(st.cta_url || '#')}"
-                        class="pga-ws-cta"
-                        style="${hasCTA ? '' : 'display:none'}">${ctaText}</a>                
-                    </div>
-                <div class="pga-numb" data-pganumber="${i}">${String(i).padStart(2, '0')}</div>
-                </div>
+        <div class="pga-ws-frame-content">
+          <h3 class="pga-ws-frame-title">${title}</h3>
+          <div class="pga-ws-frame-divider" aria-hidden="true"></div>
+          <p class="pga-ws-frame-text">${body}</p>
+          <a href="${(st.cta_url || '#')}"
+             class="pga-ws-cta"
+             style="${hasCTA ? '' : 'display:none'}">${ctaText}</a>
+        </div>
 
-                <div class="pga-ws-controls">
-                    <select class="pga-ws-template-select" data-preview-id="${i}">
-                    <option value="template-1" ${st.template === 'template-1' ? 'selected' : ''}>Clássico (Baixo)</option>
-                    <option value="template-2" ${st.template === 'template-2' ? 'selected' : ''}>Editorial (Centro)</option>
-                    <option value="template-3" ${st.template === 'template-3' ? 'selected' : ''}>Moderno (Topo)</option>
-                </select>
-            </div>
-            <button type="button" data-action="add-after" class="pga-addMore" data-i="${i}" title="Adicionar depois">+</button>
-            `;
+        <div class="pga-numb" data-pganumber="${i}">${String(i).padStart(2, '0')}</div>
+      </div>
 
+      <div class="pga-ws-controls">
+        <select class="pga-ws-template-select" data-preview-id="${i}">
+          <option value="template-1">Clássico (Baixo)</option>
+          <option value="template-2">Editorial (Centro)</option>
+          <option value="template-3">Moderno (Topo)</option>
+        </select>
+      </div>
+
+      <button type="button" data-action="add-after" class="pga-addMore" data-i="${i}" title="Adicionar depois">+</button>
+    `;
 
             container.appendChild(wrap);
+
+            // -------------------------------
+            // garante o SELECT refletindo o state
+            // (à prova de browser chato)
+            // -------------------------------
+            const sel = wrap.querySelector('.pga-ws-template-select');
+            if (sel) {
+                const v = (st.template || 'template-1');
+                sel.value = v;
+                if (sel.value !== v) {
+                    const opt = sel.querySelector(`option[value="${v}"]`);
+                    if (opt) opt.selected = true;
+                }
+
+                sel.addEventListener('change', (e) => {
+                    const id = parseInt(e.target.getAttribute('data-preview-id') || '0', 10);
+                    const val = e.target.value || 'template-1';
+
+                    // atualiza state
+                    const s2 = ensureState(id);
+                    s2.template = val;
+
+                    // atualiza classe do preview
+                    const pv = document.getElementById(`preview-${id}`);
+                    if (pv) {
+                        pv.classList.remove('template-1', 'template-2', 'template-3');
+                        pv.classList.add(val);
+                    }
+                });
+            }
         }
 
-        // listeners (templates)
-        container.querySelectorAll('.pga-ws-template-select').forEach(sel => {
-            sel.addEventListener('change', (e) => {
-                const id = parseInt(e.target.getAttribute('data-preview-id') || '0', 10);
-                setTemplate(id, e.target.value);
-            });
+        // -------------------------------
+        // “pente fino” final: se algo rodar depois e resetar,
+        // aqui a gente força de novo.
+        // -------------------------------
+        container.querySelectorAll('.pga-ws-frame-wrap').forEach(wrap => {
+            const i = parseInt(wrap.getAttribute('data-slide') || '0', 10);
+            if (!i) return;
+            const st = ensureState(i);
+            const sel = wrap.querySelector('.pga-ws-template-select');
+            if (sel) sel.value = st.template || 'template-1';
         });
 
-        applyTheme(themeClass);
+        if (typeof applyTheme === 'function') applyTheme(themeClass);
     };
 
     function updateSelectedPostTitleFromSelect() {
@@ -427,8 +488,6 @@
         shell.classList.add('is-open');
         shell.setAttribute('aria-hidden', 'false');
     }
-    window.openPublishModal = openPublishModal;
-
 
     function closePublishModal() {
         pgaModalClose();
@@ -438,37 +497,6 @@
     window.openPublishModal = openPublishModal;
     window.closePublishModal = closePublishModal;
 
-    // -------------------------------------------------------
-    // Coleta de dados (payload)
-    // -------------------------------------------------------
-    function collectModalMeta() {
-        const modal = pgaGetModalPanel('publish');
-        if (!modal) return { title: '', desc: '', start: '' };
-
-        const titleEl = modal.querySelector('input[type="text"]');
-        const descEl = modal.querySelector('textarea');
-        const startEl = modal.querySelector('#start-date');
-
-        return {
-            title: (titleEl ? titleEl.value : '').trim(),
-            desc: (descEl ? descEl.value : '').trim(),
-            start: startEl ? startEl.value : ''
-        };
-    }
-
-    function collectGlobalSettingsFromDOM() {
-        const logoId = parseInt(document.getElementById('pga_ws_logo_id')?.value || '0', 10) || 0;
-        const posterId = parseInt(document.getElementById('pga_ws_poster_id')?.value || '0', 10) || 0;
-
-        return {
-            publisher_logo_id: logoId,
-            poster_id: posterId,
-            accent_color: document.getElementById('pga_ws_accent_color')?.value || '#3b82f6',
-            text_color: document.getElementById('pga_ws_text_color')?.value || '#ffffff',
-            locale: (document.getElementById('pga_ws_locale') || document.getElementById('pga_story_locale'))?.value || 'pt_BR',
-            generate_images: !!document.getElementById('pga_ws_generate_images')?.checked,
-        };
-    }
 
     // -------------------------------------------------------
     // REST call
@@ -498,19 +526,217 @@
 
     window.pgaPostJSON = pgaPostJSON;
 
-    // -------------------------------------------------------
-    // Start generation (botão "Confirmar e Publicar")
-    // -------------------------------------------------------
-    window.startGeneration = async function () {
-        // se tem story_id, então "Publicar" = "Salvar"
-        if (isEditMode()) {
-            await saveStoryFromPublishModal();
-            closePublishModal();
-            return;
-        }
+    function collectModeAndPosts() {
+        if (currentTab === 'multi') {
+            const sel = document.getElementById('pga_ws_posts_multi');
+            const ids = sel ? Array.from(sel.selectedOptions).map(o => parseInt(o.value, 10)).filter(Boolean) : []; return { mode: 'bulk', post_ids: ids };
+        } // unit 
+        const unitSel = document.getElementById('pga_ws_post_unit') || document.querySelector('#publish-modal #unit-selection select') || document.querySelector('#unit-selection select');
+        const post_id = unitSel ? parseInt(unitSel.value || '0', 10) : 0; return { mode: 'single', post_id };
+    }
 
-        // senão, segue fluxo atual (gera)
-        return startGenerationCreateFlow(); // renomeie o seu startGeneration atual pra isso
+    function collectModalMeta() {
+        const modal = document.getElementById('publish-modal');
+        if (!modal) return { title: '', desc: '', start: '' };
+        const titleEl = modal.querySelector('input[type="text"]');
+        const descEl = modal.querySelector('textarea');
+        const startEl = modal.querySelector('#start-date');
+        const genImage = modal.document.getElementById('pga_ws_gen_images')?.checked ? 1 : 0;
+        return {
+            title: (titleEl ? titleEl.value : '').trim(),
+            desc: (descEl ? descEl.value : '').trim(),
+            start: startEl ? startEl.value : '',
+            genImage: genImage ? genImage : 1
+        };
+    }
+    // ------------------------------------------------------- 
+    // // Coleta de dados (payload) 
+    // // ------------------------------------------------------- 
+
+    function collectSlidesConfig() {
+        const arr = []; const frames = document.querySelectorAll('#frames-container .pga-ws-story-frame[id^="preview-"]');
+        frames.forEach(
+            frame => {
+                const idx = parseInt(frame.id.replace('preview-', ''), 10) || 0;
+                const template = frame.classList.contains('template-2') ? 'template-2' : frame.classList.contains('template-3') ? 'template-3' : 'template-1';
+                const cta_enabled = frame.classList.contains('has-cta');
+                arr.push({ index: idx, template, cta_enabled });
+            });
+        arr.sort((a, b) => a.index - b.index); return arr;
+    }
+
+    // -------------------------------------------------------
+    // Collect selected posts (Select2 multiple)
+    // -------------------------------------------------------
+    window.collectSelectedPosts = function () {
+        const el = document.getElementById('pga_ws_posts_multi');
+        if (!el) return [];
+
+        return Array.from(el.selectedOptions)
+            .map(o => parseInt(String(o.value || '').trim(), 10))
+            .filter(n => Number.isFinite(n) && n > 0);
+    };
+
+    // -------------------------------------------------------
+    // Start generation (botão "Gerar" do modal)
+    // -------------------------------------------------------
+    window.startGeneration = function () {
+        try {
+            const countEl = document.getElementsByClassName('pga-ws-frame-wrap');
+            const slidesCount = parseInt(countEl?.length || '6', 10) || 6;
+
+            const theme = (typeof getSelectedTheme === 'function') ? getSelectedTheme() : 'theme-normal';
+            const slides = (typeof collectSlidesConfig === 'function') ? collectSlidesConfig() : [];
+
+            const genImage = document.getElementById('pga_ws_generate_images');
+            const gen_images = genImage?.checked ? 1 : 0;
+
+            const startEl = document.getElementById('start-date');
+            const startData = startEl?.value ? String(startEl.value).trim() : '';
+
+            const ids = (typeof window.collectSelectedPosts === 'function')
+                ? window.collectSelectedPosts()
+                : [];
+
+            if (!Array.isArray(ids) || ids.length === 0) {
+                Swal.fire({ icon: 'warning', title: __('Selecione postagens', 'plugins-alpha') });
+                return;
+            }
+
+            // publish_start (string)
+            let publish_start = startData;
+            if (!publish_start) {
+                const d = new Date();
+                d.setDate(d.getDate() + 1);
+                publish_start = d.toISOString().slice(0, 10); // YYYY-MM-DD
+            }
+
+            const payloadBase = {
+                mode: 'single',
+                post_id: 0,
+                publish_start,
+                meta: { title: '', desc: '', slug: '' },
+                genImage: gen_images,
+                layout: { theme, slidesCount, slides }
+            };
+
+            const totalJobs = ids.length;
+
+            Swal.fire({
+                title: __('Gerando stories…', 'plugins-alpha'),
+                html: `
+                    <div style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px">
+                    <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
+                    </div>
+
+                    <div id="pga_prog" style="text-align:center;font-size:13px;margin-bottom:6px;">
+                    ${sprintf(__('Progresso: %d de %d', 'plugins-alpha'), 0, totalJobs)}
+                    </div>
+
+                    <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px;">
+                    ${__('Preparando geração…', 'plugins-alpha')}
+                    </div>
+                `,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: async () => {
+                    // fecha teu modal antigo depois que o Swal abriu
+                    if (typeof closePublishModal === 'function') closePublishModal();
+
+                    const refs = {
+                        status: document.getElementById('pga_prog'),
+                        bar: document.getElementById('pga_progbar'),
+                        cur: document.getElementById('pga_current'),
+                        total: totalJobs
+                    };
+
+                    const update = (done, text) => {
+                        const d = parseInt(done || 0, 10) || 0;
+
+                        if (refs.status) {
+                            refs.status.textContent = sprintf(__('Progresso: %d de %d', 'plugins-alpha'), d, refs.total);
+                        }
+
+                        if (refs.bar) {
+                            const pct = refs.total > 0 ? Math.round((d / refs.total) * 100) : 0;
+                            refs.bar.style.width = pct + '%';
+                        }
+
+                        if (refs.cur && typeof text === 'string') refs.cur.textContent = text;
+                    };
+
+                    const created = []; // {story_id, post_id}
+
+                    try {
+                        update(0, __('Iniciando…', 'plugins-alpha'));
+
+                        for (let i = 0; i < ids.length; i++) {
+                            const pid = parseInt(ids[i], 10) || 0;
+                            if (!pid) continue;
+
+                            update(i, sprintf(__('Gerando %d de %d…', 'plugins-alpha'), i + 1, refs.total));
+
+                            const itemPayload = { ...payloadBase, post_id: pid };
+                            const data = await pgaPostJSON('/ws/generate', itemPayload);
+
+                            const sid = parseInt((data && (data.story_id || data.id)) || '0', 10) || 0;
+                            if (sid) created.push({ story_id: sid, post_id: pid });
+
+                            update(i + 1, sprintf(__('Concluído %d de %d', 'plugins-alpha'), i + 1, refs.total));
+                        }
+
+                        Swal.close();
+
+                        // monta links de edição
+                        const itemsHtml = created.length
+                            ? `<ul style="text-align:left;margin:10px 0 0;padding-left:18px;">
+                ${created.map(it => {
+                                const editUrl = (window.pgaWsEditUrlBase)
+                                    ? (window.pgaWsEditUrlBase + String(it.story_id))
+                                    : siteUrl + '/wp-admin/admin.php?page=plugins-alpha-ws-generator&story_id=' + String(it.story_id);
+                                return `<li style="margin:6px 0;">
+                                    <a href="${editUrl}" target="_blank" rel="noopener noreferrer"
+                                    style="text-decoration:none;font-weight:600;">
+                                    ${sprintf(__('Editar story #%d', 'plugins-alpha'), it.story_id)}
+                                    </a>
+                                </li>`;
+                            }).join('')}
+                            </ul>`
+                            : `<div style="margin-top:8px;color:#6b7280;font-size:12px;">
+                                ${__('Nenhum story foi criado.', 'plugins-alpha')}
+                            </div>`;
+
+                        await Swal.fire({
+                            icon: 'success',
+                            title: __('Concluído!', 'plugins-alpha'),
+                            html: `
+                            <div style="text-align:center;font-size:13px;color:#374151;margin-bottom:6px;">
+                                ${sprintf(__('Foram gerados %d stories.', 'plugins-alpha'), created.length)}
+                            </div>
+                            ${itemsHtml}
+                            `,
+                            confirmButtonColor: '#0f172a'
+                        });
+
+                    } catch (e) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: __('Erro', 'plugins-alpha'),
+                            text: (e && e.message) ? e.message : __('Falha ao gerar.', 'plugins-alpha')
+                        });
+                    }
+                }
+            });
+
+        } catch (e) {
+            Swal.fire({
+                icon: 'error',
+                title: __('Erro', 'plugins-alpha'),
+                text: (e && e.message) ? e.message : __('Falha ao iniciar.', 'plugins-alpha')
+            });
+        }
     };
 
     function pgaToast(icon, title) {
@@ -571,10 +797,12 @@
             slug
         };
     }
+
     function pgaGetSelectedStatusSafe() {
         const sel = document.getElementById('pga_story_status');
         return (sel?.value || '').trim();
     }
+
     async function saveStory(mode = 'save') {
         let status;
         if (mode === "publish") status = "publish";
@@ -617,16 +845,6 @@
             const res = await pgaPostJSON('/ws/story/save', payload);
             if (!res?.ok) throw new Error('Falha ao salvar.');
             closePublishModal();
-
-            const savedStatus = (res?.status || res?.story?.post_status || '').trim();
-            const finalStatus = savedStatus || status;
-
-            await pgaToast('success',
-                finalStatus === 'trash' ? 'Excluído' :
-                    finalStatus === 'future' ? 'Agendado' :
-                        finalStatus === 'publish' ? 'Publicado' :
-                            'Salvo'
-            );
 
             const newStatus = res?.status || res?.story?.post_status || status;
             const newTitle = meta?.title || document.getElementById('pga_ws_meta_title')?.value || '';
@@ -706,25 +924,8 @@
     }
 
 
-
-    function openStoryLink() {
-        const wrap = document.querySelector('.pga-wrap.pga-ws');
-        const storyId = parseInt(wrap?.getAttribute('data-story-id') || '0', 10) || 0;
-        if (!storyId) return;
-
-        const baseHome = (window.PGA_WS_HOME_URL || '').toString().replace(/\/+$/, '/'); // garante 1 barra final
-        const baseSlug = (window.PGA_WS_BASE_SLUG || 'webstories').toString().replace(/^\/+|\/+$/g, '');
-        const slug = (document.getElementById('pga_story_slug')?.value || '').trim();
-
-        const end = slug ? slug : String(storyId);
-        const url = `${baseHome}${baseSlug}/${end}/`;
-
-        window.open(url, '_blank', 'noopener');
-    }
-
     window.deleteStoryRedirect = deleteStoryRedirect;
     window.saveStory = saveStory;
-    window.openStoryLink = openStoryLink;
 
     document.getElementById('pga_slide_pick_image')?.addEventListener('click', (e) => {
         e.preventDefault();
@@ -968,8 +1169,7 @@
 
         } catch (e) {
             hideSkeleton();
-            console.error(e);
-            const backUrl = PGA_CFG.site_url + '/wp-admin/admin.php?page=plugins-alpha-ws-generator';
+            const backUrl = siteUrl + '/wp-admin/admin.php?page=plugins-alpha-ws-generator';
 
             window.location.href = backUrl;
             Swal.fire({ icon: 'error', title: 'Erro', text: e?.message || 'Falha ao carregar story.' });
@@ -1068,7 +1268,6 @@
                 e.preventDefault();
 
                 if (!window.wp || !wp.media) {
-                    console.error('wp.media não disponível.');
                     return;
                 }
 
@@ -1427,9 +1626,9 @@
             loadStoryIntoUI(storyId);
         } else {
             const scope = pgaGetModalPanel('publish') || document;
-            if (scope.querySelector('#unit-selection') && scope.querySelector('#multi-selection')) {
-                switchTab('unit');
-            }
+            // if (scope.querySelector('#unit-selection') && scope.querySelector('#multi-selection')) {
+            //     switchTab('unit');
+            // }
 
             // default 6 slides no gerador
             if (!Object.keys(frameState).length) {
@@ -1438,11 +1637,11 @@
             generateFrames();
         }
 
-        const unitSel = document.querySelector('#unit-selection select');
-        if (unitSel) {
-            unitSel.addEventListener('change', updateSelectedPostTitleFromSelect);
-            updateSelectedPostTitleFromSelect();
-        }
+        // const unitSel = document.querySelector('#unit-selection select');
+        // if (unitSel) {
+        //     unitSel.addEventListener('change', updateSelectedPostTitleFromSelect);
+        //     updateSelectedPostTitleFromSelect();
+        // }
 
         const frames = document.getElementById('frames-container');
         if (frames) {
@@ -1473,3 +1672,24 @@
 
 
 })(jQuery);
+
+jQuery(function ($) {
+    const $multi = $('#pga_ws_posts_multi');
+    if (!$multi.length) return;
+
+    // ✅ pega o modal pai (ajusta o seletor pro teu modal real)
+    const $modal = $multi.closest('.swal2-popup').length
+        ? $multi.closest('.swal2-popup')
+        : $multi.closest('.pga-modal, .pga-popup, .pga-ws-modal, .pga-modal-wrap');
+
+    $multi.select2({
+        width: '100%',
+        placeholder: $multi.data('placeholder') || 'Buscar postagens...',
+        closeOnSelect: false,
+        allowClear: true,
+        minimumResultsForSearch: 0,
+
+        // ✅ isto resolve "abre atrás do modal"
+        dropdownParent: $modal.length ? $modal : $(document.body)
+    });
+});

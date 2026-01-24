@@ -1627,14 +1627,13 @@ details.pga-tpl summary {
 .pga-ws-tabs {
   display: flex;
   gap: 8px;
-  margin: 10px 0 14px;
 }
 
 .pga-ws-tab {
   border: 1px solid #e2e8f0;
   background: #fff;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 4px;
   cursor: pointer;
   font-weight: 700;
   font-size: 12px;
@@ -1831,7 +1830,8 @@ details.pga-tpl summary {
 }
 
 /* texto */
-#pga_tabs .pga-ws-style span {
+#pga_tabs .pga-ws-style span,
+.pga-ws-tabs a {
   font-size: .8rem;
   font-weight: 500;
   color: rgba(15, 23, 42, .72);
@@ -1861,7 +1861,9 @@ details.pga-tpl summary {
 }
 
 /* ativo (usa teu is-active) */
-#pga_tabs .pga-ws-style.is-active span {
+#pga_tabs .pga-ws-style.is-active span,
+.pga-ws-tabs a.tab-active,
+.pga-ws-tabs a:hover {
   color: rgba(37, 99, 235, 1);
   font-weight: 500;
 }
@@ -2031,30 +2033,9 @@ details.pga-tpl summary {
 .pga-modal__tabs {
   display: flex;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 0 16px;
   border-bottom: 1px solid #eef2f7;
   background: #fbfdff;
-}
-
-.pga-ws-tabs a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 999px;
-  background: #fff;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-  user-select: none;
-  text-decoration: none;
-  color: #0f172a;
-}
-
-.pga-ws-tabs a.tab-active {
-  border-color: rgba(59, 130, 246, .55);
-  background: rgba(59, 130, 246, .12);
 }
 
 .pga-grid-2 {
@@ -2121,6 +2102,7 @@ details.pga-tpl summary {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding-top: 15px;
 }
 
 .pga-btn--ghost {
@@ -2488,4 +2470,9 @@ details.pga-tpl summary {
   padding: 8px;
   font-size: 12px;
   color: #6b7280;
+}
+
+/* dropdown do select2 acima do modal */
+.select2-container--open {
+  z-index: 999999 !important;
 }

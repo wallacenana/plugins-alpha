@@ -245,6 +245,7 @@ final class PluginsAlpha_WS_CPT
                 $thumb_id = (int) get_post_thumbnail_id($source_post);
                 if ($thumb_id > 0) $effective_poster_id = $thumb_id;
             }
+            $urlSource = site_url() . "/?p=" . $source_post;
         }
 
         $logo_url   = $effective_logo_id ? (wp_get_attachment_image_url($effective_logo_id, 'full') ?: '') : '';
@@ -269,7 +270,16 @@ final class PluginsAlpha_WS_CPT
             // redirect final SEM id
             $trashUrl = add_query_arg('redirect_to', rawurlencode($back), $trashUrl);
         }
+        $st = $opt['stories'] ?? [];
+        $family = $st['default_font'] ?? [];
 ?>
+        <style>
+            .pga-ws-frame-content h2,
+            .pga-ws-frame-content p,
+            .pga-ws-frame-content a {
+                font-family: <?php echo $family ?>, sans-serif;
+            }
+        </style>
         <div class="pga-wrap pga-ws" data-story-id="<?php echo (int) $story_id; ?>">
             <div class="wrap pga-layout">
                 <div class="pga-header-fixed">
@@ -300,14 +310,12 @@ final class PluginsAlpha_WS_CPT
                             '</span>
                             </div>
                         </div>
-                        <button type="button" class="pga_save_box" onclick="openStoryLink()">
+                        <a class="pga_save_box" href=' . site_url() . "/" . self::get_base_slug() . "/" . $modal_slug . ' target="_blank">
                         <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
                         <path d="m256-240-56-56 384-384H240v-80h480v480h-80v-344L256-240Z"/></svg>
-                        </button>
-                        ' : ''; ?>
-
+                        </a>
                         <button
-                            title="<?php esc_attr_e('Configurações do Story', 'plugins-alpha'); ?>"
+                            title="' . esc_attr('Configurações do Story', 'plugins-alpha') . '"
                             type="button"
                             class="pga_save_box"
                             onclick="openPublishModal()">
@@ -315,8 +323,9 @@ final class PluginsAlpha_WS_CPT
                                 <path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z" />
                             </svg>
                         </button>
+                        ' : ''; ?>
                         <button
-                            title="<?php esc_attr_e('Salvar Story', 'plugins-alpha'); ?>"
+                            title="<?php esc_attr('Salvar Story', 'plugins-alpha'); ?>"
                             type="button"
                             class="pga_save_box"
                             onclick="saveStory('save')">
@@ -335,7 +344,8 @@ final class PluginsAlpha_WS_CPT
                         $label = $story_id ? $label_text : $label_html;
 
                         if (!empty($chk['ok'])) {
-                            echo '<button type="button" onclick="saveStory(\'publish\')" id="pga_plan">' . $label . '</button>';
+                            echo $story_id ? '<button type="button" onclick="saveStory(\'publish\')" id="pga_plan">' . $label . '</button>' :
+                                '<button type="button" onclick="openPublishModal()" id="pga_plan">' . $label . '</button>';
                         } else {
                             echo '<button type="button" id="pga_plan" disabled>' . $label . '</button>';
                         }
@@ -394,62 +404,58 @@ final class PluginsAlpha_WS_CPT
                         </div>
                         <button type="button" class="pga-modal-x" data-close="1">✕</button>
                     </div>
-                    <div class="pga-modal__tabs pga-ws-tabs">
-                        <a onclick="switchTab('unit')" id="tab-unit" class="tab-active"><?php esc_html_e('Unitário', 'plugins-alpha'); ?></a>
-                        <a onclick="switchTab('multi')" id="tab-multi"><?php esc_html_e('Em Massa', 'plugins-alpha'); ?></a>
-                    </div>
-
                     <div class="pga-modal-body">
 
                         <section class="pga-modal-panel" data-mode="publish" hidden>
                             <div class="pga-modal__body">
-                                <div class="pga-field">
-                                    <label><?php esc_html_e('Título', 'plugins-alpha'); ?></label>
-                                    <input id="pga_ws_meta_title" type="text" class="pga-input"
-                                        value="<?php echo esc_attr($modal_meta_title); ?>"
-                                        placeholder="<?php esc_attr_e('Ex: Guia Rápido de...', 'plugins-alpha'); ?>">
-                                </div>
+                                <?php if ($story_id) { ?>
+                                    <div class="pga-field">
+                                        <label><?php esc_html_e('Título', 'plugins-alpha'); ?></label>
+                                        <input id="pga_ws_meta_title" type="text" class="pga-input"
+                                            value="<?php echo esc_attr($modal_meta_title); ?>"
+                                            placeholder="<?php esc_attr_e('Ex: Guia Rápido de...', 'plugins-alpha'); ?>">
+                                    </div>
 
-                                <div class="pga-field">
-                                    <label><?php esc_html_e('Meta descrição', 'plugins-alpha'); ?></label>
-                                    <textarea id="pga_ws_meta_desc" class="pga-textarea" rows="2"
-                                        placeholder="<?php esc_attr_e('Breve descrição para o Google...', 'plugins-alpha'); ?>">
+                                    <div class="pga-field">
+                                        <label><?php esc_html_e('Meta descrição', 'plugins-alpha'); ?></label>
+                                        <textarea id="pga_ws_meta_desc" class="pga-textarea" rows="2"
+                                            placeholder="<?php esc_attr_e('Breve descrição para o Google...', 'plugins-alpha'); ?>">
                                         <?php
                                         echo esc_textarea($modal_meta_desc);
                                         ?></textarea>
-                                </div>
+                                    </div>
 
-                                <div class="pga-field">
-                                    <label for="pga_story_slug">Slug</label>
-                                    <input id="pga_story_slug" type="text" class="pga-input"
-                                        value="<?php echo esc_attr($modal_slug); ?>"
-                                        placeholder="<?php esc_attr_e('Ex.: post-exemplo'); ?>">
-                                </div>
-                                <div class="pga-row">
                                     <div class="pga-field">
-                                        <label class="pga-label">Status</label>
-                                        <div class="pga-status-line">
-                                            <select id="pga_story_status" class="pga-input">
-                                                <option value="draft" <?php selected($story_status, 'draft'); ?>>Rascunho</option>
-                                                <option value="future" <?php selected($story_status, 'future'); ?>>Agendado</option>
-                                                <option value="publish" <?php selected($story_status, 'publish'); ?>>Publicado</option>
-                                            </select>
+                                        <label for="pga_story_slug">Slug</label>
+                                        <input id="pga_story_slug" type="text" class="pga-input"
+                                            value="<?php echo esc_attr($modal_slug); ?>"
+                                            placeholder="<?php esc_attr_e('Ex.: post-exemplo'); ?>">
+                                    </div>
+                                    <div class="pga-row">
+                                        <div class="pga-field">
+                                            <label class="pga-label">Status</label>
+                                            <div class="pga-status-line">
+                                                <select id="pga_story_status" class="pga-input">
+                                                    <option value="draft" <?php selected($story_status, 'draft'); ?>>Rascunho</option>
+                                                    <option value="future" <?php selected($story_status, 'future'); ?>>Agendado</option>
+                                                    <option value="publish" <?php selected($story_status, 'publish'); ?>>Publicado</option>
+                                                </select>
 
 
-                                            <span id="pga_story_status_badge" class="pga-ws-status is-draft">Rascunho</span>
+                                                <span id="pga_story_status_badge" class="pga-ws-status is-draft">Rascunho</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="pga-field" id="pga_story_future_row" style="display:none;">
+                                            <label class="pga-label">Agendamento</label>
+                                            <input
+                                                id="pga_story_publish_at"
+                                                type="datetime-local"
+                                                class="pga-input"
+                                                value="<?php echo esc_attr($publish_at_val); ?>" />
                                         </div>
                                     </div>
-
-                                    <div class="pga-field" id="pga_story_future_row" style="display:none;">
-                                        <label class="pga-label">Agendamento</label>
-                                        <input
-                                            id="pga_story_publish_at"
-                                            type="datetime-local"
-                                            class="pga-input"
-                                            value="<?php echo esc_attr($publish_at_val); ?>" />
-                                    </div>
-                                </div>
-
+                                <?php } ?>
                                 <div class="pga-field">
                                     <label><?php esc_html_e('Categoria', 'plugins-alpha'); ?></label>
 
@@ -479,7 +485,7 @@ final class PluginsAlpha_WS_CPT
                                     </select>
                                 </div>
                                 <!-- Logo (WP Media) -->
-                                <div class="pga-grid-2">
+                                <div class="pga-row">
                                     <div class="pga-field">
                                         <label><?php esc_html_e('Logo do Publisher', 'plugins-alpha'); ?></label>
 
@@ -497,34 +503,31 @@ final class PluginsAlpha_WS_CPT
                                         <small class="pga-help"><?php esc_html_e('Usada como publisher logo no Web Story.', 'plugins-alpha'); ?></small>
                                     </div>
 
-                                    <!-- Poster (opcional) -->
-                                    <div class="pga-field">
-                                        <label><?php esc_html_e('Thumbnail', 'plugins-alpha'); ?></label>
+                                    <?php if ($story_id) { ?>
+                                        <!-- Poster (opcional) -->
+                                        <div class="pga-field">
+                                            <label><?php esc_html_e('Thumbnail', 'plugins-alpha'); ?></label>
 
-                                        <input type="hidden" id="pga_ws_poster_id" value="<?php echo (int) $effective_poster_id; ?>">
-                                        <div class="pga-media">
-                                            <img id="pga_ws_poster_preview" class="pga-media__preview"
-                                                src="<?php echo esc_url($poster_url); ?>" alt=""
-                                                style="<?php echo $poster_url ? '' : 'display:none;'; ?>">
-                                            <div class="pga-media__btns">
-                                                <button type="button" class="button" id="pga_ws_pick_poster"><?php esc_html_e('Selecionar', 'plugins-alpha'); ?></button>
-                                                <button type="button" class="button" id="pga_ws_clear_poster"><?php esc_html_e('Remover', 'plugins-alpha'); ?></button>
+                                            <input type="hidden" id="pga_ws_poster_id" value="<?php echo (int) $effective_poster_id; ?>">
+                                            <div class="pga-media">
+                                                <img id="pga_ws_poster_preview" class="pga-media__preview"
+                                                    src="<?php echo esc_url($poster_url); ?>" alt=""
+                                                    style="<?php echo $poster_url ? '' : 'display:none;'; ?>">
+                                                <div class="pga-media__btns">
+                                                    <button type="button" class="button" id="pga_ws_pick_poster"><?php esc_html_e('Selecionar', 'plugins-alpha'); ?></button>
+                                                    <button type="button" class="button" id="pga_ws_clear_poster"><?php esc_html_e('Remover', 'plugins-alpha'); ?></button>
+                                                </div>
                                             </div>
+                                            <small class="pga-help"><?php esc_html_e('Recomendado o formato 4:5 na vertical.', 'plugins-alpha'); ?></small>
                                         </div>
-                                        <small class="pga-help"><?php esc_html_e('Recomendado o formato 4:5 na vertical.', 'plugins-alpha'); ?></small>
-                                    </div>
+                                    <?php } ?>
                                 </div>
 
                                 <!-- Cores + Idioma -->
-                                <div class="pga-grid-2">
-                                    <div class="pga-field">
-                                        <label><?php esc_html_e('Cor de destaque', 'plugins-alpha'); ?></label>
+                                <div class="pga-row">
+                                    <div class="pga-field" <?php echo (!$story_id) ? "style=\"max-width: 180px;\"" : "" ?>>
+                                        <label for="pga_ws_accent_color"><?php esc_html_e('Cor de destaque', 'plugins-alpha'); ?></label>
                                         <input id="pga_ws_accent_color" type="color" class="pga-color" value="<?php echo esc_attr($modal_accent); ?>">
-                                    </div>
-
-                                    <div class="pga-field">
-                                        <label><?php esc_html_e('Cor do texto', 'plugins-alpha'); ?></label>
-                                        <input id="pga_ws_text_color" type="color" class="pga-color" value="<?php echo esc_attr($modal_textc); ?>">
                                     </div>
                                 </div>
                                 <?php if (!$story_id) { ?>
@@ -532,8 +535,6 @@ final class PluginsAlpha_WS_CPT
                                         <input id="pga_ws_generate_images" type="checkbox">
                                         <span>Gerar imagem para cada slide</span>
                                     </label>
-
-
 
                                     <div class="pga-field">
                                         <label><?php esc_html_e('Idioma', 'plugins-alpha'); ?></label>
@@ -551,10 +552,12 @@ final class PluginsAlpha_WS_CPT
                                     <hr class="pga-hr">
 
                                     <!-- Unit -->
-                                    <div id="unit-selection" class="pga-field">
+                                    <div id="unit-selection" class="pga-field hidden-tab">
                                         <label><?php esc_html_e('Post (unitário)', 'plugins-alpha'); ?></label>
 
                                         <?php
+                                        $source_id = isset($_GET['source']) ? absint($_GET['source']) : 0;
+
                                         $orion_posts = get_posts([
                                             'post_type'      => ['post', 'posts_orion'],
                                             'post_status'    => ['publish', 'pending', 'future'],
@@ -566,9 +569,10 @@ final class PluginsAlpha_WS_CPT
 
                                         <select id="pga_ws_post_unit" class="pga-select">
                                             <option value="0"><?php esc_html_e('Selecione um post', 'plugins-alpha'); ?></option>
+
                                             <?php if (!empty($orion_posts)) : ?>
                                                 <?php foreach ($orion_posts as $p) : ?>
-                                                    <option value="<?php echo esc_attr($p->ID); ?>">
+                                                    <option value="<?php echo esc_attr($p->ID); ?>" <?php selected($source_id, (int)$p->ID); ?>>
                                                         <?php echo esc_html(get_the_title($p)); ?>
                                                     </option>
                                                 <?php endforeach; ?>
@@ -576,12 +580,25 @@ final class PluginsAlpha_WS_CPT
                                                 <option value="0" disabled><?php esc_html_e('Nenhum post Órion publicado ainda.', 'plugins-alpha'); ?></option>
                                             <?php endif; ?>
                                         </select>
+
                                     </div>
 
                                     <!-- Multi -->
-                                    <div id="multi-selection" class="hidden-tab">
+                                    <div id="multi-selection">
                                         <div class="pga-field">
-                                            <label><?php esc_html_e('Postagens (massa)', 'plugins-alpha'); ?></label>
+                                            <label><?php esc_html_e('Selecionamento de posts', 'plugins-alpha'); ?></label>
+
+                                            <?php
+                                            $source_id = isset($_GET['source']) ? absint($_GET['source']) : 0;
+
+                                            $orion_posts = get_posts([
+                                                'post_type'      => ['post', 'posts_orion'],
+                                                'post_status'    => ['publish', 'pending', 'future'],
+                                                'numberposts'    => 100,
+                                                'orderby'        => 'date',
+                                                'order'          => 'DESC',
+                                            ]);
+                                            ?>
 
                                             <select id="pga_ws_posts_multi"
                                                 class="pga-select pga-ws-select2"
@@ -590,39 +607,54 @@ final class PluginsAlpha_WS_CPT
                                                 style="width:100%;">
                                                 <?php if (!empty($orion_posts)) : ?>
                                                     <?php foreach ($orion_posts as $p) : ?>
-                                                        <option value="<?php echo esc_attr($p->ID); ?>">
+                                                        <option value="<?php echo esc_attr($p->ID); ?>" <?php selected($source_id, (int)$p->ID); ?>>
                                                             <?php echo esc_html(get_the_title($p)); ?>
                                                         </option>
                                                     <?php endforeach; ?>
                                                 <?php endif; ?>
                                             </select>
-
-                                            <div class="pga-ws-multi-count">
-                                                <span id="pga_ws_multi_count">0</span> <?php esc_html_e('selecionados', 'plugins-alpha'); ?>
-                                            </div>
                                         </div>
                                     </div>
                                 <?php } ?>
+                                <?php
+                                if (isset($source_post))
+                                    echo '<b>' . esc_html_e('Referência', 'plugins-alpha') . '</b><a href="' . $urlSource . '" target="_blank">' . $source_post . '</a>';
+                                ?>
                             </div>
 
                             <div class="pga-modal__foot pga-generator-footer">
-                                <button type="button" class="pga_clear_box" onclick="deleteStoryRedirect('<?php echo esc_url($trashUrl); ?>')">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2 h-4 w-4 mr-2">
-                                        <path d="M3 6h18"></path>
-                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                        <line x1="10" x2="10" y1="11" y2="17"></line>
-                                        <line x1="14" x2="14" y1="11" y2="17"></line>
-                                    </svg>
-                                    Excluir </button>
+                                <?php if ($story_id) { ?>
+                                    <button type="button" class="pga_clear_box" onclick="deleteStoryRedirect('<?php echo esc_url($trashUrl); ?>')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2 h-4 w-4 mr-2">
+                                            <path d="M3 6h18"></path>
+                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                            <line x1="10" x2="10" y1="11" y2="17"></line>
+                                            <line x1="14" x2="14" y1="11" y2="17"></line>
+                                        </svg>
+                                        Excluir </button>
+                                <?php } ?>
 
                                 <button type="button" class="pga-btn pga-btn--ghost" data-close="1">
                                     <?php esc_html_e('Cancelar', 'plugins-alpha'); ?>
                                 </button>
 
-                                <button type="button" class="pga-btn pga-btn--primary" id="pga_plan" onclick="saveStory('save')">
-                                    <?php esc_html_e('Salvar', 'plugins-alpha'); ?>
-                                </button>
+                                <?php if ($story_id) { ?>
+                                    <button type="button"
+                                        class="pga-btn pga-btn--primary"
+                                        id="pga_plan"
+                                        onclick="saveStory('save')">
+                                        <?php esc_html_e('Salvar', 'plugins-alpha'); ?>
+                                    </button>
+                                <?php } else { ?>
+                                    <button type="button"
+                                        class="pga-btn pga-btn--primary"
+                                        id="pga_plan"
+                                        onclick="startGeneration()">
+                                        <?php esc_html_e('Gerar', 'plugins-alpha'); ?>
+                                    </button>
+                                <?php } ?>
+
                             </div>
                         </section>
 
@@ -670,7 +702,7 @@ final class PluginsAlpha_WS_CPT
                                 </div>
 
                                 <!-- Logo / Poster -->
-                                <div class="pga-row pga-grid-2">
+                                <div class="pga-row pga-row">
                                     <div class="pga-col">
                                         <label class="pga-label">Logo do Publisher</label>
                                         <input type="hidden" id="pga_story_logo_id" value="0" />
@@ -697,7 +729,7 @@ final class PluginsAlpha_WS_CPT
                                 </div>
 
                                 <!-- Cores -->
-                                <div class="pga-row pga-grid-2">
+                                <div class="pga-row pga-row">
                                     <div class="pga-col">
                                         <label class="pga-label">Cor de destaque</label>
                                         <input id="pga_story_accent" type="color" class="pga-color" value="#3b82f6" />
@@ -752,7 +784,7 @@ final class PluginsAlpha_WS_CPT
                                     <textarea id="pga_slide_body" class="pga-textarea" rows="3"></textarea>
                                 </div>
 
-                                <div class="pga-grid-2">
+                                <div class="pga-row">
                                     <div class="pga-field">
                                         <label>Texto CTA</label>
                                         <input id="pga_slide_cta_text" type="text" class="pga-input">
