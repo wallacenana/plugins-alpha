@@ -666,10 +666,11 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 .pga-field input[type="file"],
 .pga-field select,
 .pga-field textarea,
-.swal2-input {
+.swal2-input,
+.pga-input {
   width: 100% !important;
   padding: 8px 10px;
-  border: 1px solid #d1d5db !important;
+  border: 1px solid #d1d5db;
   border-radius: 6px !important;
   outline: none !important;
   background-color: var(--pga-bg);
@@ -678,13 +679,29 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
   max-width: 100%;
 }
 
+.select2-container--default .select2-results__option--selected {
+  background-color: #1c5cf41f!important;
+}
+
+.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+  background-color: var(--pga-accent)!important;
+}
+
+#pga-templates-modal .pga-input {
+  min-width: 220px;
+}
+
+#pga-templates-modal .pga-modal__panel {
+  width: 650px;
+}
+
 .swal2-input:focus {
   border: 1px solid var(--pga-accent) !important;
   outline: none !important;
   box-shadow: none;
 }
 
-#pga_generator_btn{
+#pga_generator_btn {
   color: #0032a9 !important
 }
 
@@ -2486,4 +2503,8 @@ details.pga-tpl summary {
 /* dropdown do select2 acima do modal */
 .select2-container--open {
   z-index: 999999 !important;
+}
+
+.pga-table-description {
+  padding: 15px
 }

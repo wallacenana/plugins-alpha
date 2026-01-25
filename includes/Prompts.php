@@ -1074,7 +1074,7 @@ class PluginsAlpha_Prompts
                                 <button type="button" class="pga-btn" data-pga-modal-close><?php esc_html_e('Fechar', 'plugins-alpha'); ?></button>
                             </div>
 
-                            <p class="description" style="margin-top:0;">
+                            <p class="pga-table-description" style="margin-top:0;">
                                 <?php esc_html_e('Aqui você escolhe quais modelos aparecem no gerador do Órion. O plugin mantém 2 nativos: Artigo e Modelar YouTube.', 'plugins-alpha'); ?>
                             </p>
 

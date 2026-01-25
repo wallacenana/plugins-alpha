@@ -411,7 +411,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $clone.find('.pga_link_extra').hide();
     $clone.find('.pga_link_manual_wrapper').hide();
 
-
     $container.append($clone);
 
     pgaSyncLinkOptionsForBox($clone);

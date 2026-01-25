@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Alpha Suite
  * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Alpha Órion, Alpha Stories e muito mais.
- * Version: 3.0.1
+ * Version: 3.0.2
  * Author: Wallace Tavares
  * Author URI: https://pluginsalpha.com/
  * Text Domain: plugins-alpha
@@ -17,7 +17,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('PLUGINS_ALPHA_VERSION', '3.0.1');
+define('PLUGINS_ALPHA_VERSION', '3.0.2');
 
 // Constantes
 define('PGA_FILE', __FILE__);

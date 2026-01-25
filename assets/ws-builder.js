@@ -577,6 +577,20 @@
             .filter(n => Number.isFinite(n) && n > 0);
     };
 
+    function pgaTomorrowAt(hour = 9, min = 0) {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        d.setHours(hour, min, 0, 0);
+
+        const pad = n => String(n).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        const mm = pad(d.getMonth() + 1);
+        const dd = pad(d.getDate());
+        const hh = pad(d.getHours());
+        const mi = pad(d.getMinutes());
+        return `${yyyy}-${mm}-${dd} ${hh}:${mi}:00`;
+    }
+
     // -------------------------------------------------------
     // Start generation (botão "Gerar" do modal)
     // -------------------------------------------------------
@@ -603,12 +617,16 @@
                 return;
             }
 
-            // publish_start (string)
             let publish_start = startData;
+
+            // se não veio data, usa amanhã (só a data)
             if (!publish_start) {
                 const d = new Date();
                 d.setDate(d.getDate() + 1);
-                publish_start = d.toISOString().slice(0, 10); // YYYY-MM-DD
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                publish_start = `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
             }
 
             const payloadBase = {
@@ -673,7 +691,34 @@
 
                             update(i, sprintf(__('Gerando %d de %d…', 'plugins-alpha'), i + 1, refs.total));
 
-                            const itemPayload = { ...payloadBase, post_id: pid };
+                            // base = publish_start; agenda 1 por dia e horário aleatório entre 06:00 e 12:00
+                            const base = String(publish_start).trim();
+                            const isoBase = base.includes(' ') ? base.replace(' ', 'T') : (base + 'T00:00:00');
+                            const dt = new Date(isoBase);
+
+                            // se falhar parse, cai pra amanhã
+                            if (isNaN(dt.getTime())) {
+                                const d = new Date();
+                                d.setDate(d.getDate() + 1);
+                                dt.setTime(d.getTime());
+                                dt.setHours(0, 0, 0, 0);
+                            }
+
+                            // + i dias (1 por dia)
+                            dt.setDate(dt.getDate() + i);
+
+                            // hora aleatória 06..11 e minuto 0..59 (manhã)
+                            dt.setHours(6 + Math.floor(Math.random() * 6), Math.floor(Math.random() * 60), 0, 0);
+
+                            // formata "YYYY-MM-DD HH:MM:00"
+                            const yyyy = dt.getFullYear();
+                            const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                            const dd = String(dt.getDate()).padStart(2, '0');
+                            const hh = String(dt.getHours()).padStart(2, '0');
+                            const mi = String(dt.getMinutes()).padStart(2, '0');
+                            const publish_at = `${yyyy}-${mm}-${dd} ${hh}:${mi}:00`;
+
+                            const itemPayload = { ...payloadBase, post_id: pid, publish_start: publish_at };
                             const data = await pgaPostJSON('/ws/generate', itemPayload);
 
                             const sid = parseInt((data && (data.story_id || data.id)) || '0', 10) || 0;
