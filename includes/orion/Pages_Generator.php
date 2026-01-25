@@ -312,6 +312,14 @@ class PluginsAlpha_Pages_Generator
 
                 </div>
                 <div class="pga-generator-footer">
+                  <button type="button" class="pga_generate_box" id="pga_generator_btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-zap h-4 w-4 mr-2">
+                      <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
+                      </path>
+                    </svg>
+                    <?php esc_html_e('Gerar agora', 'plugins-alpha'); ?>
+                  </button>
                   <button type="button" class="pga_save_box">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save h-4 w-4 mr-2">
@@ -320,14 +328,6 @@ class PluginsAlpha_Pages_Generator
                       <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
                     </svg>
                     <?php esc_html_e('Salvar modelo', 'plugins-alpha'); ?>
-                  </button>
-                  <button type="button" class="pga_generate_box">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                      stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-zap h-4 w-4 mr-2">
-                      <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
-                      </path>
-                    </svg>
-                    <?php esc_html_e('Gerar agora', 'plugins-alpha'); ?>
                   </button>
                   <button type="button" class="pga_generate_keywords">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

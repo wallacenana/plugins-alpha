@@ -531,11 +531,13 @@ final class PluginsAlpha_WS_CPT
                                     </div>
                                 </div>
                                 <?php if (!$story_id) { ?>
-                                    <label class="pga-ws-cta-check" style="display:flex;gap:10px;align-items:center;margin-top:10px">
-                                        <input id="pga_ws_generate_images" type="checkbox">
-                                        <span>Gerar imagem para cada slide</span>
-                                    </label>
-
+                                    <div class="pga-global-wrap" style="display:flex;align-items:center;gap:10px">
+                                        <label class="pga-switch">
+                                            <input type="checkbox" id="pga_ws_generate_images" checked="true">
+                                            <span class="pga-switch-ui" aria-hidden="true"></span>
+                                            <span class="pga-switch-label">Gerar imagem para cada slide</span>
+                                        </label>
+                                    </div>
                                     <div class="pga-field">
                                         <label><?php esc_html_e('Idioma', 'plugins-alpha'); ?></label>
                                         <select id="pga_ws_locale" class="pga-select">
@@ -733,7 +735,7 @@ final class PluginsAlpha_WS_CPT
                                     </div>
                                 </div>
                                 <label class="pga-ws-cta-check" style="display:flex;gap:10px;align-items:center;margin-top:10px">
-                                    <input id="pga_story_generate_images" type="checkbox">
+                                    <input id="pga_story_generate_images" type="checkbox" checked>
                                     <span>Gerar imagem para cada slide</span>
                                 </label>
 

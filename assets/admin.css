@@ -666,15 +666,26 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 .pga-field input[type="file"],
 .pga-field select,
 .pga-field textarea,
-.select2-search__field {
-  width: 100%;
+.swal2-input {
+  width: 100% !important;
   padding: 8px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px !important;
+  outline: none !important;
   background-color: var(--pga-bg);
-  font-size: .875rem;
-  line-height: 1.25rem;
+  font-size: .875rem !important;
+  line-height: 1.25rem !important;
   max-width: 100%;
+}
+
+.swal2-input:focus {
+  border: 1px solid var(--pga-accent) !important;
+  outline: none !important;
+  box-shadow: none;
+}
+
+#pga_generator_btn{
+  color: #0032a9 !important
 }
 
 .select2-selection .select2-selection--multiple,

@@ -12,10 +12,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   const REST = PGA_CFG.rest;
   const NONCE = PGA_CFG.nonce;
 
-  const PREF_KEY = 'pga_prefs_v1';
   const pillarId = window.PGA_PILLAR_ID || 0;
   const GROUPS_KEY = `pga_gen_groups_v1_${pillarId}`;
   let PGA_LOADING_GROUPS = false;
+  let PGA_SWITCHING_TAB = false;
 
   // Flag global pra saber se há geração em andamento
   window.PGA_IS_GENERATING = window.PGA_IS_GENERATING || false;
@@ -25,6 +25,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     window.PGA_BEFOREUNLOAD_BOUND = true;
 
     window.addEventListener('beforeunload', function (e) {
+      if (PGA_SWITCHING_TAB) return;
       if (!window.PGA_IS_GENERATING && !window.PGA_IS_DIRTY) return;
 
       const msg = window.PGA_IS_GENERATING
@@ -36,6 +37,25 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       return msg;
     });
   }
+
+  function pgaSwitchTab(nextTabId) {
+    const curTabId = localStorage.getItem(KEY_ACTIVE_TAB) || '';
+    if (!nextTabId || nextTabId === curTabId) return;
+
+    // salva o atual antes de trocar (autosave já salva, mas isso garante)
+    try { if (curTabId) saveCurrentTabGroups(curTabId); } catch (e) { }
+
+    localStorage.setItem(KEY_ACTIVE_TAB, nextTabId);
+
+    loadTabGroups(nextTabId);
+    renderTabsUI(loadTabs(), nextTabId);
+
+    window.PGA_IS_DIRTY = false;
+  }
+
+  $(document).on('click', '#pga_tabs button[data-tab]', function () {
+    pgaSwitchTab($(this).attr('data-tab'));
+  });
 
   function pgaToast(icon, title, timer = 1800) {
     if (!window.Swal) return;
@@ -50,61 +70,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       customClass: { popup: 'pga-toast-offset' }
     });
   }
-
-
-  function loadPrefs() {
-    try {
-      const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
-
-      // se ainda não existia nada salvo, não faz nada
-      if (!p || typeof p !== 'object') return;
-
-      const $box = $('#pga_gen_container .pga-gen-box').first();
-
-      // ⬇️ compat com layout antigo (sem grupos)
-      if (!$box.length) {
-        if (p.locale) $('#pga_locale').val(p.locale);
-        if (p.category_id) $('#pga_category').val(String(p.category_id));
-        if (p.template_key) $('#pga_template_key').val(p.template_key);
-        if (p.length) $('#pga_length').val(p.length);
-        if (p.total) $('#pga_total').val(String(p.total));
-        if (p.per_day) $('#pga_per_day').val(String(p.per_day));
-        if (p.first_delay_hours) $('#pga_first_delay_hours').val(String(p.first_delay_hours));
-        if (p.mode) $(`input[name="pga_mode"][value="${p.mode}"]`).prop('checked', true);
-        return;
-      }
-
-      // ⬇️ novo: aplica no 1º grupo
-      if (p.locale) $box.find('.pga_locale').val(p.locale);
-      if (p.category_id) $box.find('.pga_category').val(String(p.category_id));
-      if (p.template_key) $box.find('.pga_template_key').val(p.template_key);
-      if (p.length) $box.find('.pga_length').val(p.length);
-      if (p.total) $box.find('.pga_total').val(String(p.total));
-      if (p.per_day) $box.find('.pga_per_day').val(String(p.per_day));
-      if (p.first_delay_hours) $box.find('.pga_first_delay_hours').val(String(p.first_delay_hours));
-
-      // interno: links
-      if (p.internal_links && typeof p.internal_links === 'object') {
-        const mode = p.internal_links.mode || 'none';
-        const max = p.internal_links.max || 0;
-        const ids = (p.internal_links.manual_ids || '')
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean);
-
-        $box.find('.pga_link_mode').val(mode).trigger('change'); // dispara pra mostrar/ocultar campos
-        $box.find('.pga_link_max').val(String(max));
-
-        if (ids.length) {
-          $box.find('.pga_link_manual').val(ids).trigger('change');
-        }
-      }
-
-    } catch (e) {
-      // silencioso
-    }
-  }
-
 
   // ===== Dropup "Concluídas" =====
   $(document).on('click', '#pga_done_toggle', function () {
@@ -190,7 +155,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       $box.find('.pga_keywords').val('');
       $box.find('.pga_total').val('6');
       $box.find('.pga_per_day').val('3');
-      $box.find('.pga_template_key').val('discover_article');
+      $box.find('.pga_template_key').val('article');
       $box.find('.pga_locale').val('pt_BR');
       $box.find('.pga_length').val('short');
       $box.find('.pga_category').val('0');
@@ -310,7 +275,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     return {
       keywords: $box.find('.pga_keywords').val() || '',
       locale: $box.find('.pga_locale').val() || 'pt_BR',
-      template_key: $box.find('.pga_template_key').val() || 'discover_article',
+      template_key: $box.find('.pga_template_key').val() || 'article',
       category: $box.find('.pga_category').val() || '0',
       total: parseInt($box.find('.pga_total').val() || '0', 10) || 0,
       per_day: parseInt($box.find('.pga_per_day').val() || '0', 10) || 0,
@@ -333,7 +298,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     $box.find('.pga_keywords').val(cfg.keywords || '');
     $box.find('.pga_locale').val(cfg.locale || 'pt_BR');
-    $box.find('.pga_template_key').val(cfg.template_key || 'discover_article');
+    $box.find('.pga_template_key').val(cfg.template_key || 'article');
     $box.find('.pga_category').val(cfg.category || '0');
     $box.find('.pga_total').val(cfg.total || 0);
     $box.find('.pga_per_day').val(cfg.per_day || 0);
@@ -381,32 +346,19 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       return '';
     }
   }
-
-  // Se não tiver ?tab=, usa "default" (não quebra nada e mantém compatível)
-  function pgaGroupsStorageKey() {
-    const tabId = pgaGetTabId() || 'default';
-    return `${GROUPS_KEY}_${tabId}`;
-  }
-
-
-  // salva TODOS os grupos no localStorage
   function pgaSaveBoxesToLocal() {
-    if (PGA_LOADING_GROUPS) return; // <<<<<< essencial
+    if (PGA_LOADING_GROUPS) return;
 
-    try {
-      const all = [];
-      $('#pga_gen_container .pga-gen-box').each(function () {
-        all.push(pgaSerializeBox($(this)));
-      });
+    const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || '';
+    if (!tabId) return;
 
-      // se por algum motivo não achou boxes, NÃO grava [] (evita matar legacy/tab)
-      if (!all.length) return;
+    const all = [];
+    $('#pga_gen_container .pga-gen-box').each(function () {
+      all.push(pgaSerializeBox($(this)));
+    });
+    if (!all.length) return;
 
-      localStorage.setItem(pgaGroupsStorageKey(), JSON.stringify(all));
-    } catch (e) {
-      // não silencie agora enquanto testa:
-      console.warn('[PGA] save failed', e);
-    }
+    saveGroupsForTab(tabId, all);
   }
 
   // === Botão "Adicionar grupo" ===
@@ -434,7 +386,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $clone.find('.pga_per_day').val('3');
 
     // reseta selects para o padrão (pode customizar)
-    $clone.find('.pga_template_key').val('discover_article');
+    $clone.find('.pga_template_key').val('article');
     $clone.find('.pga_locale').val('pt_BR');
     $clone.find('.pga_length').val('short');
     $clone.find('.pga_category').val('0'); // “sem categoria”
@@ -466,6 +418,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     initLinkManualSelect2($clone);
     pgaUpdateBoxTitle($clone);
     window.PGA_IS_DIRTY = true;
+    pgaSaveBoxesToLocal();
   });
 
   // Atualiza o título do primeiro grupo ao carregar
@@ -875,29 +828,53 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   }
 
   // aplica grupos no DOM
-  function applyGroupsToDom(groups) {
-    if (!Array.isArray(groups) || !groups.length) {
-      // só garante título coerente
-      $('#pga_gen_container .pga-gen-box').each(function () {
-        pgaSyncLinkOptionsForBox($(this));
-        pgaUpdateBoxTitle($(this));
-      });
-      return;
+  function resetBoxesToOne() {
+    const $container = $('#pga_gen_container');
+    const $boxes = $container.find('.pga-gen-box');
+    if ($boxes.length <= 1) return;
+    $boxes.slice(1).remove();
+  }
+
+  function ensureBoxesCountExact(targetCount) {
+    resetBoxesToOne();
+
+    const $container = $('#pga_gen_container');
+    const $first = $container.find('.pga-gen-box').first();
+    if (!$first.length) return;
+
+    // cria até bater
+    while ($container.find('.pga-gen-box').length < targetCount) {
+      $('#pga_add_box').trigger('click');
     }
+  }
 
-    ensureBoxesCount(groups.length); // você já tem
+  function applyGroupsToDom(groups) {
+    PGA_LOADING_GROUPS = true;
+    try {
+      if (!Array.isArray(groups) || !groups.length) {
+        ensureBoxesCountExact(1);
+        const $first = $('#pga_gen_container .pga-gen-box').first();
+        if ($first.length) {
+          pgaActivateBox($first);
+          pgaUpdateBoxTitle($first);
+        }
+        return;
+      }
 
-    const $boxes = $('#pga_gen_container .pga-gen-box');
+      ensureBoxesCountExact(groups.length);
 
-    groups.forEach((g, i) => {
-      const $box = $boxes.eq(i);
-      if (!$box.length) return;
-      pgaApplyBoxConfig($box, g);
-    });
+      const $boxes = $('#pga_gen_container .pga-gen-box');
+      groups.forEach((g, i) => {
+        const $box = $boxes.eq(i);
+        if ($box.length) pgaApplyBoxConfig($box, g);
+      });
 
-    // garante IDs no primeiro (pra teu fluxo atual não quebrar)
-    const $first = $('#pga_gen_container .pga-gen-box').first();
-    if ($first.length) pgaActivateBox($first);
+      const $first = $('#pga_gen_container .pga-gen-box').first();
+      if ($first.length) pgaActivateBox($first);
+
+    } finally {
+      PGA_LOADING_GROUPS = false;
+    }
   }
 
   // migração 1 vez: só roda se a tab NOVA ainda não tiver grupos salvos
@@ -971,7 +948,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       return {
         locale: $box.find('.pga_locale').val() || 'pt_BR',
         length: $box.find('.pga_length').val() || 'short',
-        template_key: $box.find('.pga_template_key').val() || 'discover_article',
+        template_key: $box.find('.pga_template_key').val() || 'article',
         source_url: '',
         category_id: parseInt($box.find('.pga_category').val() || '0', 10) || 0,
 
@@ -1054,11 +1031,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
           manual_ids: manualVals.join(',')
         }
       };
-    }
-
-
-    function savePrefsToLocal() {
-      try { localStorage.setItem(PREF_KEY, JSON.stringify(collectPrefs())); } catch (e) { }
     }
 
     // ---------- Keywords: listar ----------
@@ -1168,7 +1140,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         $box.find('.pga_keywords').val('');
         $box.find('.pga_total').val('6');
         $box.find('.pga_per_day').val('3');
-        $box.find('.pga_template_key').val('discover_article');
+        $box.find('.pga_template_key').val('article');
         $box.find('.pga_locale').val('pt_BR');
         $box.find('.pga_length').val('short');
         $box.find('.pga_category').val('0');
@@ -1220,8 +1192,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         btn.disabled = true;
 
         try {
-          savePrefsToLocal();
-
           // ✅ salva grupos 1x só
           const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
           if (tabId) {
@@ -1237,8 +1207,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
           pgaToast('success', __('Salvo', 'plugins-alpha'));
 
         } catch (err) {
-          console.log(err);
-
           // ✅ nunca passe objeto Error direto pro Swal title
           const msg = (err && err.message) ? err.message : String(err || 'Erro');
           pgaToast('error', msg, 2200);
@@ -1263,7 +1231,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
       (async () => {
         pgaActivateBox($box);
-        savePrefsToLocal();
 
         const titleText = $box.find('.pga-gen-title').text().trim() || __('Grupo atual', 'plugins-alpha');
 
@@ -1928,9 +1895,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       // ✅ fila global (ordem 2,1,2,1...)
       // precisa que sua função retorne {kw, boxEl}
       const plannedKw = pgaBuildPlannedKeywordsByPerDay(groups, totalGlobal);
-
-      console.log(plannedKw);
-
       if (!plannedKw.length) {
         await Swal.fire({
           icon: 'info',
@@ -2024,8 +1988,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       if (!e || !e.originalEvent) return;
       window.PGA_IS_DIRTY = true;
     });
-
-
   }
 
   // boot
@@ -2033,7 +1995,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     if (onSettingsPage()) await bootSettings();
     await bootGenerator();
     initLinkManualSelect2();
-    loadPrefs();
   });
 
   // Helpers SweetAlert2
@@ -2681,18 +2642,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     return u.searchParams.get('tab') || '';
   }
 
-  function setUrlTabNoReload(tabId) {
-    const u = new URL(window.location.href);
-    u.searchParams.set('tab', tabId);
-    history.replaceState({}, '', u.toString());
-  }
-
-  function buildTabUrl(tabId) {
-    const u = new URL(window.location.href);
-    u.searchParams.set('tab', tabId);
-    return u.toString();
-  }
-
   function getDefaultTemplatesFromButton() {
     const btn = document.getElementById('pga_tab_add');
     if (!btn) return ['article'];
@@ -2709,9 +2658,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   }
 
   function pgaDoneKey() {
-    const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || 'default';
-    const pillarId = window.PGA_PILLAR_ID || 0;
-    return `pga_orion_done_v1_${pillarId}_${tabId}`;
+    return `pga_orion_done_v1`; 
   }
 
   window.pgaLoadDone = function () {
@@ -2791,16 +2738,11 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       saveTabs(tabs);
     }
 
-    let tabId = getTabIdFromUrl();
-
-    if (!tabId) {
-      tabId = localStorage.getItem(KEY_ACTIVE_TAB) || tabs[0].id;
-      setUrlTabNoReload(tabId);
-    }
+    // NUNCA puxa da URL; só do storage
+    let tabId = localStorage.getItem(KEY_ACTIVE_TAB) || tabs[0].id;
 
     if (!tabs.some(t => t.id === tabId)) {
       tabId = tabs[0].id;
-      setUrlTabNoReload(tabId);
     }
 
     localStorage.setItem(KEY_ACTIVE_TAB, tabId);
@@ -2816,39 +2758,23 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     tabs.forEach(t => {
       const active = (t.id === tabId);
 
-      const $a = $('<a/>', {
+      const $btn = $('<button/>', {
+        type: 'button',
         class: 'button ' + (active ? 'button-primary' : ''),
-        href: buildTabUrl(t.id),
+        'data-tab': t.id
       });
 
-      // conteúdo interno do botão
-      const $label = $('<span/>', {
-        class: 'pga-tab-label',
-        text: t.title || 'Projeto',
-        css: { display: 'inline-flex', alignItems: 'center' }
-      });
+      const $label = $('<span/>', { class: 'pga-tab-label', text: t.title || 'Projeto' });
 
-      // lixeira dentro do botão
-      const $trash = $('<span/>', {
-        class: 'pga-tab-trash',
-        html: 'x',
-        title: 'Excluir aba',
-      });
-
-      // hover só no ícone (fica mais “limpo”)
-      $trash.on('mouseenter', function () { $(this).css('opacity', '1'); });
-      $trash.on('mouseleave', function () { $(this).css('opacity', '0.75'); });
-
-      // clicar na lixeira NÃO navega, só exclui
+      const $trash = $('<span/>', { class: 'pga-tab-trash', html: 'x', title: 'Excluir aba' });
       $trash.on('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         pgaDeleteTab(t.id);
       });
 
-      // monta
-      $a.append($label, $trash);
-      $wrap.append($a);
+      $btn.append($label, $trash);
+      $wrap.append($btn);
     });
   }
 
@@ -2872,37 +2798,24 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   function addTabAndGo(name) {
     const tabs = loadTabs();
     const nextNum = tabs.length + 1;
-
     const title = String(name || '').trim() || (__('Projeto ', 'plugins-alpha') + nextNum);
 
     const tab = { id: makeId(), title };
     tabs.push(tab);
     saveTabs(tabs);
 
-    // ✅ cria grupos default já na tab nova
+    // cria grupos default já na tab nova
     try {
       const groups = buildGroupsForNewProject();
       saveGroupsForTab(tab.id, groups);
     } catch (e) { }
+
+    // ativa sem navegar
     localStorage.setItem(KEY_ACTIVE_TAB, tab.id);
-    window.location.href = buildTabUrl(tab.id);
-  }
+    loadTabGroups(tab.id);
+    renderTabsUI(tabs, tab.id);
 
-  function ensureBoxesCount(targetCount) {
-    // conta boxes já existentes
-    let $boxes = $('#pga_gen_container .pga-gen-box');
-    let n = $boxes.length;
-
-    if (n >= targetCount) return;
-
-    // clica no seu botão de adicionar grupo até bater
-    const $add = $('#pga_add_box');
-    if (!$add.length) return;
-
-    while (n < targetCount) {
-      $add.trigger('click');
-      n++;
-    }
+    window.PGA_IS_DIRTY = false;
   }
 
   function loadTabGroups(tabId) {
@@ -2916,43 +2829,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     applyGroupsToDom(groups);
   }
 
-
   function saveCurrentTabGroups(tabId) {
     const groups = serializeAllGroupsFromDom();
     saveGroupsForTab(tabId, groups);
   }
-
-  function bindAutoSave(tabId) {
-    // evita duplicar handlers se esse init rodar mais de uma vez
-    $(document).off('change.pgaTab click.pgaTab');
-    // beforeunload: não dá pra "off" fácil, então guardamos flag
-    if (!window.PGA_TAB_BEFOREUNLOAD_BOUND) {
-      window.PGA_TAB_BEFOREUNLOAD_BOUND = true;
-      window.addEventListener('beforeunload', function () {
-        try {
-          const tid = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
-          if (tid) saveCurrentTabGroups(tid);
-        } catch (e) { }
-      });
-    }
-
-    // debounce simples
-    let t = null;
-    const scheduleSave = () => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        try { saveCurrentTabGroups(tabId); } catch (e) { }
-      }, 450);
-    };
-
-    // salva em mudanças
-    $(document).on('change.pgaTab', '#pga_gen_container .pga-gen-box :input', function (e) {
-      if (e && e.isTrigger) return;
-      scheduleSave();
-    });
-
-  }
-
 
   async function pgaDeleteTab(tabId) {
     if (!tabId) return;
@@ -3016,8 +2896,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       renderTabsUI(tabs, cur);
     }
   }
-
-
 
   $(function () {
     // 1) garante tabId
