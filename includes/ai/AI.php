@@ -170,7 +170,7 @@ class PluginsAlpha_AI
         if (! $class::is_configured()) {
             return new WP_Error(
                 'pga_provider_no_key',
-                "Nenhuma credencial encontrada para o provedor '{$provider}'."
+                "O provedor selecionado é '{$provider}', mas não foi encontrado credências para ele, vá em configurações e altere o gerador de textos padrão."
             );
         }
 
