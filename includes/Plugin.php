@@ -92,7 +92,24 @@ class PluginsAlpha_Plugin
     $page = isset($_GET['page']) ? sanitize_key((string) $_GET['page']) : '';
 
     wp_enqueue_media();
-    
+
+    if ($page === 'plugins-alpha-rss') {
+      wp_enqueue_script(
+        'pga-rss',
+        PGA_URL . 'assets/pga-rss.js',
+        ['jquery', 'sweetalert2', 'wp-i18n'],
+        pga_asset_ver('assets/pga-rss.js'),
+        true
+      );
+
+      wp_localize_script('pga-rss', 'PGA_CFG', [
+        'rest'   => esc_url_raw(rest_url('pga/v1')),
+        'nonce'  => wp_create_nonce('wp_rest'),
+        'options' => class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [],
+        'site_url'     => site_url(),
+      ]);
+    }
+
     if ($page === 'plugins-alpha-ws-generator') {
       wp_enqueue_script(
         'pga-ws-builder',
@@ -117,6 +134,7 @@ class PluginsAlpha_Plugin
       'rest'   => esc_url_raw(rest_url('pga/v1')),
       'nonce'  => wp_create_nonce('wp_rest'),
       'options' => class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [],
+      'site_url'     => site_url(),
       'isCPT'  => (bool) $is_cpt_screen,
     ]);
   }

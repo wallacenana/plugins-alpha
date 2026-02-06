@@ -4,7 +4,6 @@ if (!defined('ABSPATH')) exit;
 class PluginsAlpha_REST
 {
 
-
     /**
      * Normaliza array de strings: trim, remove vazios e duplicados (case-insensitive)
      */
@@ -140,6 +139,14 @@ class PluginsAlpha_REST
         register_rest_route('pga/v1', '/orion/keywords', [
             'methods'             => 'POST',
             'callback'            => [__CLASS__, 'keywords'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            },
+        ]);
+
+        register_rest_route('pga/v1', '/orion/faq', [
+            'methods'             => 'POST',
+            'callback'            => [__CLASS__, 'generate_faq'],
             'permission_callback' => function () {
                 return current_user_can('edit_posts');
             },
@@ -447,8 +454,6 @@ class PluginsAlpha_REST
             return new WP_Error('pga_images_missing', 'Classe de imagens não encontrada.', ['status' => 500]);
         }
 
-        error_log('prompt: ' . $meta_img_prompt);
-        error_log('gerado : ' . $img_prompt);
         // 3) Gera thumb usando o PROVIDER DE IMAGEM configurado
         $thumb_id = PluginsAlpha_Images::generate_by_settings(
             $img_prompt,
@@ -718,9 +723,31 @@ class PluginsAlpha_REST
             'ok' => true,
             'keywords_text' => implode("\n", $final),
         ];
-
     }
-    
+
+    public static function generate_faq(WP_REST_Request $req)
+    {
+        $post_id = (int) $req['post_id'];
+        $qty     = min(5, max(1, (int) $req['qty']));
+        $keyword = sanitize_text_field($req['keyword'] ?? '');
+        $locale  = sanitize_text_field($req['locale'] ?? 'pt_BR');
+
+        // gera FAQ via IA
+        $faq = PluginsAlpha_AI::faq([
+            'keyword' => $keyword,
+            'qty'     => $qty,
+            'locale'  => $locale,
+        ]);
+
+        if (is_wp_error($faq)) {
+            return $faq;
+        }
+
+        // salva JSON-LD no meta
+        update_post_meta($post_id, '_pga_faq_jsonld', $faq);
+
+        return ['ok' => true];
+    }
 
     public static function plan($req)
     {
@@ -754,6 +781,19 @@ class PluginsAlpha_REST
             $locale = self::clean($p['locale'] ?? 'pt_BR');
             $tpl    = self::clean($p['template_key'] ?? 'article');
             $length = self::clean($p['length'] ?? 'short');
+
+            $tags = [];
+            if (!empty($p['tags']) && is_array($p['tags'])) {
+                $tags = array_values(array_filter(array_map(
+                    'sanitize_text_field',
+                    $p['tags']
+                )));
+            }
+
+            $faq = [
+                'enabled' => !empty($p['faq']['enabled']),
+                'qty'     => min(5, max(1, intval($p['faq']['qty'] ?? 0))),
+            ];
 
             // modelar URL e modelar YouTube
             $isModelar = in_array($tpl, ['modelar', 'modelar_youtube'], true);
@@ -876,6 +916,8 @@ class PluginsAlpha_REST
                         'publish_time'   => $t,
                         'transition'     => $transition,
                         'category_id'    => $cat_id,
+                        'tags'           => $tags,
+                        'faq'            => $faq,
                         'internal_links' => [
                             'mode'       => $link_mode,
                             'max'        => $link_max,
@@ -978,10 +1020,10 @@ class PluginsAlpha_REST
         if (!is_array($p)) $p = [];
 
         $opt       = PluginsAlpha_Settings::get();
-        $key       = trim($p['key'] ?? ($opt['apis']['openai']['key'] ?? ''));
-        $model     = trim($p['model'] ?? ($opt['apis']['openai']['model_text'] ?? 'gpt-4o-mini'));
-        $temp      = floatval($p['temperature'] ?? ($opt['apis']['openai']['temperature'] ?? 0.6));
-        $maxTokens = intval($p['max_tokens'] ?? ($opt['apis']['openai']['max_tokens'] ?? 512));
+        $key       = trim($p['key'] !== '' ? $p['key'] : ($opt['apis']['openai']['key'] ?? ''));
+        $model     = trim($p['model'] !== '' ? $p['model'] : ($opt['apis']['openai']['model_text'] ?? 'gpt-4o-mini'));
+        $temp      = floatval($p['temperature'] !== '' ? $p['temperature'] : ($opt['apis']['openai']['temperature'] ?? 0.6));
+        $maxTokens = intval($p['max_tokens'] !== '' ? $p['max_tokens'] : ($opt['apis']['openai']['max_tokens'] ?? 512));
 
         if (!$key) {
             return new WP_Error('agp_no_key', 'Nenhuma chave OpenAI informada.', ['status' => 400]);

@@ -830,9 +830,6 @@ class PluginsAlpha_Prompts
                 break;
             }
         }
-        if (!$has_custom) {
-            $tpls_all['receitas'] = ['label' => 'Receitas (exemplo)', 'enabled' => 0, 'builtin' => 0];
-        }
 
         // Só pra organizar: nativos primeiro
         uksort($tpls_all, function ($a, $b) use ($tpls_all) {
@@ -1156,7 +1153,7 @@ class PluginsAlpha_Prompts
                                 <tfoot>
                                     <tr>
                                         <td colspan="4">
-                                            <button type="button" class="pga-btn" id="pga-add-tpl-row">+ <?php esc_html_e('Adicionar modelo personalizado', 'plugins-alpha'); ?></button>
+                                            <button type="button" class="pga-btn pga-btn--primary" id="pga-add-tpl-row">+ <?php esc_html_e('Adicionar modelo personalizado', 'plugins-alpha'); ?></button>
                                             <span class="pga-mini" style="margin-left:10px;"><?php esc_html_e('Ex.: receitas, review, modelar_url', 'plugins-alpha'); ?></span>
                                         </td>
                                     </tr>
@@ -1501,13 +1498,7 @@ class PluginsAlpha_Prompts
         <div style="font-size:13px;color:#666;margin:0 0 10px">
           Digite um nome (ex.: <b>Receitas</b>, <b>Review</b>, <b>Modelar URL</b>).
         </div>
-        <input id="pga_tpl_label" class="swal2-input" placeholder="Nome do modelo" autocomplete="off">
-        <div style="display:flex;gap:10px;margin-top:10px;align-items:center">
-          <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:#444;margin:0">
-            <input id="pga_tpl_enabled" type="checkbox" checked style="transform:scale(1.05)">
-            Criar como <b>Ativo</b>
-          </label>
-        </div>
+        <input id="pga_tpl_label" class="swal2-input" style="margin: 0!important" placeholder="Nome do modelo" autocomplete="off">
       </div>`,
                         focusConfirm: false,
                         showCancelButton: true,
@@ -2201,6 +2192,36 @@ class PluginsAlpha_Prompts
         $final = $base . "\n\n" . $rules;
 
         return $final;
+    }
+
+    public static function build_faq_prompt(array $args): string
+    {
+        $keyword = trim((string)($args['keyword'] ?? ''));
+        $qty     = min(5, max(1, (int)($args['qty'] ?? 3)));
+        $locale  = $args['locale'] ?? 'pt_BR';
+
+        $lang = match ($locale) {
+            'pt_BR' => 'português do Brasil',
+            'en_US' => 'inglês',
+            'es_ES' => 'espanhol',
+            default => 'português',
+        };
+
+        $p = "Gere exatamente {$qty} perguntas frequentes (FAQ) sobre \"{$keyword}\"\n."
+
+            . "Regras obrigatórias:\n"
+            . "- Escreva em {$lang}.\n"
+            . "- Use perguntas reais que um usuário faria.\n"
+            . "- Respostas objetivas, claras e diretas.\n"
+            . "- Não use listas, markdown ou emojis.\n"
+            . "- Não mencione IA, modelos ou processos internos.\n\n"
+
+            . "Formato de saída:\n"
+            . "Retorne APENAS um objeto JSON válido no padrão Schema.org FAQPage,\n"
+            . "com @context, @type e mainEntity.\n"
+            . "Não retorne texto fora do JSON.";
+
+        return $p;
     }
 
     public static function build_section_prompt(

@@ -251,9 +251,9 @@
                 if (!st.template) st.template = tplDefaults[i] || 'template-1';
 
                 const ctaDefaults = {
-                    2: { text: 'Ver o post', url: 'https://example.com/post' },
-                    4: { text: 'Leia agora', url: 'https://example.com/post' },
-                    6: { text: 'Abrir guia', url: 'https://example.com/post' },
+                    2: { text: 'Ver o post' },
+                    4: { text: 'Leia agora' },
+                    6: { text: 'Abrir guia' },
                 };
 
                 if (ctaDefaults[i]) {

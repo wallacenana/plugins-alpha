@@ -220,7 +220,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   // === Atualiza título de UM box com base nos campos ===
   function pgaUpdateBoxTitle($box) {
     // Modelo
-    const model = ($box.find('.pga_template_key option:selected').text() || '').trim() || __('Gerador', 'plugins-alpha');
+    const model = ($box.find('.pga_template_key option:selected').text() || '').trim() || __('Modelo', 'plugins-alpha');
 
     // Categoria (mais robusto pra wp_dropdown_categories)
     let cat = __('Sem categoria', 'plugins-alpha');
@@ -525,7 +525,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
           alert(sprintf(__('Erro: %s', 'plugins-alpha'), String(msg)));
         }
       }
-      return
+      const err = new Error(String(msg));
+      err.status = res.status;
+      err.body = data;
+      throw err;
     }
 
     return data;
@@ -562,7 +565,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     }
   }
 
-  function textareaToArray(text) { return [...new Set((text || '').split(/\r?\n/).map(t => t.trim()).filter(Boolean))]; }
+  function textareaToArray(txt) { return (txt || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean); }
+  function arrayToTextarea(arr) { return (arr || []).join('\n'); }
   function onSettingsPage() { return !!document.querySelector('form[action="options.php"]'); }
   function getQueryParam(name) { const u = new URL(window.location.href); return u.searchParams.get(name); }
 
@@ -703,6 +707,89 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     });
   }
 
+
+  function pgaMarkKeywordDoneInBox(rawKw, boxEl) {
+    const kw = (rawKw || '').trim();
+    if (!kw || !boxEl) return false;
+
+    const $box = $(boxEl);
+    const $ta = $box.find('.pga_keywords').first();
+    if (!$ta.length) return false;
+
+    const orig = $ta.val() || '';
+    if (!orig) return false;
+
+    const lines = orig
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+
+    const idx = lines.findIndex(l => l.localeCompare(kw, undefined, { sensitivity: 'accent' }) === 0);
+    if (idx === -1) return false;
+
+    lines.splice(idx, 1);
+    $ta.val(lines.join('\n'));
+
+    // ✅ agora persiste e renderiza DONE corretamente
+    // UI done + persistência
+    window.pgaAddDone(kw);
+
+    const $done = $('#pga_kw_done');
+    if ($done.length) {
+      const li = document.createElement('li');
+      li.textContent = kw;
+      $done.prepend(li); // topo
+    }
+
+
+    // ✅ só salva grupos (não mexe no dirty aqui)
+    pgaSaveBoxesToLocal();
+    return true;
+  }
+
+  // ✅ monta fila global por PESO (perDay) sem tocar no DOM
+  // exemplo (total=9, perDay: [2,1]) => 1,1,2,1,1,2...
+  function pgaBuildPlannedKeywordsByPerDay(groups, totalGlobal) {
+    const out = [];
+    const idx = groups.map(() => 0);
+
+    while (out.length < totalGlobal) {
+      let added = 0;
+
+      for (let gi = 0; gi < groups.length && out.length < totalGlobal; gi++) {
+        const g = groups[gi];
+
+        const w = Math.max(0, parseInt(g.perDay || 0, 10) || 0);
+        if (!w) continue;
+
+        for (let k = 0; k < w && out.length < totalGlobal; k++) {
+          const pos = idx[gi];
+          const kw = String((g.keywords[pos] || '')).trim();
+
+          // ✅ se tiver linha vazia no meio, pula sem travar o grupo
+          if (!kw) {
+            idx[gi] = pos + 1;
+            continue;
+          }
+
+          out.push({
+            kw,
+            boxEl: g.boxEl,     // ✅ origem
+            cfg: g.cfg,         // ✅ config do colapse (snapshot)
+          });
+
+          idx[gi] = pos + 1;
+          added++;
+        }
+      }
+
+      if (added === 0) break;
+    }
+
+    return out;
+  }
+
+
   function pgaGlobalIsOn() {
     return !!document.getElementById('pga_plan_global_toggle')?.checked;
   }
@@ -714,7 +801,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // quando GLOBAL ligado: esconde total/per_day/inicio dentro dos geradores
     $('#pga_gen_container .pga-field-total').css('display', on ? 'none' : '');
     $('#pga_gen_container .pga-field-program').css('display', on ? 'none' : '');
-    $('#pga_gen_container #pga_generator_btn').css('display', on ? 'none' : '');
 
     // mostra checkbox "incluir na geração" por gerador (se você quiser usar)
     $('#pga_gen_container .pga_custom_wrap').css('display', on ? '' : 'none');
@@ -852,6 +938,1108 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // grava no novo padrão
     return saveGroupsForTab(tabId, data);
   }
+
+
+  // ============================================================
+  // ========== BLOCO: GERADOR (keywords/plan/generate) ==========
+  // ============================================================
+
+  async function bootGenerator() {
+    const $kw = $('#pga_keywords');
+    const $done = $('#pga_kw_done');
+    if (!$kw.length) return;
+
+    renderDone(window.pgaLoadDone());
+
+    function buildSummaryHtml(okCount, failCount, editLinks, failedKeywords) {
+      const okHtml = `<p style="margin:0 0 4px; font-size: large"><b>${__('Sucesso:', 'plugins-alpha')}</b> ${okCount}</p>`;
+      const failHeaderHtml = `<p style="margin:4px 0 0;"><b>${__('Falhas:', 'plugins-alpha')}</b> ${failCount}</p>`;
+
+      const failListHtml = (failedKeywords && failedKeywords.length)
+        ? `<ul style="margin:4px 0 0 18px;padding:0;font-size:large;">${failedKeywords
+          .map(f => `<li>${f.keyword} – ${f.error}</li>`)
+          .join('')}</ul>`
+        : '';
+
+      const linksHtml = (editLinks && editLinks.length)
+        ? `<p style="margin:8px 0 4px;"><b>${__('Posts gerados', 'plugins-alpha')}</b></p><ul style="margin:0 0 0 18px;padding:0;font-size:large;">${editLinks.join('')}</ul>`
+        : '';
+
+      return `
+        <div style="font-size:large; line-height:1.5;text-align:left;">
+          ${okHtml}
+          ${failHeaderHtml}
+          ${failListHtml}
+          ${linksHtml}
+        </div>
+      `;
+    }
+    function prefsFromBox($box) {
+      const manualVals = $box.find('.pga_link_manual, .pga-link-manual-select').val() || [];
+
+      return {
+        locale: $box.find('.pga_locale').val() || 'pt_BR',
+        length: $box.find('.pga_length').val() || 'short',
+        template_key: $box.find('.pga_template_key').val() || 'article',
+        source_url: '',
+        category_id: parseInt($box.find('.pga_category').val() || '0', 10) || 0,
+
+        // ✅ esses 3 serão setados no global por job
+        total: 1,
+        per_day: 1,
+        first_delay_hours: '',
+
+        mode: 'multi',
+
+        internal_links: {
+          mode: ($box.find('.pga_link_mode').val() || 'none'),
+          max: parseInt($box.find('.pga_link_max').val() || '0', 10) || 0,
+          manual_ids: Array.isArray(manualVals) ? manualVals.join(',') : String(manualVals || '')
+        }
+      };
+    }
+
+    function collectAllPrefs() {
+      const all = [];
+
+      $('#pga_gen_container .pga-gen-box').each(function () {
+        const $box = $(this);
+
+        if (!$box.find('#pga_keywords').length) return;
+
+        all.push({
+          locale: $box.find('.pga_locale').val(),
+          length: $box.find('.pga_length').val(),
+          template_key: $box.find('.pga_template_key').val(),
+          category_id: parseInt($box.find('.pga_category').val() || '0', 10),
+          total: parseInt($box.find('.pga_total').val() || '1', 10),
+          per_day: parseInt($box.find('.pga_per_day').val() || '1', 10),
+          first_delay_hours: ($box.find('.pga_first_delay_hours').val() || '').trim(),
+          keywords: ($box.find('#pga_keywords').val() || '').trim(),
+          tags: $box.find('.pga_tags').val() || []
+        });
+      });
+
+      return all;
+    }
+
+    // ---------- Keywords: listar ----------
+    async function refreshKeywords() {
+      renderDone(pgaLoadDone());
+    }
+
+    function renderDone(list) {
+      $done.empty();
+      (list || []).forEach(k => $('<li/>').text(k).appendTo($done));
+    }
+
+    // ---------- Importar / Exportar / Limpar POR GRUPO ----------
+
+    // input[type=file] único para todos os grupos
+    let importTargetBox = null;
+    let $file = $('#pga_kw_file');
+    if (!$file.length) {
+      $file = $('<input type="file" id="pga_kw_file" accept=".txt,text/plain" style="display:none">');
+      $('body').append($file);
+    }
+
+    // Clique em "Importar .txt" dentro de um grupo
+    $(document).off('click.pgaImport').on('click.pgaImport', '.pga_import_box', function () {
+      importTargetBox = $(this).closest('.pga-gen-box');
+      if (!importTargetBox.length) return;
+      $file.trigger('click');
+      window.PGA_IS_DIRTY = true;
+    });
+
+    // Quando o arquivo é escolhido
+    $file.off('change.pgaImport').on('change.pgaImport', function () {
+      const f = this.files && this.files[0];
+      if (!f || !importTargetBox) {
+        this.value = '';
+        importTargetBox = null;
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function (ev) {
+        const text = String(ev.target.result || '');
+        const $ta = importTargetBox.find('.pga_keywords');
+
+        const cur = textareaToArray($ta.val());
+        const neu = textareaToArray(text);
+        const set = Array.from(new Set(cur.concat(neu)));
+
+        $ta.val(set.join('\n'));
+        $file.val('');
+        importTargetBox = null;
+
+        if (window.Swal) {
+          await Swal.fire({
+            icon: 'info',
+            title: __('Importado', 'plugins-alpha'),
+            text: sprintf(
+              _n(
+                '%d linha foi carregada. Clique em "Salvar configurações" para persistir.',
+                '%d linhas foram carregadas. Clique em "Salvar configurações" para persistir.',
+                neu.length,
+                'plugins-alpha'
+              ),
+              neu.length
+            )
+          });
+        }
+
+        pgaSaveBoxesToLocal();
+      };
+      reader.readAsText(f, 'utf-8');
+    });
+
+    // Exportar .txt do grupo atual
+    $(document).off('click.pgaExport').on('click.pgaExport', '.pga_export_box', function () {
+      const $box = $(this).closest('.pga-gen-box');
+      const txt = String($box.find('.pga_keywords').val() || '');
+      const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'keywords.txt';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+
+    // Limpar apenas o grupo atual
+    $(document).off('click.pgaDeleteGenerator').on('click.pgaDeleteGenerator', '.pga_clear_box', async function () {
+      const $box = $(this).closest('.pga-gen-box');
+      const $container = $('#pga_gen_container');
+      const totalBoxes = $container.find('.pga-gen-box').length;
+
+      if (!$box.length) return;
+
+      // se for o único, só limpa
+      if (totalBoxes <= 1) {
+        const ok = await pgaConfirm({
+          icon: 'warning',
+          title: __('Limpar este gerador?', 'plugins-alpha'),
+          text: __('Este é o único gerador. Vamos apenas limpar os campos.', 'plugins-alpha'),
+          confirmButtonText: __('Limpar', 'plugins-alpha'),
+          cancelButtonText: __('Cancelar', 'plugins-alpha')
+        });
+
+        if (!ok) return;
+
+        $box.find('.pga_keywords').val('');
+        $box.find('.pga_total').val('6');
+        $box.find('.pga_per_day').val('3');
+        $box.find('.pga_template_key').val('article');
+        $box.find('.pga_locale').val('pt_BR');
+        $box.find('.pga_length').val('short');
+        $box.find('.pga_category').val('0');
+
+        pgaUpdateBoxTitle($box);
+        return;
+      }
+
+      const ok = await pgaConfirm({
+        icon: 'warning',
+        title: __('Excluir gerador?', 'plugins-alpha'),
+        text: __('Este gerador será removido.', 'plugins-alpha'),
+        confirmButtonText: __('Excluir', 'plugins-alpha'),
+        cancelButtonText: __('Cancelar', 'plugins-alpha')
+      });
+
+      if (!ok) return;
+
+      $box.remove();
+
+      // reindexa
+      const $boxes = $container.find('.pga-gen-box');
+      $boxes.each(function (idx) {
+        const $b = $(this);
+        $b.attr('data-gen', idx + 1);
+        pgaUpdateBoxTitle($b);
+      });
+
+      // garante IDs no primeiro
+      const $first = $boxes.first();
+      if ($first.length) pgaActivateBox($first);
+
+      window.PGA_IS_DIRTY = true;
+    });
+
+    // ---------- Salvar (botão global "Salvar" lá em cima) ----------
+    $('#pga_save_keywords')
+      .off('click.pgaSave')
+      .on('click.pgaSave', async function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const btn = this;
+
+        // ✅ guard anti re-entrada (evita loop/call stack)
+        if (btn.dataset && btn.dataset.pgaSaving === '1') return;
+        if (btn.dataset) btn.dataset.pgaSaving = '1';
+
+        btn.disabled = true;
+
+        try {
+          // ✅ salva grupos 1x só
+          const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
+          if (tabId) {
+            saveGroupsForTab(tabId, serializeAllGroupsFromDom());
+          }
+
+          // ✅ render done local
+          if (typeof pgaLoadDone === 'function') {
+            renderDone(pgaLoadDone());
+          }
+
+          window.PGA_IS_DIRTY = false;
+          pgaToast('success', __('Salvo', 'plugins-alpha'));
+
+        } catch (err) {
+          // ✅ nunca passe objeto Error direto pro Swal title
+          const msg = (err && err.message) ? err.message : String(err || 'Erro');
+          pgaToast('error', msg, 2200);
+
+        } finally {
+          btn.disabled = false;
+          if (btn.dataset) delete btn.dataset.pgaSaving;
+        }
+      });
+
+    // "Salvar configurações" dentro do grupo apenas reaproveita o salvar global
+    $(document).off('click.pgaSaveBox').on('click.pgaSaveBox', '.pga_save_box', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      $('#pga_save_keywords').trigger('click');
+    });
+
+    // ---------- Gerar SOMENTE deste grupo ----------
+    $(document).off('click.pgaGenerateBox').on('click.pgaGenerateBox', '.pga_generate_box', function () {
+      const $box = $(this).closest('.pga-gen-box');
+      if (!$box.length) return;
+
+      (async () => {
+        pgaActivateBox($box);
+
+        const titleText = $box.find('.pga-gen-title').text().trim() || __('Grupo atual', 'plugins-alpha');
+
+        const res = await generateForActiveBox({ groupTitle: titleText });
+        if (!res) return;
+
+        const html = buildSummaryHtml(res.okCount, res.failCount, res.editLinks, res.failedKeywords);
+
+        await Swal.fire({
+          icon: res.failCount ? 'warning' : 'success',
+          title: __('Finalizado', 'plugins-alpha'),
+          html,
+        });
+      })();
+    });
+
+    $('#pga_kw_clear_done').off('click').on('click', async () => {
+      const ok = window.Swal ? (await Swal.fire({ icon: 'warning', title: __('Limpar concluídas?', 'plugins-alpha'), showCancelButton: true })).isConfirmed : confirm(__('Limpar concluídas?', 'plugins-alpha'));
+      if (!ok) return;
+      await fetchJSON(`${REST}/keywords/clear`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+        body: JSON.stringify({ who: 'done' })
+      });
+      await refreshKeywords();
+      window.pgaClearDoneLocal();
+      renderDone([]);
+    });
+
+    // ---------- Planejar -> gerar sequencial ----------
+    // ---------- GERAÇÃO: 1 BOX ATIVO ----------
+    async function generateForActiveBox(options = {}) {
+      const {
+        skipKeywordWarning = false,
+        groupTitle = '',
+        plannedOrigins = null,
+      } = options;
+
+      const generators = collectAllPrefs();
+
+      const kwList = (options && Array.isArray(options.kwOverride))
+        ? options.kwOverride.map(s => String(s || '').trim()).filter(Boolean)
+        : textareaToArray($('#pga_keywords').val());
+
+      const transition = {
+        strict: false,
+        min_ratio: 0.30,
+        words: [__('por exemplo', 'plugins-alpha'), __('em seguida', 'plugins-alpha'), __('depois', 'plugins-alpha'), __('antes', 'plugins-alpha'), __('no entanto', 'plugins-alpha'), __('portanto', 'plugins-alpha'), __('assim', 'plugins-alpha'), __('então', 'plugins-alpha')]
+      };
+
+      // === 0) VAL IDA LICENÇA + CHAVE API ANTES DE QUALQUER COISA ===
+      try {
+        const st = await fetchJSON(`${REST}/selftest`, {
+          method: 'GET',
+          headers: { 'X-WP-Nonce': NONCE }
+        });
+
+        if (st && st.ok === false) {
+          await Swal.fire({
+            icon: 'error',
+            title: __('Configuração necessária', 'plugins-alpha'),
+            text: st.message || __('Sua licença ou chave de API não está configurada. Verifique a tela de configurações do Plugins Alpha.', 'plugins-alpha')
+          });
+          return;
+        }
+      } catch (e) {
+        let msg = __('Não foi possível validar a licença / chave de API.', 'plugins-alpha');
+        let title = __('Erro de validação', 'plugins-alpha');
+
+        if (e && typeof e === 'object') {
+          if (e.code === 'pga_no_key') {
+            title = __('Chave da API ausente', 'plugins-alpha');
+            msg = e.message || __('Configure sua chave da API na tela de configurações do Plugins Alpha.', 'plugins-alpha');
+          } else if (e.code === 'pga_lic_inactive') {
+            title = __('Licença inativa', 'plugins-alpha');
+            msg = e.message || __('Sua licença está inativa ou expirada. Verifique na tela de Licença do Plugins Alpha.', 'plugins-alpha');
+          } else if (e.message) {
+            msg = e.message;
+          }
+        }
+
+        await Swal.fire({ icon: 'error', title, text: msg });
+        return;
+      }
+
+      if (generators.template_key === 'modelar_youtube') {
+        // 1) Garante que há pelo menos uma URL de YouTube nas keywords
+        const hasYoutubeUrl = kwList.some((line) => {
+          const v = String(line || '').trim().toLowerCase();
+          return v.includes('youtube.com/watch') || v.includes('youtu.be/');
+        });
+
+        if (!hasYoutubeUrl) {
+          await Swal.fire({
+            icon: 'warning',
+            title: __('URLs do YouTube necessárias', 'plugins-alpha'),
+            text: __('Para “Modelar vídeo do YouTube”, insira pelo menos 1 URL completa de vídeo do YouTube nas palavras-chave (uma por linha).', 'plugins-alpha')
+          });
+          return;
+        }
+
+        // 2) Valida a chave da API do YouTube via REST
+        try {
+          const yt = await fetchJSON(`${REST}/youtube/selftest`, {
+            method: 'GET',
+            headers: { 'X-WP-Nonce': NONCE }
+          });
+
+          if (yt && yt.ok === false) {
+            await Swal.fire({
+              icon: 'error',
+              title: __('Chave do YouTube necessária', 'plugins-alpha'),
+              text: yt.message || __('Configure sua chave da API do YouTube na tela de configurações do Plugins Alpha.', 'plugins-alpha')
+            });
+            return;
+          }
+        } catch (e) {
+          await Swal.fire({
+            icon: 'error',
+            title: __('Erro ao validar YouTube', 'plugins-alpha'),
+            text: (e && e.message) ? e.message : __('Não foi possível validar a chave da API do YouTube.', 'plugins-alpha')
+          });
+          return;
+        }
+      }
+
+      if (generators.template_key !== "modelar") {
+        // sem keywords
+        if (generators.mode === 'multi' && kwList.length === 0) {
+          if (!skipKeywordWarning) {
+            await Swal.fire({
+              icon: 'warning',
+              title: __('Sem palavras-chave', 'plugins-alpha'),
+              text: __('Insira ao menos 1 palavra-chave.', 'plugins-alpha')
+            });
+          }
+          return;
+        }
+
+        // keywords < total
+        if (generators.mode === 'multi' && kwList.length < generators.total) {
+          if (!skipKeywordWarning) {
+
+            const html = sprintf(
+              _n(
+                "<p style='font-size:16px;'>Você pediu <b>%d</b> post, mas só tem <b>%d</b> palavra. Gerar <b>%d</b>?</p>",
+                "<p style='font-size:16px;'>Você pediu <b>%d</b> posts, mas só tem <b>%d</b> palavras. Gerar <b>%d</b>?</p>",
+                kwList.length,
+                'plugins-alpha'
+              ),
+              generators.total,
+              kwList.length,
+              kwList.length
+            );
+
+            const ok = (await Swal.fire({
+              icon: 'question',
+              title: __('Quantidade insuficiente', 'plugins-alpha'),
+              html,
+              showCancelButton: true
+            })).isConfirmed;
+
+            if (!ok) return;
+          }
+        }
+
+      }
+      function normalizeKeywords(raw) {
+        if (!raw || typeof raw !== 'string') return [];
+
+        const lines = raw
+          .split(/\r?\n/)
+          .map(k => k.trim())
+          .filter(Boolean);
+
+        const cleaned = lines.map(k =>
+          k
+            .toLowerCase()
+            .normalize('NFD')                 // remove acentos
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s-]/g, '')     // remove caracteres inválidos
+            .replace(/\s+/g, ' ')             // espaços duplicados
+            .trim()
+        );
+
+        // remove duplicados preservando ordem
+        const seen = new Set();
+        const unique = [];
+
+        for (const kw of cleaned) {
+          if (kw.length < 3) continue;
+          if (seen.has(kw)) continue;
+          seen.add(kw);
+          unique.push(kw);
+        }
+
+        return unique;
+      }
+
+
+      function buildJobs({ generators, transition }) {
+        const jobs = [];
+
+        generators.forEach(gen => {
+          const kws = normalizeKeywords(gen.keywords);
+
+          kws.slice(0, gen.total).forEach((kw, i) => {
+            jobs.push({
+              keyword: kw,
+              locale: gen.locale,
+              length: gen.length,
+              template_key: gen.template_key,
+              category_id: gen.category_id,
+              tags: gen.tags || [],
+              faq: gen.faq || null,
+              internal_links: gen.internal_links || null,
+              run_at: computeRunAt(i, gen.per_day, gen.first_delay_hours),
+              transition
+            });
+          });
+        });
+
+        return jobs;
+      }
+
+      function computeRunAt(index, perDay, firstDelay) {
+        const dayOffset = perDay > 0 ? Math.floor(index / perDay) : 0;
+        const base = Date.now() + (parseInt(firstDelay || 0, 10) * 3600000);
+        return base + (dayOffset * 86400000);
+      }
+
+      // === 2) BUILD JOBS (frontend) ===
+      const jobs = buildJobs({
+        generators,
+        transition
+      });
+
+      if (!jobs.length) {
+        await Swal.fire({
+          icon: 'info',
+          title: __('Nada a gerar', 'plugins-alpha'),
+          text: __('Nenhum job válido foi gerado.', 'plugins-alpha')
+        });
+        return;
+      }
+
+      console.log("teste");
+      console.log(jobs);
+
+
+      /// ✅ box ativo = o que recebeu #pga_keywords via pgaActivateBox()
+      const activeBoxEl = document.getElementById('pga_keywords')?.closest('.pga-gen-box') || null;
+
+      // ✅ GLOBAL: aplica config correta por origem (template/category/length/locale/internal_links)
+      if (Array.isArray(plannedOrigins) && plannedOrigins.length) {
+        for (let i = 0; i < jobs.length; i++) {
+          const origin = plannedOrigins[i];
+          const boxEl = origin?.boxEl || null;
+          const $b = boxEl ? $(boxEl) : null;
+
+          // origem do done
+          jobs[i].boxEl = boxEl || activeBoxEl;
+
+          // se achar o box, aplica as prefs dele no job (sem mexer em inputs)
+          if ($b && $b.length) {
+            const p = prefsFromBox($b);
+
+            jobs[i].locale = p.locale;
+            jobs[i].length = p.length;
+            jobs[i].template_key = p.template_key;
+            jobs[i].category_id = p.category_id;
+            jobs[i].internal_links = p.internal_links;
+          }
+
+          jobs[i].__originKw = origin?.kw || '';
+        }
+      }
+
+      // ✅ Se veio do planejamento global, aplica origem por job (mesma ordem)
+      if (Array.isArray(plannedOrigins) && plannedOrigins.length) {
+        for (let i = 0; i < jobs.length; i++) {
+          const origin = plannedOrigins[i];
+          jobs[i].boxEl = origin?.boxEl || activeBoxEl;
+
+          // opcional: guarda também o kw original pra debug
+          jobs[i].__originKw = origin?.kw || '';
+        }
+      } else {
+        // fallback: geração normal de um box só
+        for (const j of jobs) {
+          j.boxEl = activeBoxEl;
+        }
+      }
+
+      // === 3) GERAÇÃO ===
+      let okCount = 0, failCount = 0;
+      let editLinks = [];
+      const failedKeywords = [];
+
+      async function pgaFetchSectionWithRetry(params, maxRetries = 3) {
+        let attempt = 0;
+
+        // usa o NONCE do PGA_CFG, com fallback opcional pro wpApiSettings se existir
+        const nonce =
+          (window.wpApiSettings && window.wpApiSettings.nonce) ||
+          NONCE;
+
+        while (attempt < maxRetries) {
+          attempt++;
+
+          try {
+            const r = await fetch(`${REST}/orion/section`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-WP-Nonce': nonce,
+              },
+              body: JSON.stringify(params),
+            });
+
+            if (!r.ok) {
+              console.warn(
+                `SECTION ${params.section_id} → tentativa ${attempt} falhou: HTTP ${r.status}`
+              );
+              throw new Error('HTTP ' + r.status);
+            }
+
+            const json = await r.json();
+
+            if (!json || json.error) {
+              console.warn(
+                `SECTION ${params.section_id} → JSON inválido na tentativa ${attempt}`,
+                json
+              );
+              throw new Error('JSON inválido');
+            }
+
+            return { ok: true, data: json, attempt };
+          } catch (err) {
+            console.error(
+              `Erro na section ${params.section_id} (tentativa ${attempt}):`,
+              err
+            );
+
+            if (attempt >= maxRetries) {
+              return { ok: false, error: err };
+            }
+
+            await new Promise(res => setTimeout(res, 800 * attempt));
+          }
+        }
+      }
+
+      async function generateExtraLongPost(job, opts = {}) {
+        const onStatus = typeof opts.onStatus === 'function' ? opts.onStatus : () => { };
+
+        // 1) OUTLINE -------------------------------------------------
+        onStatus(__('Gerando esboço…', 'plugins-alpha'));
+
+        const outlineRes = await fetchJSON(`${REST}/orion/outline`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-WP-Nonce': NONCE
+          },
+          body: JSON.stringify({
+            keyword: job.keyword,
+            keywords: [job.keyword],
+            length: job.length,
+            locale: job.locale,
+            template: job.template_key,
+            template_key: job.template_key,
+            publish_time: job.publish_time,
+            category_id: job.category_id,
+            post_type: 'posts_orion',
+            tags: Array.isArray(job.tags) ? job.tags : []
+          }),
+
+          silent: true
+        });
+
+        if (!outlineRes || outlineRes.code) {
+          throw new Error(outlineRes?.message || __('Erro ao gerar esboço', 'plugins-alpha'));
+        }
+
+        const postId = outlineRes.post_id;
+        const sections = outlineRes.sections || [];
+        const errors = [];
+
+        // 2) SEÇÕES ---------------------------------------------------
+        const totalSections = sections.length;
+        let doneSections = 0;
+
+        for (const section of sections) {
+          const sid = section.id;
+
+          onStatus(
+            sprintf(__('Gerando seções… (%d/%d)', 'plugins-alpha'), doneSections, totalSections)
+          );
+
+          const secRes = await pgaFetchSectionWithRetry({
+            post_id: postId,
+            section_id: sid,
+          });
+
+          if (!secRes.ok) {
+            errors.push(
+              sprintf(__('Falha definitiva na seção %s do post %s', 'plugins-alpha'), sid, postId)
+            );
+          }
+
+          doneSections++;
+        }
+
+        onStatus(
+          sprintf(__('Gerando seções… (%d/%d)', 'plugins-alpha'), doneSections, totalSections)
+        );
+
+        if (job.faq && job.faq.enabled) {
+          onStatus(__('Gerando FAQ…', 'plugins-alpha'));
+
+          try {
+            await fetchJSON(`${REST}/orion/faq`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-WP-Nonce': NONCE
+              },
+              body: JSON.stringify({
+                post_id: postId,
+                keyword: job.keyword,
+                locale: job.locale,
+                qty: Math.min(5, job.faq.qty || 3)
+              }),
+              silent: true
+            });
+          } catch (e) {
+            console.warn('FAQ falhou para post', postId, e);
+          }
+        }
+
+        // 3) FINALIZE (SEM IMAGEM) -----------------------------------
+        onStatus(__('Finalizando conteúdo…', 'plugins-alpha'));
+
+        const il = job.internal_links || {};
+        const rawManual = il.manual_ids;
+
+        const finRes = await fetchJSON(`${REST}/orion/finalize`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-WP-Nonce': NONCE
+          },
+          body: JSON.stringify({
+            post_id: postId,
+            internal_links: {
+              mode: il.mode || 'none',
+              max: typeof il.max === 'number' ? il.max : (parseInt(il.max || '0', 10) || 0),
+              manual_ids: Array.isArray(rawManual) ? rawManual.join(',') : (rawManual ? String(rawManual) : ''),
+            },
+            tags: Array.isArray(job.tags) ? job.tags : []
+          }),
+          silent: true
+        });
+
+
+        if (finRes && finRes.code) {
+          throw new Error(finRes.message || __('Erro ao finalizar post', 'plugins-alpha'));
+        }
+
+        // 4) IMAGEM EM ENDPOINT SEPARADO ------------------------------
+        onStatus(__('Gerando imagem destacada…', 'plugins-alpha'));
+
+        let imgRes = null;
+
+        try {
+          imgRes = await fetchJSON(`${REST}/orion/image`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-WP-Nonce': NONCE
+            },
+            body: JSON.stringify({
+              post_id: postId,
+              keyword: job.keyword || '',
+              locale: job.locale,
+              template: job.template_key,
+            }),
+            silent: true
+          });
+        } catch (e) {
+          console.warn('Falha ao gerar imagem para o post', postId, e);
+          onStatus(__('Conteúdo pronto. Imagem falhou (pode tentar depois).', 'plugins-alpha'));
+        }
+
+        if (imgRes && !imgRes.error) {
+          onStatus(__('Conteúdo e imagem gerados com sucesso.', 'plugins-alpha'));
+        }
+
+        return {
+          ...finRes,
+          image: imgRes,
+          section_errors: errors,
+        };
+      }
+
+
+
+      window.PGA_IS_GENERATING = true;
+
+      try {
+        const totalJobs = jobs.length;
+
+        await Swal.fire({
+          title: __('Gerando posts…', 'plugins-alpha'),
+          html: `
+            <div id="pga_group" style="text-align:center;font-weight:600;font-size:13px;margin-bottom:4px;"></div>
+
+            <div id="pga_loader" style="display:flex;align-items:center;justify-content:center;margin-bottom:6px;">
+              <div class="swal2-loader" style="display:block;border-width:3px;width:20px;height:20px;"></div>
+            </div>
+
+            <div id="pga_prog" style="text-align:center;font-size:13px;margin-bottom:4px;">
+              ${sprintf(__('Progresso: %d de %d', 'plugins-alpha'), 0, totalJobs)}
+            </div>
+
+            <div class="swal2-progress-steps" style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px">
+              <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
+            </div>
+
+            <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px;">
+              ${__('Preparando geração…', 'plugins-alpha')}
+            </div>
+          `,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          showConfirmButton: false,
+          didOpen: async () => {
+            const $group = document.getElementById('pga_group');
+            const $status = document.getElementById('pga_prog');
+            const $bar = document.getElementById('pga_progbar');
+            const $cur = document.getElementById('pga_current');
+
+            if ($group && groupTitle) {
+              $group.textContent = groupTitle;
+            }
+
+            okCount = 0;
+            failCount = 0;
+            editLinks.length = 0;
+            failedKeywords.length = 0;
+
+            for (let i = 0; i < jobs.length; i++) {
+              const job = jobs[i];
+              const kw = (job.keyword || '').trim();
+
+              try {
+                const result = await generateExtraLongPost(job, {
+                  onStatus: msg => {
+                    if ($cur) $cur.textContent = msg;
+                  }
+                });
+
+                const r = result && result.res ? result.res : result;
+
+                if (!r || r.error) {
+                  failCount++;
+                  if (kw) failedKeywords.push(kw);
+                } else {
+                  okCount++;
+                  if (kw) pgaMarkKeywordDoneInBox(kw, job.boxEl);
+
+                  if (r.edit || r.post_id || r.view_link) {
+                    let editUrl = '';
+
+                    if (typeof r.edit === 'string' && r.edit.indexOf('http') === 0) {
+                      editUrl = r.edit;
+                    } else {
+                      const postId = r.post_id || r.edit;
+                      if (postId) {
+                        const base = window.location.origin || '';
+                        editUrl = `${base}/wp-admin/post.php?post=${postId}&action=edit`;
+                      }
+                    }
+
+                    if (editUrl) {
+                      const labelId = r.post_id || r.edit;
+                      const suffix = kw ? sprintf(__(' – %s', 'plugins-alpha'), kw) : '';
+
+                      editLinks.push(
+                        `<li><a target="_blank" rel="noopener" href="${editUrl}">${sprintf(
+                          __('Editar #%s%s', 'plugins-alpha'),
+                          labelId,
+                          suffix
+                        )}</a></li>`
+                      );
+
+                    }
+                  }
+                }
+              } catch (e) {
+                failCount++;
+                failedKeywords.push({
+                  keyword: kw || __('(sem keyword)', 'plugins-alpha'),
+                  error: e && e.message ? e.message : __('Erro desconhecido', 'plugins-alpha'),
+                });
+              }
+
+              const done = i + 1;
+              const pct = Math.round((done / jobs.length) * 100);
+
+              if ($status) {
+                $status.textContent = sprintf(
+                  __('Progresso: %1$s de %2$s', 'plugins-alpha'),
+                  done,
+                  jobs.length
+                );
+              }
+              if ($bar) $bar.style.width = pct + '%';
+
+              await new Promise(r => setTimeout(r, 150));
+            }
+
+            Swal.close();
+          }
+        });
+
+      } finally {
+        window.PGA_IS_GENERATING = false;
+      }
+
+      // ✅ salva no final: prefs + grupos (porque agora KW já foi removida/movida)
+      try {
+        const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
+        if (tabId) saveGroupsForTab(tabId, serializeAllGroupsFromDom());
+        renderDone(pgaLoadDone());
+        window.PGA_IS_DIRTY = false;
+      } catch (e) { }
+
+      return { okCount, failCount, editLinks, failedKeywords };
+    };
+
+
+
+    // ---------- Planejar & Gerar (TODOS os grupos) ----------
+    $('#pga_plan').off('click').on('click', async () => {
+
+      // ==========================
+      // MODO NORMAL (não-global)
+      // ==========================
+      if (!pgaGlobalIsOn()) {
+        const $active = $('#pga_gen_container .pga-gen-box').filter(function () {
+          return $(this).find('#pga_keywords').length > 0;
+        }).first();
+
+        pgaActivateBox($active.length ? $active : $('#pga_gen_container .pga-gen-box').first());
+
+        const res = await generateForActiveBox({ groupTitle: __('Gerador atual', 'plugins-alpha') });
+        if (!res) return;
+
+        const html = buildSummaryHtml(res.okCount, res.failCount, res.editLinks, res.failedKeywords);
+        await Swal.fire({
+          icon: res.failCount ? 'warning' : 'success',
+          title: __('Finalizado', 'plugins-alpha'),
+          html
+        });
+        return;
+      }
+
+      // ==========================
+      // MODO GLOBAL (planejamento)
+      // ==========================
+      const $boxes = $('#pga_gen_container .pga-gen-box');
+      if (!$boxes.length) return;
+
+      const totalGlobal = Math.max(1, parseInt($('#pga_plan_total').val() || '1', 10) || 1);
+      const startGlobal = String($('#pga_plan_start').val() || '').trim();
+
+      if (!startGlobal) {
+        await Swal.fire({
+          icon: 'warning',
+          title: __('Início necessário', 'plugins-alpha'),
+          text: __('Defina a data/hora de início no planejamento global.', 'plugins-alpha')
+        });
+        return;
+      }
+
+      // monta lista de groups (snapshot 1x, SEM ALTERAR DOM)
+      const groups = [];
+      $boxes.each(function () {
+        const $box = $(this);
+        const templateKey = $box.find('.pga_template_key').val() || 'article';
+        const kwsArr = textareaToArray($box.find('.pga_keywords').val());
+        const perDay = parseInt($box.find('.pga_per_day').val() || '0', 10) || 0;
+
+        // ignora grupos sem KW ou sem peso (exceto template modelar)
+        if (templateKey !== 'modelar' && (!kwsArr.length || perDay <= 0)) return;
+
+        groups.push({
+          $box,
+          templateKey,
+          keywords: kwsArr,
+          perDay,              // ✅ PESO da fila
+          boxEl: $box[0],
+        });
+      });
+
+      if (!groups.length) {
+        await Swal.fire({
+          icon: 'warning',
+          title: __('Nada a gerar', 'plugins-alpha'),
+          text: __('Adicione keywords e defina “Posts por dia” (>= 1) em pelo menos um colapse.', 'plugins-alpha')
+        });
+        return;
+      }
+
+      // ✅ fila global (ordem 2,1,2,1...)
+      // precisa que sua função retorne {kw, boxEl}
+      const plannedKw = pgaBuildPlannedKeywordsByPerDay(groups, totalGlobal);
+      if (!plannedKw.length) {
+        await Swal.fire({
+          icon: 'info',
+          title: __('Fila vazia', 'plugins-alpha'),
+          text: __('Não foi possível montar a fila com os “Posts por dia” atuais.', 'plugins-alpha')
+        });
+        return;
+      }
+
+      if (plannedKw.length < totalGlobal) {
+        const r = await Swal.fire({
+          icon: 'question',
+          title: __('Keywords insuficientes', 'plugins-alpha'),
+          html: sprintf(
+            __(
+              '<p style="font-size:15px;">Você pediu <b>%d</b> posts, mas dá pra gerar <b>%d</b> com as keywords disponíveis.<br>Continuar?</p>',
+              'plugins-alpha'
+            ),
+            totalGlobal,
+            plannedKw.length
+          ),
+          showCancelButton: true,
+          confirmButtonText: __('Sim, gerar', 'plugins-alpha'),
+          cancelButtonText: __('Cancelar', 'plugins-alpha'),
+        });
+        if (!r.isConfirmed) return;
+      }
+
+      // acumuladores globais
+      let okAll = 0, failAll = 0;
+      const editAll = [];
+      const failedAll = [];
+
+      // ✅ 1 chamada só: mantém “0 de N” e marca done no colapse certo
+      const masterBoxEl = plannedKw[0]?.boxEl;
+      const $master = masterBoxEl ? $(masterBoxEl) : $boxes.first();
+
+      const masterPrefs = prefsFromBox($master);
+
+      // ⚠️ calendário global: 1 por dia (como você queria) e startGlobal vem do input global
+      mastergenerators.total = plannedKw.length;
+      mastergenerators.per_day = 1;
+      mastergenerators.first_delay_hours = startGlobal;
+
+      // lista final de keywords (ordem 2,1,2,1…)
+      const kwAll = plannedKw.map(x => String(x.kw || '').trim()).filter(Boolean);
+
+      // plannedOrigins precisa ser o “espelho” (mesma ordem da lista)
+      const originsAll = plannedKw.map(x => ({
+        kw: String(x.kw || '').trim(),
+        boxEl: x.boxEl
+      }));
+
+      const res = await generateForActiveBox({
+        skipKeywordWarning: true,
+        groupTitle: __('Planejamento global', 'plugins-alpha'),
+
+        // ✅ não mexe no textarea
+        kwOverride: kwAll,
+
+        // ✅ prefs “master” só pra conduzir plan + calendário
+        prefsOverride: masterPrefs,
+
+        // ✅ marca done por origem correta
+        plannedOrigins: originsAll,
+      });
+
+      if (res) {
+        okAll += (res.okCount || 0);
+        failAll += (res.failCount || 0);
+        if (Array.isArray(res.editLinks)) editAll.push(...res.editLinks);
+        if (Array.isArray(res.failedKeywords)) failedAll.push(...res.failedKeywords);
+      }
+
+
+      const html = buildSummaryHtml(okAll, failAll, editAll, failedAll);
+
+      await Swal.fire({
+        icon: failAll ? 'warning' : 'success',
+        title: __('Geração concluída', 'plugins-alpha'),
+        html
+      });
+
+    });
+    // try { await refreshKeywords(); } catch (e) { }
+
+    window.PGA_IS_DIRTY = false;
+
+    $(document).on('input change', '#pga_gen_container input, #pga_gen_container textarea, #pga_gen_container select', function (e) {
+      // ✅ só usuário (evita “mudanças” disparadas por init/JS)
+      if (!e || !e.originalEvent) return;
+      window.PGA_IS_DIRTY = true;
+    });
+  }
+
+  // boot
+  $(async function () {
+    if (onSettingsPage()) await bootSettings();
+    await bootGenerator();
+    initLinkManualSelect2();
+  });
 
   // Helpers SweetAlert2
   async function swalLoading(title = __('Processando…', 'plugins-alpha')) {
@@ -1632,7 +2820,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     $wrap.empty();
 
-    // tabs dinâmicas (como hoje)
     tabs.forEach(t => {
       const active = (t.id === tabId);
 
@@ -1642,17 +2829,9 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         'data-tab': t.id
       });
 
-      const $label = $('<span/>', {
-        class: 'pga-tab-label',
-        text: t.title || 'Projeto'
-      });
+      const $label = $('<span/>', { class: 'pga-tab-label', text: t.title || 'Projeto' });
 
-      const $trash = $('<span/>', {
-        class: 'pga-tab-trash',
-        html: 'x',
-        title: 'Excluir aba'
-      });
-
+      const $trash = $('<span/>', { class: 'pga-tab-trash', html: 'x', title: 'Excluir aba' });
       $trash.on('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -1663,7 +2842,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       $wrap.append($btn);
     });
   }
-
 
   function buildGroupsForNewProject() {
     const defaults = getDefaultTemplatesFromButton(); // ['pilar', 'artigo_topo', ...] ou ['article']
@@ -1858,6 +3036,20 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     });
   }
 
+  // se você clona box que já tinha select2, destrói antes
+  function pgaResetClonedSelect2($box) {
+    if (!$box || !$box.length) return;
+
+    $box.find('select.pga-select2').each(function () {
+      const $el = $(this);
+      if ($el.data('select2')) {
+        $el.select2('destroy');
+      }
+      // remove container select2 que veio no clone
+      $el.next('.select2').remove();
+    });
+  }
+
   // toggle FAQ por box
   $(document).on('change', '.pga_faq_enable', function () {
     const $box = $(this).closest('.pga-gen-box');
@@ -1872,496 +3064,5 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     });
   });
 
-  $('#pga_save_keywords')
-    .off('click.pgaSave')
-    .on('click.pgaSave', async function (e) {
-      e.preventDefault();
-      e.stopPropagation();
 
-      const btn = this;
-
-      // âœ… guard anti re-entrada (evita loop/call stack)
-      if (btn.dataset && btn.dataset.pgaSaving === '1') return;
-      if (btn.dataset) btn.dataset.pgaSaving = '1';
-
-      btn.disabled = true;
-
-      try {
-        // âœ… salva grupos 1x sÃ³
-        const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
-        if (tabId) {
-          saveGroupsForTab(tabId, serializeAllGroupsFromDom());
-        }
-
-        // âœ… render done local
-        if (typeof pgaLoadDone === 'function') {
-          renderDone(pgaLoadDone());
-        }
-
-        window.PGA_IS_DIRTY = false;
-        pgaToast('success', __('Salvo', 'plugins-alpha'));
-
-      } catch (err) {
-        // âœ… nunca passe objeto Error direto pro Swal title
-        const msg = (err && err.message) ? err.message : String(err || 'Erro');
-        pgaToast('error', msg, 2200);
-
-      } finally {
-        btn.disabled = false;
-        if (btn.dataset) delete btn.dataset.pgaSaving;
-      }
-    });
-
-  $(document).off('click.pgaSaveBox').on('click.pgaSaveBox', '.pga_save_box', function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    $('#pga_save_keywords').trigger('click');
-  });
-
-  /* ============================================================
- * NORMALIZA KEYWORDS
- * ========================================================== */
-  function normalizarKeywords(input) {
-    if (Array.isArray(input)) {
-      return input.map(v => String(v).trim()).filter(Boolean);
-    }
-    if (typeof input === 'string') {
-      return input.split('\n').map(v => v.trim()).filter(Boolean);
-    }
-    return [];
-  }
-
-  /* ============================================================
-   * COLETA DE PAYLOAD (TODOS OS GERADORES)
-   * ========================================================== */
-  function buildPayloadTotal() {
-    const geradores = [];
-
-    $('#pga_gen_container .pga-gen-box').each(function () {
-      const $box = $(this);
-      const kws = normalizarKeywords($box.find('.pga_keywords').val() || '');
-
-      geradores.push({
-        boxEl: this,
-        enabled: $box.find('.pga_custom_enabled').is(':checked'),
-        locale: $box.find('.pga_locale').val(),
-        length: $box.find('.pga_length').val(),
-        template_key: $box.find('.pga_template_key').val(),
-        category_id: parseInt($box.find('.pga_category').val() || '0', 10),
-        per_day: parseInt($box.find('.pga_per_day').val() || '1', 10),
-        total: parseInt($box.find('.pga_total').val() || kws.length || '0', 10),
-        first_delay_hours: ($box.find('.pga_first_delay_hours').val() || '').trim(),
-        keywords: kws,
-        tags: $box.find('.pga_tags').val() || [],
-        faq: {
-          enabled: $box.find('.pga_make_faq').is(':checked'),
-          qty: parseInt($box.find('.pga_faq_qty').val() || '0', 10)
-        },
-        internal_links: {
-          mode: $box.find('.pga_link_mode').val() || 'none',
-          max: parseInt($box.find('.pga_link_max').val() || '0', 10),
-          manual_ids: ($box.find('.pga_link_manual').val() || []).join(',')
-        }
-      });
-    });
-
-    return {
-      global: {
-        enabled: pgaGlobalIsOn(),
-        total: parseInt($('#pga_plan_total').val() || '0', 10),
-        start: $('#pga_plan_start').val()
-      },
-      geradores
-    };
-  }
-
-  function gerarHorariosHumanizados(baseDayTs, postsNoDia) {
-    const agora = Math.floor(Date.now() / 1000);
-
-    const inicioPadrao = baseDayTs + (6.5 * 3600); // 06:30
-    const fimPadrao = baseDayTs + (22 * 3600);  // 22:00
-
-    // 🔥 se for hoje, começa depois do horário atual
-    const buffer = 15 * 60; // 15 minutos de segurança
-    const inicioReal = baseDayTs <= agora && agora < fimPadrao
-      ? Math.max(inicioPadrao, agora + buffer)
-      : inicioPadrao;
-
-    // se já passou do horário permitido hoje, empurra para amanhã
-    if (inicioReal >= fimPadrao) {
-      return gerarHorariosHumanizados(
-        baseDayTs + 86400,
-        postsNoDia
-      );
-    }
-
-    const janela = fimPadrao - inicioReal;
-    const gapBase = janela / (postsNoDia + 1);
-
-    const horarios = [];
-
-    for (let i = 0; i < postsNoDia; i++) {
-      let ts = inicioReal + gapBase * (i + 1);
-
-      const variacaoMax = Math.min(45 * 60, gapBase * 0.3);
-      const variacao = (Math.random() * variacaoMax) - (variacaoMax / 2);
-
-      ts += variacao;
-      horarios.push(Math.floor(ts));
-    }
-
-    return horarios;
-  }
-
-  /* ============================================================
-   * MONTA FILA GLOBAL (ROUND ROBIN POR DIA)
-   * ========================================================== */
-  function montarFilaGlobal(geradores, totalGlobal, startDateStr) {
-    if (!startDateStr) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Data inicial inválida',
-        text: 'Defina uma data válida para iniciar as publicações.'
-      });
-      return null;
-    }
-
-    const baseDate = new Date(startDateStr + 'T00:00:00');
-    const baseDayTs = Math.floor(baseDate.getTime() / 1000);
-
-    const fila = [];
-    const cursores = geradores.map(() => 0);
-
-    let diaOffset = 0;
-
-    // enquanto ainda precisamos gerar posts
-    while (fila.length < totalGlobal) {
-      let algumGeradorUsou = false;
-
-      for (let gi = 0; gi < geradores.length; gi++) {
-        const g = geradores[gi];
-        const horarios = gerarHorariosHumanizados(
-          baseDayTs + diaOffset * 86400,
-          g.per_day
-        );
-
-        let usadosNoDia = 0;
-
-        while (
-          usadosNoDia < g.per_day &&
-          fila.length < totalGlobal &&
-          cursores[gi] < g.keywords.length
-        ) {
-          fila.push({
-            ...g,
-            keyword: g.keywords[cursores[gi]],
-            publish_time: horarios[usadosNoDia]
-          });
-
-          cursores[gi]++;
-          usadosNoDia++;
-          algumGeradorUsou = true;
-        }
-
-        // ⚠️ dia passa SEMPRE que um gerador foi processado
-        if (usadosNoDia > 0) {
-          diaOffset++;
-        }
-
-        if (fila.length >= totalGlobal) break;
-      }
-
-      if (!algumGeradorUsou) break;
-    }
-
-    return fila;
-  }
-
-  async function pgaFetchSectionWithRetry({ post_id, section_id }, retries = 3) {
-    let lastError;
-
-    for (let i = 0; i < retries; i++) {
-      try {
-        const res = await fetchJSON(`${REST}/orion/section`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-WP-Nonce': NONCE
-          },
-          body: JSON.stringify({
-            post_id,
-            section_id
-          }),
-          silent: true
-        });
-
-        if (res && !res.code) {
-          return { ok: true };
-        }
-
-        lastError = res;
-      } catch (e) {
-        lastError = e;
-      }
-    }
-
-    return { ok: false, error: lastError };
-  }
-
-  function marcarKeywordComoDone(boxEl, keyword) {
-    const $box = $(boxEl);
-    const $textarea = $box.find('.pga_keywords');
-
-    if (!$textarea.length) return;
-
-    const linhas = $textarea
-      .val()
-      .split('\n')
-      .map(l => l.trim());
-
-    const novas = [];
-    let removida = false;
-
-    for (const l of linhas) {
-      if (!removida && l === keyword) {
-        removida = true; // remove só UMA ocorrência
-        continue;
-      }
-      novas.push(l);
-    }
-
-    $textarea.val(novas.join('\n'));
-  }
-
-  /* ============================================================
-   * GERADOR REAL (PIPELINE ORION)
-   * ========================================================== */
-  async function gerarPost(job, onStatus) {
-    onStatus('Testando integrações…');
-
-    const payload = {
-      key: '',
-      model: '',
-      temperature: '',
-      max_tokens: ''
-    };
-
-    const res = await fetch(`${REST}/selftest`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-WP-Nonce': NONCE
-      },
-      body: JSON.stringify(payload)
-    });
-    const j = await res.json();
-
-    if (!res.ok) {
-      const msg = j && (j.message || j.error || j.code) ? (j.message || j.error || j.code) : `HTTP ${res.status}`;
-      await Swal.fire({ icon: 'error', title: __('Erro ao testar', 'plugins-alpha'), text: msg });
-      return;
-    }
-
-    onStatus('Gerando esboço…');
-
-    const outline = await fetchJSON(`${REST}/orion/outline`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-      body: JSON.stringify({
-        keyword: job.keyword,
-        keywords: [job.keyword],
-        length: job.length,
-        locale: job.locale,
-        template_key: job.template_key,
-        publish_time: job.publish_time,
-        category_id: job.category_id,
-        post_type: 'posts_orion',
-        tags: job.tags || []
-      })
-    });
-
-    if (!outline?.post_id) {
-      throw new Error('post_id ausente no outline');
-    }
-
-    const postId = outline.post_id;
-    const sections = outline.sections || [];
-
-    let done = 0;
-    for (const sec of sections) {
-      onStatus(`Gerando seções… (${++done}/${sections.length})`);
-      await pgaFetchSectionWithRetry({
-        post_id: postId,
-        section_id: sec.id
-      });
-    }
-
-    if (job.faq?.enabled) {
-      onStatus('Gerando FAQ…');
-      await fetchJSON(`${REST}/orion/faq`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-        body: JSON.stringify({
-          post_id: postId,
-          keyword: job.keyword,
-          locale: job.locale,
-          qty: Math.min(5, job.faq.qty || 3)
-        })
-      });
-    }
-
-    onStatus('Finalizando conteúdo…');
-
-    await fetchJSON(`${REST}/orion/finalize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-      body: JSON.stringify({
-        post_id: postId,
-        internal_links: job.internal_links || {},
-        tags: job.tags || []
-      })
-    });
-
-    onStatus('Gerando imagem…');
-
-    await fetchJSON(`${REST}/orion/image`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-      body: JSON.stringify({
-        post_id: postId,
-        keyword: job.keyword,
-        locale: job.locale,
-        template: job.template_key
-      })
-    });
-
-    return outline;
-  }
-
-  /* ============================================================
-   * EXECUTOR COM SWEET ALERT
-   * ========================================================== */
-  async function executarFila(jobs) {
-    const total = jobs.length;
-    const postsGerados = [];
-
-    Swal.fire({
-      title: 'Gerando conteúdos',
-      html: `
-      <div style="text-align:center">
-        <div id="pga_prog" style="text-align:center;font-size:13px;margin-bottom:4px;">
-          <div id="pga-progress-main">${sprintf(__('Progresso: %d de %d', 'plugins-alpha'), 0, total)} posts</div>
-        </div>
-        <div id="pga-progress-stage" style="margin-top:8px;font-size:13px;color:#666">
-          Preparando…
-        </div>
-      </div>
-    `,
-
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      didOpen: () => Swal.showLoading()
-    });
-
-    for (let i = 0; i < total; i++) {
-      const job = jobs[i];
-
-      const onStatus = (msg) => {
-        document.getElementById('pga-progress-stage').innerText = msg;
-      };
-
-      onStatus(`Iniciando post ${i + 1} de ${total}…`);
-
-      const res = await gerarPost(job, onStatus);
-
-      document.getElementById('pga-progress-main').innerText =
-        `${i + 1} de ${total} posts`;
-
-      marcarKeywordComoDone(job.boxEl, job.keyword);
-      pgaSaveBoxesToLocal();
-
-      if (res?.post_id) {
-        postsGerados.push({
-          post_id: res.post_id,
-          title: res.title || job.keyword
-        });
-      }
-
-    }
-
-    Swal.fire({
-      icon: 'success',
-      title: 'Geração concluída',
-      html: postsGerados.length
-        ? `<strong>Posts gerados:</strong><br><br>${postsGerados
-          .map(p =>
-            `<a href="${PGA_CFG.site_url}/wp-admin/post.php?post=${p.post_id}&action=edit"
-             target="_blank">
-             ${p.title}
-           </a>`
-          )
-          .join('<br>')}`
-        : 'Conteúdos gerados com sucesso.'
-    });
-
-  }
-
-  /* ============================================================
-   * CLIQUES
-   * ========================================================== */
-
-  // GERADOR UNITÁRIO
-  $(document).on('click', '.pga_generate_box', async function () {
-    const payload = buildPayloadTotal();
-    const box = $(this).closest('.pga-gen-box')[0];
-    const gerador = payload.geradores.find(g => g.boxEl === box);
-
-    if (!gerador || !gerador.keywords.length) return;
-
-    const jobs = montarFilaGlobal(
-      [gerador],
-      gerador.total,
-      gerador.first_delay_hours
-    );
-
-    if (!jobs) return;
-
-    await executarFila(jobs);
-  });
-
-  // GLOBAL
-  $('#pga_plan').on('click', async function () {
-    const payload = buildPayloadTotal();
-
-    if (!payload.global.enabled) {
-      for (const gerador of payload.geradores) {
-        if (!gerador.keywords.length) continue;
-
-        const jobs = montarFilaGlobal(
-          [gerador],
-          gerador.total,
-          gerador.first_delay_hours
-        );
-
-        if (!jobs) return;
-        await executarFila(jobs);
-      }
-      return;
-    }
-
-    const geradoresAtivos = payload.geradores.filter(g => g.enabled);
-
-    if (!geradoresAtivos.length) {
-      Swal.fire('Nenhum gerador selecionado');
-      return;
-    }
-
-    const jobs = montarFilaGlobal(
-      geradoresAtivos,
-      payload.global.total,
-      payload.global.start
-    );
-
-    await executarFila(jobs);
-  });
 })(jQuery);

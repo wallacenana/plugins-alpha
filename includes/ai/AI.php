@@ -177,6 +177,56 @@ class PluginsAlpha_AI
         return true;
     }
 
+    public static function faq(array $args)
+    {
+        $provider = $args['provider'] ?? self::get_text_provider();
+
+        $ok = self::ensure_text_provider($provider);
+        if (is_wp_error($ok)) return $ok;
+
+        $class = self::resolve_provider($provider);
+        if (is_wp_error($class)) return $class;
+
+        $keyword = trim((string)($args['keyword'] ?? ''));
+        if ($keyword === '') {
+            return new WP_Error('pga_faq_kw', 'Keyword inválida para FAQ.');
+        }
+
+        $qty    = min(5, max(1, (int)($args['qty'] ?? 3)));
+        $locale = $args['locale'] ?? 'pt_BR';
+
+        // PROMPT enxuto e determinístico
+        $prompt = PluginsAlpha_Prompts::build_faq_prompt([
+            'keyword' => $keyword,
+            'qty'     => $qty,
+            'locale'  => $locale,
+        ]);
+
+        // SCHEMA força JSON-LD válido
+        $schema = [
+            '@context'   => 'string',
+            '@type'      => 'string',
+            'mainEntity' => [
+                [
+                    '@type' => 'string',
+                    'name'  => 'string',
+                    'acceptedAnswer' => [
+                        '@type' => 'string',
+                        'text'  => 'string',
+                    ],
+                ],
+            ],
+        ];
+
+        $result = $class::complete($prompt, $schema);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return $result; // JSON-LD PRONTO
+    }
+
     // ------------------------------------------------------------
     // PONTO ÚNICO: gerar TEXTO genérico (Orion, Stories etc.)
     // ------------------------------------------------------------
@@ -251,7 +301,7 @@ class PluginsAlpha_AI
                 "O provedor '{$provider}' não implementa outline()."
             );
         }
-
+        
         return $class::outline($prompt, $args);
     }
 

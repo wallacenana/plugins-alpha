@@ -65,6 +65,15 @@ class PluginsAlpha_AdminMenus
       'edit.php?post_type=' . PluginsAlpha_WS_CPT::POST_TYPE
     );
 
+    add_submenu_page(
+      'plugins-alpha-dashboard',
+      __('RSS', 'plugins-alpha'),
+      __('RSS', 'plugins-alpha'),
+      'edit_posts',
+      'plugins-alpha-rss',
+      ['PluginsAlpha_AdminMenus', 'render_rss']
+    );
+
     // 3) Alpha Stories (lista do CPT)
     add_submenu_page(
       'plugins-alpha-dashboard',
@@ -110,6 +119,14 @@ class PluginsAlpha_AdminMenus
       PluginsAlpha_WS_CPT::render();
     } else {
       echo '<div class="wrap"><h1>Web Story Generator</h1><p>Em breve…</p></div>';
+    }
+  }
+  public static function render_rss(): void
+  {
+    if (class_exists('PluginsAlpha_RSS')) {
+      PluginsAlpha_RSS::render();
+    } else {
+      echo '<div class="wrap"><h1>RSS Feed Settings</h1><p>Em breve…</p></div>';
     }
   }
 

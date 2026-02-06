@@ -11,7 +11,7 @@ class PluginsAlpha_Pages_Generator
     <div class="pga-wrap">
       <?php
       if (!$chk['ok']) {
-        $url = admin_url('admin.php?page=plugins-alpha-dashboard');
+        $url = admin_url('admin.php?page=plugins-alpha-license');
 
         echo '<div class="notice notice-error is-dismissible"><p>'
           . esc_html__('Módulo não ativado.', 'plugins-alpha')
@@ -62,7 +62,11 @@ class PluginsAlpha_Pages_Generator
               </svg>
             </button>
             <?php
-            $val_default = $val_default ?? date_i18n('Y-m-d\TH:i', current_time('timestamp') + 2 * HOUR_IN_SECONDS);
+            $now_ts    = current_time('timestamp');
+            $min_date = date_i18n('Y-m-d', $now_ts);
+
+            // valor padrão = hoje
+            $val_default = $val_default ?? $min_date;
             ?>
             <div class="pga-global-wrap" style="display:flex;align-items:center;gap:10px">
               <label class="pga-switch">
@@ -78,8 +82,12 @@ class PluginsAlpha_Pages_Generator
 
                 <label style="display:flex;align-items:center;gap:8px;">
                   <span><?php echo esc_html__('Início', 'plugins-alpha'); ?></span>
-                  <input id="pga_plan_start" type="datetime-local" value="<?php echo esc_attr($val_default); ?>" style="width:200px;">
-                </label>
+                  <input
+                    id="pga_plan_start"
+                    type="date"
+                    min="<?php echo esc_attr($min_date); ?>"
+                    value="<?php echo esc_attr($val_default); ?>"
+                    style="width:200px;"> </label>
               </div>
             </div>
 
@@ -105,6 +113,7 @@ class PluginsAlpha_Pages_Generator
                 <path d="M12 5v14"></path>
               </svg> <?php esc_html_e('Novo projeto', 'plugins-alpha'); ?></button>
           </div>
+
           <!-- Contêiner de grupos -->
           <div id="pga_gen_container">
             <div class="pga-gen-box pga-collapse" data-gen="1">
@@ -278,6 +287,57 @@ class PluginsAlpha_Pages_Generator
                         <option value="fr_FR" <?php selected(($opt['defaults']['locale'] ?? '') === 'fr_FR'); ?>>Français</option>
                       </select>
                     </div>
+                    <div class="pga-field">
+                      <label><?php esc_html_e('Tags', 'plugins-alpha'); ?></label>
+
+                      <select class="pga_tags pga-select2" multiple="multiple" style="width:100%">
+                        <?php
+                        $tags = get_terms([
+                          'taxonomy'   => 'post_tag',
+                          'hide_empty' => false,
+                          'number'     => 0, // não limita
+                          'orderby'    => 'name',
+                          'order'      => 'ASC',
+                        ]);
+
+                        if (!is_wp_error($tags) && !empty($tags)) :
+                          foreach ($tags as $t) :
+                        ?>
+                            <option value="<?php echo esc_attr($t->term_id); ?>">
+                              <?php echo esc_html($t->name); ?>
+                            </option>
+                        <?php
+                          endforeach;
+                        endif;
+                        ?>
+                      </select>
+                    </div>
+
+                    <div class="pga-row">
+                      <div class="pga-field">
+                        <label style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                          <span class="pga-switch">
+                            <input type="checkbox" id="pga_make_faq" class="pga_make_faq">
+                            <span class="pga-switch-ui" aria-hidden="true"></span>
+                            <span class="pga-switch-label"><?php esc_html_e('Criar FAQ', 'plugins-alpha'); ?></span>
+                          </span>
+                        </label>
+                      </div>
+                      <div class="pga-field">
+                        <div class="pga-faq-qty-wrap" style="display:none;align-items:center;gap:8px;">
+                          <label for="pga_faq_qty"><?php esc_html_e('Perguntas', 'plugins-alpha'); ?></label>
+                          <input
+                            id="pga_faq_qty"
+                            class="pga_faq_qty"
+                            type="number"
+                            min="1"
+                            step="1"
+                            max="5"
+                            value="5">
+                        </div>
+                      </div>
+                    </div>
+
                     <div class="pga-plan">
                       <div class="pga-field pga-field-total">
                         <label for="pga_total"><?php esc_html_e('Quantidade total', 'plugins-alpha'); ?></label>
@@ -296,15 +356,12 @@ class PluginsAlpha_Pages_Generator
 
                       <div class="pga-field pga-field-program">
                         <label for="pga_first_delay_hours"><?php esc_html_e('Inicio', 'plugins-alpha'); ?></label>
-                        <?php
-                        $ts_default  = current_time('timestamp') + 2 * HOUR_IN_SECONDS;
-                        $val_default = date_i18n('Y-m-d\TH:i', $ts_default);
-                        ?>
+
                         <input
                           id="pga_first_delay_hours"
                           class="pga_first_delay_hours"
-                          type="datetime-local"
-                          class="regular-text"
+                          type="date"
+                          min="<?php echo esc_attr($min_date); ?>"
                           value="<?php echo esc_attr($val_default); ?>" />
                       </div>
                     </div>
@@ -327,7 +384,7 @@ class PluginsAlpha_Pages_Generator
                       <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
                       <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
                     </svg>
-                    <?php esc_html_e('Salvar modelo', 'plugins-alpha'); ?>
+                    <?php esc_html_e('Salvar gerador', 'plugins-alpha'); ?>
                   </button>
                   <button type="button" class="pga_generate_keywords">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -485,6 +542,22 @@ class PluginsAlpha_Pages_Generator
     if ($category_id > 0) {
       wp_set_post_terms($draft_id, [$category_id], 'category', false);
       update_post_meta($draft_id, '_pga_orion_category_ids', [$category_id]);
+    }
+
+    // --- TAGS (salva contexto do job) ------------------------
+    if (!empty($args['tags']) && is_array($args['tags'])) {
+      $clean = [];
+
+      foreach ($args['tags'] as $t) {
+        $t = trim((string)$t);
+        if ($t !== '') {
+          $clean[] = $t;
+        }
+      }
+
+      if ($clean) {
+        update_post_meta($draft_id, '_pga_job_tags', $clean);
+      }
     }
 
     if ($template === 'modelar_youtube') {
@@ -952,6 +1025,59 @@ class PluginsAlpha_Pages_Generator
       }
     }
 
+    // --- TAGS ------------------------------------------------
+    $raw_tags = get_post_meta($post_id, '_pga_job_tags', true);
+
+    if (is_array($raw_tags) && $raw_tags) {
+      $term_ids = [];
+
+      foreach ($raw_tags as $raw) {
+        $raw = trim((string)$raw);
+        if ($raw === '') continue;
+
+        // ID direto
+        if (ctype_digit($raw)) {
+          $term_ids[] = (int)$raw;
+          continue;
+        }
+
+        // texto → cria ou reutiliza
+        $name = sanitize_text_field($raw);
+        $exists = term_exists($name, 'post_tag');
+
+        if (is_array($exists)) {
+          $term_ids[] = (int)$exists['term_id'];
+        } else {
+          $created = wp_insert_term($name, 'post_tag');
+          if (!is_wp_error($created) && !empty($created['term_id'])) {
+            $term_ids[] = (int)$created['term_id'];
+          }
+        }
+      }
+
+      if ($term_ids) {
+        wp_set_object_terms($post_id, array_unique($term_ids), 'post_tag', false);
+      }
+    }
+
+    // --- FAQ (visível + JSON-LD) -----------------------------
+    $faq_json = get_post_meta($post_id, '_pga_faq_jsonld', true);
+
+    if ($faq_json) {
+      $faq = is_string($faq_json)
+        ? json_decode($faq_json, true)
+        : $faq_json;
+
+      if (is_array($faq)) {
+        $faq_block = self::render_faq_block($faq);
+
+        if ($faq_block !== '') {
+          $content_html .= "\n\n" . $faq_block;
+        }
+      }
+    }
+
+
     $res = self::do_schedule_post($post_id, [
       'keyword'        => $keyword,
       'title'          => $title,
@@ -979,6 +1105,56 @@ class PluginsAlpha_Pages_Generator
       'keyword'   => $keyword,
     ];
   }
+
+  private static function render_faq_block(array $faq): string
+  {
+    if (
+      ($faq['@type'] ?? '') !== 'FAQPage' ||
+      empty($faq['mainEntity']) ||
+      !is_array($faq['mainEntity'])
+    ) {
+      return '';
+    }
+
+    $out = [];
+
+    // H2 – título da FAQ
+    $out[] = '<!-- wp:heading {"level":2} -->';
+    $out[] = '<h2>Perguntas frequentes</h2>';
+    $out[] = '<!-- /wp:heading -->';
+
+    foreach ($faq['mainEntity'] as $item) {
+      $q = html_entity_decode((string)($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+      $a = html_entity_decode((string)($item['acceptedAnswer']['text'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+      $q = trim($q);
+      $a = trim($a);
+
+      if ($q === '' || $a === '') {
+        continue;
+      }
+
+      // Pergunta (H3)
+      $out[] = '<!-- wp:heading {"level":3} -->';
+      $out[] = '<h3>' . esc_html($q) . '</h3>';
+      $out[] = '<!-- /wp:heading -->';
+
+      // Resposta (parágrafo)
+      $out[] = '<!-- wp:paragraph -->';
+      $out[] = '<p>' . esc_html($a) . '</p>';
+      $out[] = '<!-- /wp:paragraph -->';
+    }
+
+    // JSON-LD como bloco HTML isolado
+    $out[] = '<!-- wp:html -->';
+    $out[] = '<script type="application/ld+json">'
+      . wp_json_encode($faq, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+      . '</script>';
+    $out[] = '<!-- /wp:html -->';
+
+    return implode("\n", $out);
+  }
+
 
   /**
    * Define limite "saudável" de links internos por tamanho de texto.

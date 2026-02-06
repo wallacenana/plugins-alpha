@@ -680,11 +680,11 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 }
 
 .select2-container--default .select2-results__option--selected {
-  background-color: #1c5cf41f!important;
+  background-color: #1c5cf41f !important;
 }
 
 .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
-  background-color: var(--pga-accent)!important;
+  background-color: var(--pga-accent) !important;
 }
 
 #pga-templates-modal .pga-input {
@@ -750,7 +750,8 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
   padding: 8px 25px;
 }
 
-#pga_gen_container {
+#pga_gen_container,
+#pga_rss_container {
   padding: 25px 0;
 }
 
