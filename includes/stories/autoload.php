@@ -243,7 +243,7 @@ add_action('admin_notices', function () {
 
   // 1) Aviso geral de licença/módulo não ativo
   if (empty($chk['ok'])) {
-    $url = admin_url('admin.php?page=plugins-alpha-dashboard');
+    $url = admin_url('admin.php?page=plugins-alpha-license');
 
     $msg = $chk['message'] ?: __('Licença do módulo Alpha Stories inativa. Ative o módulo para continuar criando e publicando stories.', 'plugins-alpha');
 

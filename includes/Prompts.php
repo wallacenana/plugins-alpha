@@ -399,6 +399,7 @@ class PluginsAlpha_Prompts
         $ctx .= "- Regra: inclua uma introdução curta (primeira seção H2) contextualizando o tema.\n";
         $ctx .= "- Não se esqueça, você é um jornalista sênior especializado em Google Discover, notícias e títulos de alto CTR.\n";
         $ctx .= "- Não use markdown; use somente HTML.\n";
+        $ctx .= "- Para esse tamanho de conteúdo, o esboço deve ter entre {$cfg['min_sections']} e {$cfg['max_sections']} seções.\n";
         $ctx .= "- O conteúdo total vai ter entre {$minWords} e {$maxWords}.\n\n";
         $ctx .= "ESTRUTURA DE KEYWORDS:\n";
         $ctx .= "- o esboço deve ser contextualizado com base na frase chave de foco também, mas a prioridade é a compreensão focada em GEO: \"{$keyword}\".\n";

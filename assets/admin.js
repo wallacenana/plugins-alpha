@@ -81,6 +81,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     $(this).attr('aria-expanded', isOpen ? 'true' : 'false');
     $('#pga_done_panel').attr('aria-hidden', isOpen ? 'false' : 'true');
+    renderDone(pgaLoadDone());
   });
 
   // Fecha o dropup ao clicar fora
@@ -180,7 +181,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       $box.find('.pga_category').val('0');
 
       pgaUpdateBoxTitle($box);
-      pgaSaveBoxesToLocal();
       return;
     }
 
@@ -212,8 +212,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       pgaActivateBox($first);
     }
 
-    // salva snapshot no localStorage
-    pgaSaveBoxesToLocal();
   });
 
 
@@ -1130,8 +1128,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       if (typeof window.PGA_saveGroupsToStorage === 'function') {
         window.PGA_saveGroupsToStorage();
       }
-      pgaSaveBoxesToLocal();
-
     } catch (err) {
       Swal.close();
       Swal.fire({ icon: 'error', title: __('Erro', 'plugins-alpha'), text: String(err.message || err) });
@@ -1579,22 +1575,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   function renderDone(list) {
     $done.empty();
     (list || []).forEach(k => $('<li/>').text(k).appendTo($done));
-  }
-
-  function pgaAddDone(kw) {
-    const v = String(kw || '').trim();
-    if (!v) return;
-
-    const list = pgaLoadDone();
-
-    // evita duplicar (case-insensitive)
-    const exists = list.some(x => String(x).localeCompare(v, undefined, { sensitivity: 'accent' }) === 0);
-    if (!exists) {
-      list.push(v);
-      pgaSaveDone(list);
-    }
-
-    renderDone(pgaLoadDone());
   }
 
   function loadTabs() {
@@ -2108,29 +2088,42 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     return { ok: false, error: lastError };
   }
 
-  function marcarKeywordComoDone(boxEl, keyword) {
+  function marcarKeywordComoDone(rawKw, boxEl) {
+    const kw = (rawKw || '').trim();
+    if (!kw || !boxEl) return false;
+
     const $box = $(boxEl);
-    const $textarea = $box.find('.pga_keywords');
+    const $ta = $box.find('.pga_keywords').first();
+    if (!$ta.length) return false;
 
-    if (!$textarea.length) return;
+    const orig = $ta.val() || '';
+    if (!orig) return false;
 
-    const linhas = $textarea
-      .val()
+    const lines = orig
       .split('\n')
-      .map(l => l.trim());
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
 
-    const novas = [];
-    let removida = false;
+    const idx = lines.findIndex(l => l.localeCompare(kw, undefined, { sensitivity: 'accent' }) === 0);
+    if (idx === -1) return false;
 
-    for (const l of linhas) {
-      if (!removida && l === keyword) {
-        removida = true; // remove só UMA ocorrência
-        continue;
-      }
-      novas.push(l);
+    lines.splice(idx, 1);
+    $ta.val(lines.join('\n'));
+
+    // ✅ agora persiste e renderiza DONE corretamente
+    // UI done + persistência
+    window.pgaAddDone(kw);
+
+    const $done = $('#pga_kw_done');
+    if ($done.length) {
+      const li = document.createElement('li');
+      li.textContent = kw;
+      $done.prepend(li); // topo
     }
 
-    $textarea.val(novas.join('\n'));
+    // ✅ só salva grupos (não mexe no dirty aqui)
+    pgaSaveBoxesToLocal();
+    return true;
   }
 
   /* ============================================================
@@ -2277,8 +2270,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       document.getElementById('pga-progress-main').innerText =
         `${i + 1} de ${total} posts`;
 
-      marcarKeywordComoDone(job.boxEl, job.keyword);
-      pgaSaveBoxesToLocal();
+      marcarKeywordComoDone(job.keyword, job.boxEl);
 
       if (res?.post_id) {
         postsGerados.push({

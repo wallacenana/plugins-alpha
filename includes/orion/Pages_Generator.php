@@ -846,12 +846,15 @@ class PluginsAlpha_Pages_Generator
       $url,
     );
 
-    // timeout maior só pra section
-    add_filter('http_request_timeout', fn($t) => max((int)$t, 120), 9999);
-
-    $resp = PluginsAlpha_AI::complete($prompt);
-
-    remove_filter('http_request_timeout', '__return_false', 9999);
+    $resp = PluginsAlpha_AI::complete(
+      $prompt,
+      [], // sem schema, é HTML/texto livre
+      [
+        'max_tokens'  => 2000,
+        'temperature' => 0.6,
+        'template'    => 'section',
+      ]
+    );
 
     if (is_wp_error($resp)) {
       return self::fail_job($post_id, $resp, 'section_' . $section_id);
@@ -865,17 +868,6 @@ class PluginsAlpha_Pages_Generator
 
     // --- SALVA ---
     update_post_meta($post_id, $meta_key, $content_html);
-
-    // SEO opcional (primeiro bloco que vier)
-    if (!get_post_meta($post_id, '_pga_meta_title', true) && !empty($resp['meta_title'])) {
-      update_post_meta($post_id, '_pga_meta_title', (string)$resp['meta_title']);
-    }
-    if (!get_post_meta($post_id, '_pga_meta_description', true) && !empty($resp['meta_description'])) {
-      update_post_meta($post_id, '_pga_meta_description', (string)$resp['meta_description']);
-    }
-    if (!get_post_meta($post_id, '_pga_image_alt', true) && !empty($resp['image_alt'])) {
-      update_post_meta($post_id, '_pga_image_alt', (string)$resp['image_alt']);
-    }
 
     return [
       'post_id'    => $post_id,

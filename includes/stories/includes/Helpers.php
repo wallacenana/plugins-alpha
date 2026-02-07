@@ -297,7 +297,7 @@ class PluginsAlpha_Helpers
       $imageProvider
     );
 
-    $result = PluginsAlpha_AI::generate_story_pages($prompt, ['provider' => $imageProvider]);
+    $result = PluginsAlpha_AI::generate_story_pages($prompt, []);
 
     if (is_wp_error($result)) {
       return $result;

@@ -663,65 +663,45 @@ class PluginsAlpha_REST
             $existing_list
         );
 
-        $schema = ['content' => 'string'];
-
-        $resp = PluginsAlpha_AI::complete($prompt, $schema, [
-            'temperature'       => 0.95,
-            'top_p'             => 0.95,
-            'presence_penalty'  => 0.7,
-            'frequency_penalty' => 0.9,
+        $resp = PluginsAlpha_AI::complete($prompt, [], [
+            'temperature' => 0.3,
+            'top_p' => 1,
+            'presence_penalty' => 0.2,
+            'frequency_penalty' => 0.4,
             'template'          => 'keyword'
         ]);
+
         if (is_wp_error($resp)) return $resp;
 
-        $text = (string)($resp['content'] ?? '');
-        $text = wp_strip_all_tags($text);
+        if (!is_array($resp) || !isset($resp['content'])) {
+            return new WP_Error('kw_invalid_response', 'Resposta inválida do gerador de keywords.');
+        }
+
+        $text = trim((string) $resp['content']);
+
+        // 🔹 unwrap se vier JSON serializado dentro do content (caso Gemini)
+        if ($text !== '' && $text[0] === '{') {
+            $inner = json_decode($text, true);
+            if (is_array($inner) && isset($inner['content']) && is_string($inner['content'])) {
+                $text = trim($inner['content']);
+            }
+        }
+
+        // normalização mínima e segura
         $text = str_replace(["\r\n", "\r"], "\n", $text);
 
-        // se veio com \\n (texto literal), vira quebra real
-        if (strpos($text, "\\n") !== false && strpos($text, "\n") === false) {
-            $text = str_replace("\\n", "\n", $text);
-        }
+        // remove linhas vazias no início/fim
+        $lines = array_values(array_filter(
+            array_map('trim', explode("\n", $text)),
+            fn($l) => $l !== ''
+        ));
 
-        // remove bullets/numeração no começo da linha
-        $lines = preg_split("/\n+/", $text);
-        $out = [];
-
-        foreach ($lines as $line) {
-            $line = trim($line);
-
-            // tira "1) ", "1. ", "- ", "• ", etc.
-            $line = preg_replace('/^\s*(?:[-•*]|[\d]{1,3}[.)-])\s*/u', '', $line);
-
-            // corrige "\" colado entre palavras: "trilha\segura" -> "trilha segura"
-            $line = preg_replace('/(?<=\p{L})\\\\(?=\p{L})/u', ' ', $line);
-
-            // se ainda sobrou "\" solto, troca por espaço (conservador)
-            $line = str_replace("\\", " ", $line);
-
-            // colapsa espaços
-            $line = preg_replace('/\s+/u', ' ', $line);
-            $line = trim($line);
-
-            if ($line !== '') $out[] = $line;
-        }
-
-        // unique (case/acento-insensitive)
-        $seen = [];
-        $final = [];
-        foreach ($out as $k) {
-            $key = function_exists('mb_strtolower') ? mb_strtolower($k, 'UTF-8') : strtolower($k);
-            $key = preg_replace('/\s+/u', ' ', $key);
-            if (isset($seen[$key])) continue;
-            $seen[$key] = 1;
-            $final[] = $k;
-        }
-
-        $final = array_slice($final, 0, $count);
+        // respeita limite
+        $lines = array_slice($lines, 0, $count);
 
         return [
             'ok' => true,
-            'keywords_text' => implode("\n", $final),
+            'keywords_text' => implode("\n", $lines),
         ];
     }
 

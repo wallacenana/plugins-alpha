@@ -43,10 +43,12 @@ class PluginsAlpha_AI
         $provider = strtolower(trim($provider));
 
         $map = [
-            'openai'   => 'PluginsAlpha_OpenAI',
-            'gemini'   => 'PluginsAlpha_Gemini',
+            'openai'     => 'PluginsAlpha_OpenAI',
+            'gemini'     => 'PluginsAlpha_Gemini',
             'perplexity' => 'PluginsAlpha_Perplexity',
-            'pollinations' => 'PluginsAlpha_Pollinations',
+            'claude'     => 'PluginsAlpha_Claude',
+            'mistral'    => 'PluginsAlpha_Mistral',
+            'cohere'     => 'PluginsAlpha_Cohere',
         ];
 
         if (!isset($map[$provider])) {
@@ -98,26 +100,28 @@ class PluginsAlpha_AI
      */
     public static function complete(string $prompt, array $schema = [], array $args = [])
     {
-        $formato = isset($args['format']) ? (string)$args['format'] : '';
+        $format = (string)($args['format'] ?? '');
 
-        $provider = $args['provider'] ?? self::get_text_provider($formato ?: 'orion_posts');
-
+        $provider = $args['provider']
+            ?? self::get_text_provider($format ?: 'orion_posts');
 
         $ok = self::ensure_text_provider($provider);
         if (is_wp_error($ok)) {
             return $ok;
         }
 
-        /** 
-         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class 
+        /**
+         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini>
          */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {
             return $class;
         }
 
+        // 🔹 args vão crus, sem mexer
         return $class::complete($prompt, $schema, $args);
     }
+
 
     /**
      * Provider de IMAGEM (Pollinations, OpenAI, Pexels, Unsplash...)
@@ -151,27 +155,10 @@ class PluginsAlpha_AI
      */
     private static function ensure_text_provider(string $provider)
     {
-        /** 
-         * Diz ao Intelephense quais classes podem aparecer aqui.
-         * Todas elas têm is_configured().
-         *
-         * @var class-string<
-         *     PluginsAlpha_OpenAI |
-         *     PluginsAlpha_Gemini
-         * > $class
-         */
         $class = self::resolve_provider($provider);
 
         if (is_wp_error($class)) {
             return $class;
-        }
-
-        // Agora o Intelephense para de reclamar
-        if (! $class::is_configured()) {
-            return new WP_Error(
-                'pga_provider_no_key',
-                "O provedor selecionado é '{$provider}', mas não foi encontrado credências para ele, vá em configurações e altere o gerador de textos padrão."
-            );
         }
 
         return true;
@@ -233,76 +220,121 @@ class PluginsAlpha_AI
 
     public static function titles(string $prompt, array $args = [])
     {
-        // 1) Resolve provider
-        $provider = isset($args['provider'])
-            ? (string) $args['provider']
-            : self::get_text_provider();
+        $provider = $args['provider'] ?? self::get_text_provider();
 
-        // 2) Garante que está configurado
         $ok = self::ensure_text_provider($provider);
         if (is_wp_error($ok)) {
             return $ok;
         }
 
-        // 3) Despacha para o provedor certo,
-        //    que *já* retorna array de strings (títulos)
-        switch ($provider) {
-            case 'gemini':
-                if (!class_exists('PluginsAlpha_Gemini')) {
-                    return new WP_Error(
-                        'pga_gemini_missing',
-                        'Classe PluginsAlpha_Gemini não encontrada.'
-                    );
-                }
-                return PluginsAlpha_Gemini::titles($prompt);
-
-            case 'openai':
-            default:
-                if (!class_exists('PluginsAlpha_OpenAI')) {
-                    return new WP_Error(
-                        'pga_openai_missing',
-                        'Classe PluginsAlpha_OpenAI não encontrada.'
-                    );
-                }
-                return PluginsAlpha_OpenAI::titles($prompt);
-        }
-    }
-
-    // AI::outline
-    public static function outline(string $prompt, array $args = [])
-    {
-        // 1) Descobre o provider (args > settings)
-        $provider = isset($args['provider'])
-            ? (string) $args['provider']
-            : self::get_text_provider();
-
-        // 2) Valida credenciais
-        $ok = self::ensure_text_provider($provider);
-        if (is_wp_error($ok)) {
-            return $ok;
-        }
-
-    // 3) Resolve a classe do provider (OpenAI / Gemini / etc.)
-        /** 
-         * @var class-string<
-         *    PluginsAlpha_OpenAI |
-         *    PluginsAlpha_Gemini
-         * > $class 
+        /**
+         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
          */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {
             return $class;
         }
 
-        // 4) Chama o método outline() do próprio provedor
-        if (!method_exists($class, 'outline')) {
+        // 🔹 contrato
+        $schema = [
+            'titles' => 'array',
+        ];
+
+        // 🔹 opções centralizadas
+        $opts = [
+            'template'    => 'titles',
+            'temperature' => $args['temperature'] ?? 0.6,
+            'max_tokens'  => $args['max_tokens'] ?? 600,
+            'provider'    => $provider,
+        ];
+
+        // 🔥 chamada única
+        $resp = $class::complete($prompt, $schema, $opts);
+        if (is_wp_error($resp)) {
+            return $resp;
+        }
+
+        if (
+            !is_array($resp) ||
+            empty($resp['titles']) ||
+            !is_array($resp['titles'])
+        ) {
             return new WP_Error(
-                'pga_outline_not_implemented',
-                "O provedor '{$provider}' não implementa outline()."
+                'pga_titles_invalid',
+                'Resposta inválida para títulos.',
+                ['response' => $resp]
             );
         }
-        
-        return $class::outline($prompt, $args);
+
+        // normalização mínima
+        $titles = array_values(
+            array_filter(
+                array_map(
+                    fn($t) => trim((string) $t),
+                    $resp['titles']
+                )
+            )
+        );
+
+        if (!$titles) {
+            return new WP_Error('pga_no_titles', 'Nenhum título retornado.');
+        }
+
+        return $titles;
+    }
+
+
+    public static function outline(string $prompt, array $args = [])
+    {
+        // 1) Resolve provider
+        $provider = $args['provider'] ?? self::get_text_provider();
+
+        // 2) Valida provider
+        $ok = self::ensure_text_provider($provider);
+        if (is_wp_error($ok)) {
+            return $ok;
+        }
+
+        /**
+         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
+         */
+        $class = self::resolve_provider($provider);
+        if (is_wp_error($class)) {
+            return $class;
+        }
+
+        // 3) Schema do outline
+        $schema = [
+            'sections' => 'array',
+        ];
+
+        // 4) Opções centralizadas
+        $opts = [
+            'template'    => 'outline',
+            'temperature' => $args['temperature'] ?? 0.6,
+            'max_tokens'  => $args['max_tokens'] ?? 1200,
+            'provider'    => $provider,
+        ];
+
+        // 🔥 chamada ÚNICA ao provider
+        $resp = $class::complete($prompt, $schema, $opts);
+        if (is_wp_error($resp)) {
+            return $resp;
+        }
+
+        if (
+            !is_array($resp) ||
+            empty($resp['sections']) ||
+            !is_array($resp['sections'])
+        ) {
+            return new WP_Error(
+                'pga_outline_invalid',
+                'Resposta inválida para outline.',
+                ['response' => $resp]
+            );
+        }
+
+        return $resp['sections'];
     }
 
     /**
@@ -311,7 +343,6 @@ class PluginsAlpha_AI
     public static function get_story_text_provider(): string
     {
         $provider = 'openai';
-
         if (class_exists('PluginsAlpha_Settings')) {
             $opts    = PluginsAlpha_Settings::get();
             $stories = $opts['stories'] ?? [];
@@ -345,10 +376,6 @@ class PluginsAlpha_AI
         }
 
         /**
-         * Aqui avisamos pro Intelephense:
-         * $class vai ser SEMPRE uma dessas classes
-         * (todas elas tem generate_story_pages()).
-         *
          * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
          */
         $class = self::resolve_provider($provider);
@@ -356,14 +383,47 @@ class PluginsAlpha_AI
             return $class;
         }
 
-        if (!method_exists($class, 'generate_story_pages')) {
+        // 🔹 schema do story
+        $schema = [
+            'pages' => 'array'
+        ];
+
+        // 🔹 opções de geração (único lugar!)
+        $opts = [
+            'temperature' => $args['temperature'] ?? 0.4,
+            'max_tokens'  => $args['max_tokens'] ?? 6000,
+            'template'    => 'story_pages',
+            'provider'    => $provider,
+        ];
+
+        // 🔥 AQUI é o ponto-chave
+        $resp = $class::complete($prompt, $schema, $opts);
+        if (is_wp_error($resp)) {
+            return $resp;
+        }
+
+        if (!isset($resp['pages']) || !is_array($resp['pages'])) {
             return new WP_Error(
-                'pga_story_missing_method',
-                "O provedor '{$provider}' não implementa generate_story_pages()."
+                'pga_story_invalid',
+                'Resposta inválida: pages ausente ou inválido.'
             );
         }
 
-        return $class::generate_story_pages($prompt, $args);
+        // normalização mínima
+        $pages = [];
+        foreach ($resp['pages'] as $p) {
+            $pages[] = [
+                'heading'  => (string)($p['heading'] ?? ''),
+                'body'     => (string)($p['body'] ?? ''),
+                'cta_text' => (string)($p['cta_text'] ?? ''),
+                'cta_url'  => (string)($p['cta_url'] ?? ''),
+                'prompt'   => (string)($p['prompt'] ?? ''),
+            ];
+        }
+
+        return [
+            'pages' => $pages,
+        ];
     }
 
     public static function meta_description(string $prompt, array $args = [])
@@ -371,107 +431,167 @@ class PluginsAlpha_AI
         $provider = $args['provider'] ?? self::get_text_provider();
 
         $ok = self::ensure_text_provider($provider);
-        if (is_wp_error($ok)) return $ok;
-
-        $class = self::resolve_provider($provider);
-        if (is_wp_error($class)) return $class;
-
-        $schema = [
-            'description' => 'string',
-        ];
-
-        $result = $class::complete($prompt, $schema);
-
-        if (is_wp_error($result)) {
-            return $result;
-        }
-
-        if (is_string($result)) {
-            return $result;
-        }
-
-        if (is_array($result) && isset($result['content'])) {
-            return (string) $result['content'];
-        }
-
-        return new WP_Error(
-            'pga_meta_desc_format',
-            'Formato inesperado para a meta description.'
-        );
-    }
-
-    public static function slug(string $prompt, array $args = [])
-    {
-        $provider = $args['provider'] ?? self::get_text_provider();
-
-        $ok = self::ensure_text_provider($provider);
-        if (is_wp_error($ok)) return $ok;
-
-        $class = self::resolve_provider($provider);
-        if (is_wp_error($class)) return $class;
-
-        $schema = [
-            'slug' => 'string',
-        ];
-
-        $result = $class::complete($prompt, $schema);
-
-        if (is_wp_error($result)) {
-            return $result;
-        }
-
-        if (is_string($result)) {
-            return $result;
-        }
-
-        if (is_array($result) && isset($result['content'])) {
-            return (string) $result['content'];
-        }
-
-        return new WP_Error(
-            'pga_slug_format',
-            'Formato inesperado para a meta description.'
-        );
-    }
-
-    // ------------------------------------------------------------
-    // PROMPT DE IMAGEM (usa provider de TEXTO pra montar o prompt)
-    // ------------------------------------------------------------
-    public static function image_prompt(string $prompt, array $args = [])
-    {
-        // 1) Descobre o provider (args > settings)
-        $provider = isset($args['provider'])
-            ? (string) $args['provider']
-            : self::get_text_provider();
-
-        // 2) Garante que esse provider está configurado
-        $ok = self::ensure_text_provider($provider);
         if (is_wp_error($ok)) {
             return $ok;
         }
 
-    // 3) Resolve a classe do provider (ex.: PluginsAlpha_OpenAI, PluginsAlpha_Gemini)
         /**
-         * @var class-string<
-         *   PluginsAlpha_OpenAI |
-         *   PluginsAlpha_Gemini
-         * > $class
+         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
          */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {
             return $class;
         }
 
-        // 4) Garante que o provider implementa image_prompt()
-        if (!method_exists($class, 'image_prompt')) {
+        // 🔹 contrato da resposta
+        $schema = [
+            'description' => 'string',
+        ];
+
+        // 🔹 opções centralizadas
+        $opts = [
+            'template'    => 'meta_description',
+            'temperature' => $args['temperature'] ?? 0.6,
+            'max_tokens'  => $args['max_tokens'] ?? 1200,
+            'provider'    => $provider,
+        ];
+
+        // 🔥 chamada correta (igual ao story)
+        $resp = $class::complete($prompt, $schema, $opts);
+        if (is_wp_error($resp)) {
+            return $resp;
+        }
+
+        // 🔒 contrato mínimo
+        if (!is_array($resp) || empty($resp['description'])) {
             return new WP_Error(
-                'pga_image_prompt_missing_method',
-                "O provedor '{$provider}' não implementa image_prompt()."
+                'pga_meta_desc_invalid',
+                'Resposta inválida para meta description.'
             );
         }
 
-        // 5) Despacha para o provedor
-        // (mantemos só 1 parâmetro porque hoje OpenAI/Gemini declaram image_prompt(string $prompt))
-        return $class::image_prompt($prompt);
+        $desc = trim((string) $resp['description']);
+
+        if ($desc === '') {
+            return new WP_Error(
+                'pga_meta_desc_empty',
+                'Meta description vazia.'
+            );
+        }
+
+        return $desc;
+    }
+
+
+    public static function slug(string $prompt, array $args = [])
+    {
+        $provider = $args['provider'] ?? self::get_text_provider();
+
+        $ok = self::ensure_text_provider($provider);
+        if (is_wp_error($ok)) {
+            return $ok;
+        }
+
+        /**
+         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
+         */
+        $class = self::resolve_provider($provider);
+        if (is_wp_error($class)) {
+            return $class;
+        }
+
+        // 🔹 contrato
+        $schema = [
+            'slug' => 'string',
+        ];
+
+        // 🔹 opções
+        $opts = [
+            'template'    => 'slug',
+            'temperature' => $args['temperature'] ?? 0.3,
+            'max_tokens'  => $args['max_tokens'] ?? 120,
+            'provider'    => $provider,
+        ];
+
+        $resp = $class::complete($prompt, $schema, $opts);
+        if (is_wp_error($resp)) {
+            return $resp;
+        }
+
+        if (!is_array($resp) || empty($resp['slug'])) {
+            return new WP_Error(
+                'pga_slug_invalid',
+                'Resposta inválida para slug.',
+                ['response' => $resp]
+            );
+        }
+
+        $slug = trim((string) $resp['slug']);
+
+        if ($slug === '') {
+            return new WP_Error('pga_slug_empty', 'Slug vazia.');
+        }
+
+        // 🔒 normalização final de segurança
+        $slug = sanitize_title($slug);
+
+        if ($slug === '') {
+            return new WP_Error('pga_slug_invalid_final', 'Slug inválida após sanitização.');
+        }
+
+        return $slug;
+    }
+
+
+    public static function image_prompt(string $prompt, array $args = [])
+    {
+        $provider = $args['provider'] ?? self::get_text_provider();
+
+        $ok = self::ensure_text_provider($provider);
+        if (is_wp_error($ok)) {
+            return $ok;
+        }
+
+        /**
+         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
+         */
+        $class = self::resolve_provider($provider);
+        if (is_wp_error($class)) {
+            return $class;
+        }
+
+        $schema = [
+            'prompt' => 'string',
+        ];
+
+        $opts = [
+            'template'    => 'image_prompt',
+            'temperature' => $args['temperature'] ?? 0.6,
+            'max_tokens'  => $args['max_tokens'] ?? 300,
+            'provider'    => $provider,
+        ];
+
+        $resp = $class::complete($prompt, $schema, $opts);
+        if (is_wp_error($resp)) {
+            return $resp;
+        }
+
+        if (!is_array($resp) || empty($resp['prompt'])) {
+            return new WP_Error(
+                'pga_image_prompt_invalid',
+                'Resposta inválida para image prompt.',
+                ['response' => $resp]
+            );
+        }
+
+        $imgPrompt = trim((string) $resp['prompt']);
+        if ($imgPrompt === '') {
+            return new WP_Error(
+                'pga_image_prompt_empty',
+                'Prompt de imagem vazio.'
+            );
+        }
+
+        return $imgPrompt;
     }
 }

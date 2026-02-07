@@ -316,6 +316,10 @@ class PluginsAlpha_Settings
   {
     $apis = $o['apis']['openai'] ?? [];
     $pex  = $o['apis']['pexels'] ?? [];
+    $coh  = $o['apis']['cohere'] ?? [];
+    $mis  = $o['apis']['mistral'] ?? [];
+    $per  = $o['apis']['perplexity'] ?? [];
+    $cla  = $o['apis']['claude'] ?? [];
     $uns  = $o['apis']['unsplash'] ?? [];
     $gem  = $o['apis']['gemini'] ?? [];
     $yt   = $o['apis']['youtube'] ?? [];
@@ -335,7 +339,7 @@ class PluginsAlpha_Settings
           <input
             name="pga_settings[apis][openai][key]"
             id="pga_openai_key"
-            type="password"
+            type="text"
             class="regular-text"
             placeholder="sk-..."
             value="<?php echo esc_attr($apis['key'] ?? ''); ?>">
@@ -371,7 +375,7 @@ class PluginsAlpha_Settings
       </tr>
     </table>
 
-    <h2 class="title"><?php esc_html_e('Gemini (Google AI – textos)', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('Gemini', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row">
@@ -416,6 +420,164 @@ class PluginsAlpha_Settings
         </td>
       </tr>
     </table>
+
+    <h2 class="title">Perplexity</h2>
+    <table class="form-table" role="presentation">
+      <tr>
+        <th scope="row"><label for="pga_perplexity_key">API Key</label></th>
+        <td>
+          <p class="description">
+            <a href="https://www.perplexity.ai/settings/api" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][perplexity][key]"
+            id="pga_perplexity_key"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($per['key'] ?? ''); ?>">
+        </td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_perplexity_model">Modelo</label></th>
+        <td>
+          <input
+            name="pga_settings[apis][perplexity][model_text]"
+            id="pga_perplexity_model"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($per['model_text'] ?? 'llama-3.1-sonar-large-128k-online'); ?>">
+        </td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_perplexity_temp">Temperatura</label></th>
+        <td><input name="pga_settings[apis][perplexity][temperature]" id="pga_perplexity_temp" type="number" min="0" max="1" step="0.1" value="<?php echo esc_attr($per['temperature'] ?? 0.6); ?>"></td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_perplexity_maxtok">Max tokens</label></th>
+        <td><input name="pga_settings[apis][perplexity][max_tokens]" id="pga_perplexity_maxtok" type="number" class="small-text" value="<?php echo esc_attr($per['max_tokens'] ?? 8000); ?>"></td>
+      </tr>
+    </table>
+
+
+    <h2 class="title">Claude (Anthropic)</h2>
+    <table class="form-table" role="presentation">
+      <tr>
+        <th scope="row"><label for="pga_claude_key">API Key</label></th>
+        <td>
+          <p class="description">
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][claude][key]"
+            id="pga_claude_key"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($cla['key'] ?? ''); ?>">
+        </td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_claude_model">Modelo</label></th>
+        <td>
+          <input
+            name="pga_settings[apis][claude][model_text]"
+            id="pga_claude_model"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($cla['model_text'] ?? 'claude-3-5-sonnet-20240620'); ?>">
+        </td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_claude_temp">Temperatura</label></th>
+        <td><input name="pga_settings[apis][claude][temperature]" id="pga_claude_temp" type="number" min="0" max="1" step="0.1" value="<?php echo esc_attr($cla['temperature'] ?? 0.6); ?>"></td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_claude_maxtok">Max tokens</label></th>
+        <td><input name="pga_settings[apis][claude][max_tokens]" id="pga_claude_maxtok" type="number" class="small-text" value="<?php echo esc_attr($cla['max_tokens'] ?? 8000); ?>"></td>
+      </tr>
+    </table>
+
+    <h2 class="title">Mistral</h2>
+    <table class="form-table" role="presentation">
+      <tr>
+        <th scope="row"><label for="pga_mistral_key">API Key</label></th>
+        <td>
+          <p class="description">
+            <a href="https://console.mistral.ai/api-keys/" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][mistral][key]"
+            id="pga_mistral_key"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($mis['key'] ?? ''); ?>">
+        </td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_mistral_model">Modelo</label></th>
+        <td>
+          <input
+            name="pga_settings[apis][mistral][model_text]"
+            id="pga_mistral_model"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($mis['model_text'] ?? 'mistral-large-latest'); ?>">
+        </td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_mistral_temp">Temperatura</label></th>
+        <td><input name="pga_settings[apis][mistral][temperature]" id="pga_mistral_temp" type="number" min="0" max="1" step="0.1" value="<?php echo esc_attr($mis['temperature'] ?? 0.6); ?>"></td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_mistral_maxtok">Max tokens</label></th>
+        <td><input name="pga_settings[apis][mistral][max_tokens]" id="pga_mistral_maxtok" type="number" class="small-text" value="<?php echo esc_attr($mis['max_tokens'] ?? 8000); ?>"></td>
+      </tr>
+    </table>
+
+    <h2 class="title">Cohere</h2>
+    <table class="form-table" role="presentation">
+      <tr>
+        <th scope="row"><label for="pga_cohere_key">API Key</label></th>
+        <td>
+          <p class="description">
+            <a href="https://dashboard.cohere.com/api-keys" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][cohere][key]"
+            id="pga_cohere_key"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($coh['key'] ?? ''); ?>">
+        </td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_cohere_model">Modelo</label></th>
+        <td>
+          <input
+            name="pga_settings[apis][cohere][model_text]"
+            id="pga_cohere_model"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($coh['model_text'] ?? 'command-r-plus'); ?>">
+        </td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_cohere_temp">Temperatura</label></th>
+        <td><input name="pga_settings[apis][cohere][temperature]" id="pga_cohere_temp" type="number" min="0" max="1" step="0.1" value="<?php echo esc_attr($coh['temperature'] ?? 0.6); ?>"></td>
+      </tr>
+      <tr>
+        <th scope="row"><label for="pga_cohere_maxtok">Max tokens</label></th>
+        <td><input name="pga_settings[apis][cohere][max_tokens]" id="pga_cohere_maxtok" type="number" class="small-text" value="<?php echo esc_attr($coh['max_tokens'] ?? 8000); ?>"></td>
+      </tr>
+    </table>
+
 
     <h2 class="title"><?php esc_html_e('Pexels (banco de imagens)', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
@@ -501,50 +663,80 @@ class PluginsAlpha_Settings
 
   private static function render_tab_orion_posts(array $o): void
   {
-    $gp_text     = $o['orion_posts']['text_provider'] ?? 'openai';
-    $gp_img      = $o['orion_posts']['images_provider'] ?? 'pollinations';
+    $gp_text = $o['orion_posts']['text_provider'] ?? 'openai';
+    $gp_img  = $o['orion_posts']['images_provider'] ?? 'pollinations';
   ?>
     <h2 class="title"><?php esc_html_e('Padrões de geração', 'plugins-alpha'); ?></h2>
     <table class="form-table" role="presentation">
+
       <tr>
-        <th scope="row"><label for="pga_gp_locale"><?php esc_html_e('Idioma padrão', 'plugins-alpha'); ?></label></th>
+        <th scope="row">
+          <label for="pga_gp_locale"><?php esc_html_e('Idioma padrão', 'plugins-alpha'); ?></label>
+        </th>
         <td>
-          <!-- select de locale que você já tem -->
+          <!-- select de locale existente -->
         </td>
       </tr>
 
       <tr>
         <th scope="row">
-          <label for="pga_gp_text_provider"><?php esc_html_e('IA para geração de TEXTO', 'plugins-alpha'); ?></label>
+          <label for="pga_gp_text_provider">
+            <?php esc_html_e('IA para geração de TEXTO', 'plugins-alpha'); ?>
+          </label>
         </th>
         <td>
           <select name="pga_settings[orion_posts][text_provider]" id="pga_gp_text_provider">
             <option value="openai" <?php selected($gp_text, 'openai'); ?>>OpenAI</option>
+            <option value="claude" <?php selected($gp_text, 'claude'); ?>>Claude (Anthropic)</option>
+            <option value="mistral" <?php selected($gp_text, 'mistral'); ?>>Mistral</option>
+            <option value="perplexity" <?php selected($gp_text, 'perplexity'); ?>>Perplexity</option>
+            <option value="cohere" <?php selected($gp_text, 'cohere'); ?>>Cohere</option>
             <option value="gemini" <?php selected($gp_text, 'gemini'); ?>>Gemini</option>
           </select>
+
           <p class="description">
-            <?php esc_html_e('Usada para gerar títulos, sections, planos etc.', 'plugins-alpha'); ?>
+            <?php esc_html_e(
+              'Usada para gerar títulos, keywords, outlines, sections e artigos.',
+              'plugins-alpha'
+            ); ?>
           </p>
         </td>
       </tr>
 
       <tr>
         <th scope="row">
-          <label for="pga_gp_img_provider"><?php esc_html_e('IA / Fonte para IMAGEM', 'plugins-alpha'); ?></label>
+          <label for="pga_gp_img_provider">
+            <?php esc_html_e('IA / Fonte para IMAGEM', 'plugins-alpha'); ?>
+          </label>
         </th>
         <td>
           <select name="pga_settings[orion_posts][images_provider]" id="pga_gp_img_provider">
-            <option value="pollinations" <?php selected($gp_img, 'pollinations'); ?>>Pollinations (IA grátis)</option>
-            <option value="openai" <?php selected($gp_img, 'openai'); ?>>OpenAI (DALL·E)</option>
-            <option value="pexels" <?php selected($gp_img, 'pexels'); ?>>Pexels (banco de imagens)</option>
-            <option value="unsplash" <?php selected($gp_img, 'unsplash'); ?>>Unsplash (banco de imagens)</option>
-            <option value="none" <?php selected($gp_img, 'none'); ?>><?php esc_html_e('Não gerar imagens automaticamente', 'plugins-alpha'); ?></option>
+            <option value="pollinations" <?php selected($gp_img, 'pollinations'); ?>>
+              Pollinations (IA grátis)
+            </option>
+            <option value="openai" <?php selected($gp_img, 'openai'); ?>>
+              OpenAI (DALL·E)
+            </option>
+            <option value="pexels" <?php selected($gp_img, 'pexels'); ?>>
+              Pexels
+            </option>
+            <option value="unsplash" <?php selected($gp_img, 'unsplash'); ?>>
+              Unsplash
+            </option>
+            <option value="none" <?php selected($gp_img, 'none'); ?>>
+              <?php esc_html_e('Não gerar imagens automaticamente', 'plugins-alpha'); ?>
+            </option>
           </select>
+
           <p class="description">
-            <?php esc_html_e('Usada para thumbnails e imagens geradas pelo módulo Órion.', 'plugins-alpha'); ?>
+            <?php esc_html_e(
+              'Usada para thumbnails e imagens geradas automaticamente pelo módulo Órion.',
+              'plugins-alpha'
+            ); ?>
           </p>
         </td>
       </tr>
+
     </table>
   <?php
   }
@@ -699,6 +891,10 @@ class PluginsAlpha_Settings
           <select id="pga_st_text_provider" name="pga_settings[stories][text_provider]">
             <option value="openai" <?php selected($text_provider, 'openai'); ?>>OpenAI</option>
             <option value="gemini" <?php selected($text_provider, 'gemini'); ?>>Gemini</option>
+            <option value="claude" <?php selected($text_provider, 'claude'); ?>>Claude</option>
+            <option value="mistral" <?php selected($text_provider, 'mistral'); ?>>Mistral</option>
+            <option value="cohere" <?php selected($text_provider, 'cohere'); ?>>Cohere</option>
+            <option value="perplexity" <?php selected($text_provider, 'perplexity'); ?>>Perplexity</option>
           </select>
           <p class="description">
             <?php esc_html_e('Usada para gerar as páginas de Web Stories (texto).', 'plugins-alpha'); ?>
