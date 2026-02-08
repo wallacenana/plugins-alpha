@@ -28,6 +28,10 @@ class PluginsAlpha_Mistral
     {
         $c = self::cfg();
 
+        if (!$c['key']) {
+            return new WP_Error('pga_mistral_no_key', 'Chave de API do Mistral não configurada.');
+        }
+        
         $body = [
             'model'       => $c['model_text'],
             'temperature' => $c['temperature'],

@@ -13,7 +13,7 @@ class PluginsAlpha_Claude
             'key'         => trim((string)($cl['key'] ?? '')),
             'model_text'  => (string)($cl['model_text'] ?? 'claude-3-5-sonnet-20240620'),
             'temperature' => (float) ($cl['temperature'] ?? 0.6),
-            'max_tokens'  => (int)   ($cl['max_tokens'] ?? 8000),
+            'max_tokens'  => (int)   ($cl['max_tokens'] ?? 4096),
             'timeout'     => 120,
         ];
     }
@@ -27,6 +27,10 @@ class PluginsAlpha_Claude
     public static function complete(string $prompt, array $schema = [], array $opts = [])
     {
         $c = self::cfg();
+
+        if (!$c['key']) {
+            return new WP_Error('pga_claude_no_key', 'Chave de API do Claude não configurada.');
+        }
 
         $body = [
             'model' => $c['model_text'],

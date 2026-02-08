@@ -28,6 +28,10 @@ class PluginsAlpha_Perplexity
     {
         $c = self::cfg();
 
+        if (!$c['key']) {
+            return new WP_Error('pga_perplexity_no_key', 'Chave de API do Perplexity não configurada.');
+        }
+        
         $body = [
             'model' => $c['model_text'],
             'temperature' => $c['temperature'],

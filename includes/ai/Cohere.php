@@ -28,6 +28,10 @@ class PluginsAlpha_Cohere
     {
         $c = self::cfg();
 
+        if (!$c['key']) {
+            return new WP_Error('pga_cohere_no_key', 'Chave de API do Cohere não configurada.');
+        }
+        
         $body = [
             'model'       => $c['model_text'],
             'temperature' => $c['temperature'],

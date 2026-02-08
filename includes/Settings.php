@@ -132,6 +132,51 @@ class PluginsAlpha_Settings
       ];
 
       /**
+       * Claude – credenciais para textos
+       */
+      $cla = $in['apis']['claude'] ?? [];
+      $out['apis']['claude'] = [
+        'key'        => sanitize_text_field($cla['key'] ?? ''),
+        'model_text' => sanitize_text_field($cla['model_text'] ?? 'claude-3-haiku-20240307'),
+        'temperature' => is_numeric($cla['temperature'] ?? null) ? (float) $cla['temperature'] : 0.6,
+        'max_tokens'  => max(1, (int) ($cla['max_tokens'] ?? 4096)),
+      ];
+
+      /**
+       * Perplexity – credenciais para textos
+       */
+      $per = $in['apis']['perplexity'] ?? [];
+      $out['apis']['perplexity'] = [
+        'key'        => sanitize_text_field($per['key'] ?? ''),
+        'model_text' => sanitize_text_field($per['model_text'] ?? 'sonar'),
+        'temperature' => is_numeric($per['temperature'] ?? null) ? (float) $per['temperature'] : 0.6,
+        'max_tokens'  => max(1, (int) ($per['max_tokens'] ?? 4096)),
+      ];
+
+      /**
+       * Mistral – credenciais para textos
+       */
+      $mis = $in['apis']['mistral'] ?? [];
+      $out['apis']['mistral'] = [
+        'key'        => sanitize_text_field($mis['key'] ?? ''),
+        'model_text' => sanitize_text_field($mis['model_text'] ?? 'mistral-small-latest'),
+        'temperature' => is_numeric($mis['temperature'] ?? null) ? (float) $mis['temperature'] : 0.6,
+        'max_tokens'  => max(1, (int) ($mis['max_tokens'] ?? 4096)),
+      ];
+
+      /**
+       * Cohere – credenciais para textos
+       */
+      $coh = $in['apis']['cohere'] ?? [];
+      $out['apis']['cohere'] = [
+        'key'        => sanitize_text_field($coh['key'] ?? ''),
+        'model_text' => sanitize_text_field($coh['model_text'] ?? 'command-r7b-12-2024'),
+        'temperature' => is_numeric($coh['temperature'] ?? null) ? (float) $coh['temperature'] : 0.6,
+        'max_tokens'  => max(1, (int) ($coh['max_tokens'] ?? 4096)),
+      ];
+      
+
+      /**
        * YouTube API
        */
       $yt = $in['apis']['youtube'] ?? [];
@@ -151,7 +196,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($gp['text_provider'])
         : 'openai'; // default
 
-      $allowed_text_prov = ['openai', 'gemini'];
+      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity'];
       if (!in_array($text_prov, $allowed_text_prov, true)) {
         $text_prov = 'openai';
       }
@@ -161,7 +206,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($gp['images_provider'])
         : 'pollinations'; // default imagem
 
-      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'none'];
+      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'none'];
       if (!in_array($img_prov, $allowed_img_prov, true)) {
         $img_prov = 'pollinations';
       }
@@ -189,7 +234,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($st['text_provider'])
         : 'openai';
 
-      $allowed_text_prov = ['openai', 'gemini'];
+      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity'];
       if (!in_array($text_prov, $allowed_text_prov, true)) {
         $text_prov = 'openai';
       }
@@ -199,7 +244,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($st['images_provider'])
         : 'pollinations';
 
-      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'none'];
+      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'none'];
       if (!in_array($img_prov, $allowed_img_prov, true)) {
         $img_prov = 'pollinations';
       }
@@ -323,6 +368,8 @@ class PluginsAlpha_Settings
     $uns  = $o['apis']['unsplash'] ?? [];
     $gem  = $o['apis']['gemini'] ?? [];
     $yt   = $o['apis']['youtube'] ?? [];
+
+    error_log('Rendering CORE tab with APIs: ' . json_encode($o['apis'] ?? []));
   ?>
     <h2 class="title">OpenAI</h2>
     <table class="form-table" role="presentation">
@@ -487,7 +534,7 @@ class PluginsAlpha_Settings
             id="pga_claude_model"
             type="text"
             class="regular-text"
-            value="<?php echo esc_attr($cla['model_text'] ?? 'claude-3-5-sonnet-20240620'); ?>">
+            value="<?php echo esc_attr($cla['model_text'] ?? 'claude-3-5-haiku-latest'); ?>">
         </td>
       </tr>
       <tr>
@@ -496,7 +543,7 @@ class PluginsAlpha_Settings
       </tr>
       <tr>
         <th scope="row"><label for="pga_claude_maxtok">Max tokens</label></th>
-        <td><input name="pga_settings[apis][claude][max_tokens]" id="pga_claude_maxtok" type="number" class="small-text" value="<?php echo esc_attr($cla['max_tokens'] ?? 8000); ?>"></td>
+        <td><input name="pga_settings[apis][claude][max_tokens]" id="pga_claude_maxtok" type="number" class="small-text" value="<?php echo esc_attr($cla['max_tokens'] ?? 4096); ?>"></td>
       </tr>
     </table>
 
@@ -565,7 +612,7 @@ class PluginsAlpha_Settings
             id="pga_cohere_model"
             type="text"
             class="regular-text"
-            value="<?php echo esc_attr($coh['model_text'] ?? 'command-r-plus'); ?>">
+            value="<?php echo esc_attr($coh['model_text'] ?? 'command-r7b-12-2024'); ?>">
         </td>
       </tr>
       <tr>
@@ -795,7 +842,7 @@ class PluginsAlpha_Settings
       </tr>
       <tr>
         <th scope="row"><label for="pga_st_accent"><?php esc_html_e('Cor de destaque', 'plugins-alpha'); ?></label></th>
-        <td><input name="pga_settings[stories][accent_color]" id="pga_st_accent" type="color" class="regular-text pga-color" value="<?php echo esc_attr($st['accent_color'] ?? '#ffffff'); ?>"></td>
+        <td><input name="pga_settings[stories][accent_color]" id="pga_st_accent" type="color" class="regular-text pga-color-field" value="<?php echo esc_attr($st['accent_color'] ?? '#ffffff'); ?>"></td>
       </tr>
       <tr>
         <th scope="row">

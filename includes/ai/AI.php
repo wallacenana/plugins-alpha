@@ -39,6 +39,7 @@ class PluginsAlpha_AI
 
     public static function resolve_provider(string $provider)
     {
+        error_log("Resolving provider: $provider");
         // Normaliza
         $provider = strtolower(trim($provider));
 
@@ -51,6 +52,7 @@ class PluginsAlpha_AI
             'cohere'     => 'PluginsAlpha_Cohere',
         ];
 
+        
         if (!isset($map[$provider])) {
             return new WP_Error('pga_invalid_provider', "Provider desconhecido: $provider");
         }
@@ -80,7 +82,7 @@ class PluginsAlpha_AI
 
             if (!empty($bucket['text_provider'])) {
                 $candidate = (string)$bucket['text_provider'];
-                if (in_array($candidate, ['openai', 'gemini'], true)) {
+                if (in_array($candidate, ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity'], true)) {
                     $provider = $candidate;
                 }
             }
