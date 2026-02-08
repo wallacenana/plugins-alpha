@@ -491,7 +491,7 @@ class PluginsAlpha_REST_Ws_Generator
                                     'format'            => 'stories'
                                 ],
                             );
-                            
+
                             if (!is_wp_error($ai)) {
 
                                 $q = trim((string)($ai['content'] ?? ''));
@@ -1030,7 +1030,7 @@ class PluginsAlpha_REST_Ws_Generator
             $meta_desc  = sanitize_textarea_field((string)($meta['desc'] ?? ''));
 
             // settings (vem do modal)
-            $settings = is_array($p['settings'] ?? null) ? $p['settings'] : [];
+            $settings          = is_array($p['settings'] ?? null) ? $p['settings'] : [];
             $publisher_logo_id = absint($settings['publisher_logo_id'] ?? 0);
             $poster_id         = absint($settings['poster_id'] ?? 0);
             $accent_color      = self::clean($settings['accent_color'] ?? '');
@@ -1118,15 +1118,43 @@ class PluginsAlpha_REST_Ws_Generator
 
                 $ai_raw = PluginsAlpha_AI::complete($prompt);
                 if (is_wp_error($ai_raw)) {
-                    return new WP_Error('pga_ws_ai_fail', $ai_raw->get_error_message(), ['status' => 500]);
+                    return new WP_Error(
+                        'pga_ws_ai_fail',
+                        $ai_raw->get_error_message(),
+                        ['status' => 500]
+                    );
                 }
 
-                // complete já vem parseado; content é string JSON do spec (title/desc/slug/pages)
-                $json = is_array($ai_raw) ? (string)($ai_raw['content'] ?? '') : '';
-                $obj  = json_decode($json, true);
+                if (!is_array($ai_raw)) {
+                    return new WP_Error('pga_ws_badjson', 'Resposta inválida da IA.', ['status' => 500]);
+                }
+
+                // 1) caso já seja o objeto final
+                if (isset($ai_raw['title']) || isset($ai_raw['pages'])) {
+                    $obj = $ai_raw;
+
+                    // 2) caso venha embrulhado em content
+                } elseif (isset($ai_raw['content'])) {
+                    if (is_array($ai_raw['content'])) {
+                        $obj = $ai_raw['content'];
+                    } else {
+                        $obj = json_decode((string)$ai_raw['content'], true);
+                    }
+                } else {
+                    return new WP_Error('pga_ws_badjson', 'Resposta inválida da IA.', ['status' => 500]);
+                }
+
+                // 3) 🔥 DESEMBRULHA SE AINDA VEIO content DENTRO
+                if (is_array($obj) && isset($obj['content']) && is_array($obj['content'])) {
+                    $obj = $obj['content'];
+                }
+
                 if (!is_array($obj)) {
                     return new WP_Error('pga_ws_badjson', 'JSON inválido (story).', ['status' => 500]);
                 }
+
+                error_log('AI NORMALIZED STORY (FINAL): ' . print_r($obj, true));
+
 
                 // meta
                 $meta_title_story = self::clean($obj['title'] ?? '');

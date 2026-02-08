@@ -39,7 +39,6 @@ class PluginsAlpha_AI
 
     public static function resolve_provider(string $provider)
     {
-        error_log("Resolving provider: $provider");
         // Normaliza
         $provider = strtolower(trim($provider));
 
@@ -52,7 +51,7 @@ class PluginsAlpha_AI
             'cohere'     => 'PluginsAlpha_Cohere',
         ];
 
-        
+
         if (!isset($map[$provider])) {
             return new WP_Error('pga_invalid_provider', "Provider desconhecido: $provider");
         }
