@@ -28,109 +28,98 @@ class PluginsAlpha_OpenAI
     }
 
     // ---- Completar texto (retorna array padronizado) ----
-    public static function complete(string $prompt, array $schema = [], array $opts = [])
+    public static function complete(string $prompt, array $schema = [], array $args = [])
     {
         $c = self::cfg();
 
         $model = $c['model'] ?? $c['model_text'];
-        $isResponses = preg_match('/^(gpt-5|o\d)/i', $model);
 
-        $maxTokens = 8000;
+        $isStructured = !empty($schema);
 
-        // ---------- REQUEST ----------
-        if ($isResponses) {
-            $endpoint = 'https://api.openai.com/v1/responses';
+        // 🔒 defaults seguros
+        $maxTokens = $args['max_tokens']
+            ?? ($isStructured ? 1800 : 5000);
 
-            $body = [
-                'model' => $model,
-                'input' => [
-                    [
-                        'role' => 'system',
-                        'content' => [
-                            ['type' => 'input_text', 'text' => 'Você é um gerador de artigos, focado em SEO GEO e E-E-A-T']
-                        ]
-                    ],
-                    [
-                        'role' => 'user',
-                        'content' => [
-                            ['type' => 'input_text', 'text' => $prompt]
-                        ]
-                    ],
-                ],
-                'max_output_tokens' => 12000,
-            ];
-        } else {
-            $endpoint = 'https://api.openai.com/v1/chat/completions';
+        $temperature = $args['temperature']
+            ?? ($isStructured ? 0.15 : 0.95);
 
-            $body = [
-                'model'       => $model,
-                'temperature' => 1,
-                'max_tokens'  => $maxTokens,
-                'top_p'             => 0.95,
-                'presence_penalty'  => $opts['presence_penalty'] ?? null,
-                'frequency_penalty' => $opts['frequency_penalty'] ?? null,
-                'messages'    => [
-                    ['role' => 'system', 'content' => 'Você é um gerador de artigos, focado em SEO GEO e E-E-A-T'],
-                    ['role' => 'user',   'content' => $prompt],
-                ],
-            ];
+        $topP = $args['top_p']
+            ?? ($isStructured ? 0.7 : 0.95);
 
-            $body = array_filter($body, fn($v) => $v !== null);
+        $presencePenalty = $args['presence_penalty']
+            ?? ($isStructured ? 0.0 : 0.7);
+
+        $frequencyPenalty = $args['frequency_penalty']
+            ?? ($isStructured ? 0.0 : 0.9);
+
+        // 🔴 MODO JSON HARD
+        $systemPrompt = $isStructured
+            ? "Você deve responder APENAS com JSON válido UTF-8.
+Não use markdown.
+Não use aspas tipográficas.
+Não quebre linhas dentro de strings.
+Não inclua texto fora do JSON.
+Não explique nada."
+            : "Você é um gerador de artigos focado em SEO GEO e E-E-A-T.";
+
+        $body = [
+            'model' => $model,
+            'max_tokens' => $maxTokens,
+            'temperature' => $temperature,
+            'top_p' => $topP,
+            'presence_penalty' => $presencePenalty,
+            'frequency_penalty' => $frequencyPenalty,
+            'messages' => [
+                ['role' => 'system', 'content' => trim($systemPrompt)],
+                ['role' => 'user',   'content' => $prompt],
+            ],
+        ];
+
+        // 🧯 STOP defensivo (evita vazamento de texto fora do JSON)
+        if ($isStructured) {
+            $body['stop'] = ["\n\n", "\n```"];
         }
 
-        $args = [
+        $argsReq = [
             'headers' => [
                 'Authorization' => 'Bearer ' . $c['key'],
                 'Content-Type'  => 'application/json',
             ],
-            'timeout' => $c['timeout'],
-            'body'    => wp_json_encode($body),
+            'timeout' => $c['timeout'] ?? 60,
+            'body'    => wp_json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
 
-        $res = wp_remote_post($endpoint, $args);
-        if (is_wp_error($res)) return $res;
+        $res = wp_remote_post('https://api.openai.com/v1/chat/completions', $argsReq);
+        if (is_wp_error($res)) {
+            return $res;
+        }
 
-        $code = wp_remote_retrieve_response_code($res);
-        $raw  = wp_remote_retrieve_body($res);
+        $raw = wp_remote_retrieve_body($res);
         $json = json_decode($raw, true);
 
-        if ($code !== 200) {
+        if (!isset($json['choices'][0]['message']['content'])) {
             return new WP_Error(
-                'pga_openai_http',
-                $json['error']['message'] ?? 'Erro OpenAI',
-                ['http_code' => $code]
+                'pga_openai_invalid',
+                'Resposta inválida da IA.',
+                ['raw' => $raw]
             );
         }
-        // ---------- EXTRAÇÃO UNIFICADA ----------
-        $txt = '';
 
-        if ($isResponses && !empty($json['output'])) {
-            foreach ($json['output'] as $out) {
-                foreach ($out['content'] ?? [] as $c) {
-                    if (($c['type'] ?? '') === 'output_text') {
-                        $txt .= (string)($c['text'] ?? '');
-                    }
-                }
-            }
-        } else {
-            $txt = (string)($json['choices'][0]['message']['content'] ?? '');
+        $txt = trim((string)$json['choices'][0]['message']['content']);
+
+        // 🔥 PARSE CONTROLADO
+        if (!$isStructured) {
+            return ['content' => $txt];
         }
 
-        $txt = trim($txt);
-        // ---------- PARSE ----------
-
-        // 🔴 REGRA DE OURO:
-        // schema vazio = TEXTO LIVRE (HTML, texto editorial, etc)
-        if (empty($schema)) {
-            return [
-                'content' => $txt,
-            ];
+        // remove lixo antes/depois
+        if (preg_match('/\{.*\}/s', $txt, $m)) {
+            $txt = $m[0];
         }
 
-        // ⬇️ DAQUI PRA BAIXO: APENAS PARA JSON ESTRUTURADO
-        $parsed = self::extract_json($txt);
+        $parsed = json_decode($txt, true);
 
-        if (!$parsed) {
+        if (!is_array($parsed)) {
             return new WP_Error(
                 'pga_parse',
                 'Falha ao decodificar JSON do modelo.',
@@ -150,21 +139,5 @@ class PluginsAlpha_OpenAI
         }
 
         return $parsed;
-    }
-
-    // ---- helper para extrair JSON de respostas em texto/markdown ----
-    private static function extract_json(string $raw): ?array
-    {
-        // remove lixo antes/depois do JSON
-        if (preg_match('/\{.*\}/s', $raw, $m)) {
-            $raw = $m[0];
-        }
-
-        $decoded = json_decode($raw, true);
-        if (!is_array($decoded)) {
-            return null;
-        }
-
-        return $decoded;
     }
 }

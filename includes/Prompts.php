@@ -346,16 +346,17 @@ class PluginsAlpha_Prompts
 
         return
             "CONTEXTO DO TEMA:\n"
-            . "Assunto principal: \"{$keyword}\"\n\n"
-            . "Quantidade de títulos a gerar: entre {$min} e {$max}.\n\n"
-            . "Escreva em {$locale}.\n\n"
-            . "- Hoje é: " . SELF::date() . " (data automatica puxando por função no WordPress, pode usar o ano quando necessário). \n\n"
+            . "Assunto principal: \"{$keyword}\"\n"
+            . "Quantidade de títulos a gerar: entre {$min} e {$max}\n"
+            . "Idioma de saída: {$locale}\n"
+            . "Data atual: " . SELF::date() . " (use o ano quando relevante)\n\n"
             . $base
             . "\n\n"
-            . "Não inclua markdown ou comentários seus"
+            . "FORMATO DE SAÍDA:\n"
+            . "- Retorne apenas JSON válido, sem markdown, sem comentários\n"
+            . "- Siga exatamente a estrutura especificada abaixo\n"
             . self::title_json_suffix();
     }
-
 
     public static function build_outline_prompt(
         string $template,
@@ -388,28 +389,63 @@ class PluginsAlpha_Prompts
             'locale'       => (string)$locale,
         ]);
 
-        // CONTEXTO INTERNO: o que deixa fiel
+        // CONTEXTO INTERNO
         $ctx  = "\n\nCONTEXTO INTERNO:\n";
-        if ($articleTitle !== '') {
-            $ctx .= "- Título já definido: {$articleTitle}\n";
-        }
-        $ctx .= "- Título do artigo: {$articleTitle}\n";
-        $ctx .= "- Hoje é: " . SELF::date() . ". ";
-        $ctx .= "- Antes de qualquer coisa, entenda que você é especialista em criar esboço, o chat depois de você será especialista em criar sessão a sessão (de h2 a h2), entenda que uma sessão não vai ter o contexto da outra sessão, então você não pode simplesmente dizer \"os critérios serão usados dos itens selecionados\", coisas nesse sentido, pois a sessão não vai saber qual é o item selecionado, precisa ser especifico em quais são esses itens, especialmente se for pedir alguma tabela, precisa especificar quais são os itens.\n";
-        $ctx .= "- Regra: inclua uma introdução curta (primeira seção H2) contextualizando o tema.\n";
-        $ctx .= "- Não se esqueça, você é um jornalista sênior especializado em Google Discover, notícias e títulos de alto CTR.\n";
-        $ctx .= "- Não use markdown; use somente HTML.\n";
-        $ctx .= "- Para esse tamanho de conteúdo, o esboço deve ter entre {$cfg['min_sections']} e {$cfg['max_sections']} seções.\n";
-        $ctx .= "- O conteúdo total vai ter entre {$minWords} e {$maxWords}.\n\n";
-        $ctx .= "ESTRUTURA DE KEYWORDS:\n";
-        $ctx .= "- o esboço deve ser contextualizado com base na frase chave de foco também, mas a prioridade é a compreensão focada em GEO: \"{$keyword}\".\n";
+        $ctx .= "Título do artigo: {$articleTitle}\n";
+        $ctx .= "Palavra-chave de foco (GEO): {$keyword}\n";
+        $ctx .= "Data atual: " . SELF::date() . "\n";
+        $ctx .= "Idioma de saída: {$locale}\n\n";
 
-        $ctx .= "REGRAS CRÍTICAS SOBRE O TÍTULO:\n";
-        $ctx .= "- O conteúdo deste esboço DEVE ser coerente com o título do artigo.\n";
-        $ctx .= "- Os h2 devem ser uma resposta ao título, então, se o titulo promete itens, deve ser gerado 1 h2 para cada item, exemplo: \"5 motivos para....\" - resposta h2 > \"motivo 1)\", \"motivo 2\" mas claro, titulo fluido, algo como \"motivo 1 é a linda xxxx\", claro, só dei o exemplo de \"motivo\", mas isso serve para qualquer coisa que remeta a itens (erros, passos, motivos, razões, itens, etc...).\n";
-        $ctx .= "  respeite essa estrutura no conjunto das seções (não crie um número diferente).\n";
-        $ctx .= "- Não mude o foco do artigo. Não contradiga o que o título promete.\n\n";
-        $ctx .= "- Não insira numeração se o título não for especifico sobre quantidades, exemplo 'x motivos para [...]', 'x itens sobre [...] etc'.\n\n";
+        $ctx .= "ESTRUTURA E TAMANHO:\n";
+        $ctx .= "- Esboço deve ter entre {$cfg['min_sections']} e {$cfg['max_sections']} seções H2\n";
+        $ctx .= "- Conteúdo final terá entre {$minWords} e {$maxWords} palavras\n";
+        $ctx .= "- Inclua primeira seção H2 contextualizando o tema (não use 'Introdução' genérica)\n\n";
+
+        $ctx .= "ANÁLISE DE INTENÇÃO DO TÍTULO:\n";
+        $ctx .= "- O esboço DEVE ser completamente coerente com o título do artigo\n";
+        $ctx .= "- Se o título promete QUANTIDADE ESPECÍFICA (ex: '5 motivos', '7 dicas', '3 erros'), você DEVE criar EXATAMENTE esse número de H2s\n";
+        $ctx .= "- Cada H2 deve corresponder a um item prometido no título\n";
+        $ctx .= "- Exemplos de estrutura:\n";
+        $ctx .= "  • Título: '5 motivos para usar WordPress' → H2s: 'Motivo 1: Flexibilidade total', 'Motivo 2: Comunidade ativa', etc.\n";
+        $ctx .= "  • Título: '7 erros comuns em SEO' → H2s: 'Erro 1: Ignorar pesquisa de palavras-chave', 'Erro 2: Conteúdo duplicado', etc.\n";
+        $ctx .= "  • Título: '3 passos para criar um blog' → H2s: 'Passo 1: Escolher plataforma', 'Passo 2: Configurar hospedagem', etc.\n";
+        $ctx .= "- Se o título NÃO especifica quantidade, NÃO numere os H2s\n";
+        $ctx .= "- NUNCA mude o foco ou contradiga o que o título promete\n\n";
+
+        $ctx .= "CONTEXTUALIZAÇÃO PARA SEÇÕES FUTURAS:\n";
+        $ctx .= "- CRÍTICO: Cada seção será escrita ISOLADAMENTE por outro chat sem contexto das outras seções\n";
+        $ctx .= "- Você DEVE ser ESPECÍFICO e EXPLÍCITO nas instruções de cada seção\n";
+        $ctx .= "- NUNCA use referências vagas como:\n";
+        $ctx .= "  ❌ 'use os critérios dos itens selecionados'\n";
+        $ctx .= "  ❌ 'conforme mencionado anteriormente'\n";
+        $ctx .= "  ❌ 'baseado na lista acima'\n";
+        $ctx .= "- SEMPRE especifique COMPLETAMENTE o que deve ser feito:\n";
+        $ctx .= "  ✅ 'crie tabela comparando: preço, facilidade de uso, recursos, suporte'\n";
+        $ctx .= "  ✅ 'explique os 3 tipos: WordPress.com, WordPress.org, Managed WordPress'\n";
+        $ctx .= "  ✅ 'detalhe cada passo: 1) escolher domínio, 2) contratar hospedagem, 3) instalar WordPress'\n";
+        $ctx .= "- Se pedir tabela, especifique TODOS os itens/colunas/critérios que devem estar nela\n";
+        $ctx .= "- Se pedir lista, especifique TODOS os elementos que devem compor a lista\n\n";
+
+        $ctx .= "CAPITALIZAÇÃO (OBRIGATÓRIO):\n";
+        $ctx .= "- Use APENAS primeira palavra maiúscula + nomes próprios nos H2 e H3\n";
+        $ctx .= "- ❌ ERRADO: 'Como Instalar WordPress No Seu Servidor'\n";
+        $ctx .= "- ✅ CORRETO: 'Como instalar WordPress no seu servidor'\n";
+        $ctx .= "- Exceções: siglas (SEO, HTML), produtos (WordPress, Netflix), nomes próprios\n\n";
+
+        $ctx .= "FINALIZAÇÃO DO OUTLINE:\n";
+        $ctx .= "- ÚLTIMA seção H2 NUNCA deve ser: 'Conclusão', 'Finalizando', 'Considerações finais', 'Resumo'\n";
+        $ctx .= "- Opções válidas de última seção (escolha uma que faça sentido para o tema):\n";
+        $ctx .= "  ✅ 'Próximos passos para [objetivo]'\n";
+        $ctx .= "  ✅ 'Como aplicar [tema] na prática'\n";
+        $ctx .= "  ✅ 'Erros comuns ao [ação] e como evitá-los'\n";
+        $ctx .= "  ✅ 'Recursos e ferramentas recomendadas para [tema]'\n";
+        $ctx .= "  ✅ 'Checklist de implementação de [solução]'\n";
+        $ctx .= "- Objetivo: manter engajamento, não encerrar o clique\n\n";
+
+        $ctx .= "PERSONALIDADE E TOM:\n";
+        $ctx .= "- Você é um jornalista sênior especializado em Google Discover e conteúdo de alto CTR\n";
+        $ctx .= "- O esboço deve parecer criado por um especialista humano no assunto\n";
+        $ctx .= "- Não use markdown, apenas HTML válido\n";
 
         return $base . "\n\n" . $ctx . "\n\n" . $suffix;
     }
@@ -473,36 +509,67 @@ class PluginsAlpha_Prompts
             $desc  = 'Outdoor landscape';
         }
 
-        // prompt em PT-BR, mas exigindo saída em inglês
+        // ---- Caso A: bancos de imagem (Pexels/Unsplash) ----
         if ($provider === 'pexels' || $provider === 'unsplash') {
             return ""
-                . "Você é um gerador de QUERIES de busca para bancos de imagens (Pexels/Unsplash), Obrigatório: gere em inglês.\n"
-                . "Saída: APENAS 1 frase curta, entre 2 e 3 palavras simples, minúsculas, sem pontuação.\n"
-                . "Use linguagem de CENA FOTOGRÁFICA (pessoas/objetos/ação + contexto).\n"
-                . "Evite termos de IA/arte: não use 'ilustração', 'render', '3d', 'cinematográfico', 'estilo', 'realista'.\n"
-                . "Não use prefixos tipo 'imagem de', 'foto de'.\n"
-                . "A imagem precisa ter um elemento central, Exemplos: 'mulher celular', 'notebook mesa', 'cachorro comendo ração', 'homem trabalhando notebook'.\n"
-                . "Nunca use palavras genéricas demais, como \"turistas caminhando reserva natural brasil\", isso é muito ruim, \"homem\" ou \"mulher\", estaria definindo muito melhor e \"reserva natual\", poderia ser facilmente trocado por \"floresta\", \"mata\", \"beira do rio\".\n"
-                . "Responda APENAS em JSON válido UTF-8, sem markdown, sem texto extra.\n"
-                . "Formato obrigatório:\n"
-                . "{ \"content\": \"...\" }\n"
-                . "Título do slide: {$title}\n"
-                . "Texto do slide: {$desc}\n";
+                . "You are a search query generator for image banks (Pexels/Unsplash).\n"
+                . "OUTPUT REQUIREMENTS:\n"
+                . "- Return ONLY ONE search phrase with 2-4 WORDS\n"
+                . "- Use CONCRETE and VISUAL elements (people, objects, actions, settings)\n"
+                . "- OUTPUT MUST BE IN ENGLISH (lowercase, no punctuation)\n"
+                . "- DO NOT use commas or multiple tags\n"
+                . "- DO NOT use prefixes like 'image of', 'photo of'\n"
+                . "- The image needs ONE central element\n\n"
+                . "PHOTOGRAPHIC LANGUAGE:\n"
+                . "- Use specific subjects: 'woman', 'man', 'laptop', 'mountain trail'\n"
+                . "- NOT abstract concepts: 'marketing', 'digital', 'strategy'\n"
+                . "- NOT AI terms: 'illustration', 'render', '3d', 'cinematic', 'realistic'\n"
+                . "- NOT generic locations: 'natural reserve brazil' → use 'forest', 'river', 'jungle'\n\n"
+                . "CORRECT EXAMPLES:\n"
+                . "✅ 'woman working laptop'\n"
+                . "✅ 'mountain trail hiker'\n"
+                . "✅ 'waterfall forest'\n"
+                . "✅ 'coffee cup table'\n\n"
+                . "WRONG EXAMPLES:\n"
+                . "❌ 'tourists walking natural reserve brazil' (too generic/long)\n"
+                . "❌ 'digital marketing' (abstract)\n"
+                . "❌ 'illustration of nature' (AI term + prefix)\n"
+                . "❌ 'forest, river, mountain' (multiple tags)\n\n"
+                . "OUTPUT FORMAT:\n"
+                . "Return ONLY valid JSON UTF-8, no markdown, no extra text:\n"
+                . "{ \"content\": \"your search term here\" }\n\n"
+                . "CONTEXT:\n"
+                . "Slide title: {$title}\n"
+                . "Slide text: {$desc}\n\n"
+                . "Generate the English search term in JSON format now:\n";
         }
 
-        // IA (pollinations, etc)
+        // ---- Caso B: geração (IA) para Web Stories 9:16 ----
         return ""
-            . "Você é um gerador de PROMPTS para imagens verticais de Web Story (9:16).\n"
-            . "IMPORTANTE: a SAÍDA deve ser em INGLÊS.\n"
-            . "Saída: APENAS 1 prompt (uma frase/parágrafo curto).\n"
-            . "Regras:\n"
-            . "- cena de natureza / viagem ao ar livre, fiel ao slide\n"
-            . "- sem texto, sem letras, sem logos, sem watermark\n"
-            . "- evitar pessoas sensualizadas, glamour, foco em corpo\n"
-            . "- preferir paisagens, trilhas, rios, cachoeiras, florestas\n"
-            . "- descreva luz/ambiente de forma simples (ex: morning light, mist)\n\n"
-            . "Título do slide: {$title}\n"
-            . "Texto do slide: {$desc}\n";
+            . "You are an AI image prompt generator for vertical Web Story images (9:16 aspect ratio).\n"
+            . "OUTPUT REQUIREMENTS:\n"
+            . "- Return ONLY ONE prompt (short phrase or paragraph)\n"
+            . "- OUTPUT MUST BE IN ENGLISH\n"
+            . "- Describe a vertical-friendly scene\n\n"
+            . "CONTENT RULES:\n"
+            . "- Focus on nature/outdoor travel scenes related to the slide content\n"
+            . "- NO text, letters, logos, or watermarks in the image\n"
+            . "- NO sexualized people, glamour shots, or body-focused imagery\n"
+            . "- PREFER landscapes, trails, rivers, waterfalls, forests\n"
+            . "- Include simple lighting/atmosphere details (e.g., 'morning light', 'misty forest')\n\n"
+            . "STYLE GUIDELINES:\n"
+            . "- Photorealistic outdoor photography style\n"
+            . "- Natural colors and lighting\n"
+            . "- Vertical composition (portrait orientation)\n"
+            . "- Clear central subject or focal point\n\n"
+            . "CORRECT EXAMPLES:\n"
+            . "✅ 'Mountain trail with morning mist, hiker in distance, vertical composition'\n"
+            . "✅ 'Waterfall cascading through lush forest, natural lighting, portrait view'\n"
+            . "✅ 'Person standing by river at sunset, vertical outdoor scene'\n\n"
+            . "CONTEXT:\n"
+            . "Slide title: {$title}\n"
+            . "Slide text: {$desc}\n\n"
+            . "Generate the English image prompt now:\n";
     }
 
     public static function build_image_prompt(
@@ -525,36 +592,55 @@ class PluginsAlpha_Prompts
 
         // ---- Caso A: bancos de imagem (Pexels/Unsplash) ----
         if ($provider === 'pexels' || $provider === 'unsplash') {
-
-            // IMPORTANTÍSSIMO: aqui NÃO pode ter prompt de geração, só query de busca
             $rules = ""
-                . "Você é um gerador de QUERIES de busca para bancos de imagens (Pexels/Unsplash), Obrigatório: gere em inglês.\n"
-                . "Saída: APENAS 1 frase curta, entre 2 e 3 palavras simples, minúsculas, sem pontuação.\n"
-                . "Use linguagem de CENA FOTOGRÁFICA (pessoas/objetos/ação + contexto).\n"
-                . "Evite termos de IA/arte: não use 'ilustração', 'render', '3d', 'cinematográfico', 'estilo', 'realista'.\n"
-                . "Não use prefixos tipo 'imagem de', 'foto de'.\n"
-                . "A imagem precisa ter um elemento central, Exemplos: 'mulher celular', 'notebook mesa', 'cachorro comendo ração', 'homem trabalhando notebook'.\n"
-                . "Nunca use palavras genéricas demais, como \"turistas caminhando reserva natural brasil\", isso é muito ruim, \"homem\" ou \"mulher\", estaria definindo muito melhor e \"reserva natual\", poderia ser facilmente trocado por \"floresta\", \"mata\", \"beira do rio\".\n"
-                . "Contexto do artigo: {$title}\n"
-                . "Palavra-chave: {$keyword}\n";
+                . "You are a search query generator for image banks (Pexels/Unsplash).\n"
+                . "OUTPUT REQUIREMENTS:\n"
+                . "- Return ONLY ONE search phrase with 2-4 WORDS\n"
+                . "- Use CONCRETE and VISUAL elements (people, objects, actions, settings)\n"
+                . "- OUTPUT MUST BE IN ENGLISH (lowercase, no punctuation)\n"
+                . "- DO NOT use commas or multiple tags\n"
+                . "- DO NOT use prefixes like 'image of', 'photo of'\n\n"
+                . "PHOTOGRAPHIC LANGUAGE:\n"
+                . "- Use specific subjects: 'woman', 'man', 'laptop', 'coffee cup'\n"
+                . "- NOT abstract concepts: 'marketing', 'digital', 'strategy'\n"
+                . "- NOT AI terms: 'illustration', 'render', '3d', 'cinematic', 'realistic'\n"
+                . "- NOT generic locations: 'natural reserve brazil' → use 'forest', 'river', 'jungle'\n"
+                . "- The image needs ONE central element\n\n"
+                . "CORRECT EXAMPLES:\n"
+                . "✅ 'woman working laptop'\n"
+                . "✅ 'coffee cup desk'\n"
+                . "✅ 'man walking forest'\n"
+                . "✅ 'notebook open table'\n\n"
+                . "WRONG EXAMPLES:\n"
+                . "❌ 'tourists walking natural reserve brazil' (too generic/long)\n"
+                . "❌ 'digital marketing strategy' (abstract)\n"
+                . "❌ 'illustration of laptop' (AI term + prefix)\n"
+                . "❌ 'laptop, coffee, notebook' (multiple tags)\n\n"
+                . "CONTEXT:\n"
+                . "Article title: {$title}\n"
+                . "Keyword: {$keyword}\n\n"
+                . "Generate the English search term now:\n";
 
-            // se seu template já tiver coisa demais, a regra manda ele se comportar
             return $rules . "\n" . $base;
         }
 
         // ---- Caso B: geração (IA) ----
         $s = ""
-            . "Você é um gerador de prompts para imagens.\n"
-            . "Crie um prompt para gerar uma thumbnail relacionada ao artigo.\n"
-            . "- Título: \"{$title}\"\n"
-            . "- Palavra-chave: \"{$keyword}\"\n"
-            . "Regras:\n"
-            . "- descreva a cena, elementos principais e ambiente\n"
-            . "- evite texto na imagem\n";
+            . "You are an AI image prompt generator for article thumbnails.\n"
+            . "Create a detailed prompt to generate a thumbnail image.\n\n"
+            . "CONTEXT:\n"
+            . "- Title: \"{$title}\"\n"
+            . "- Keyword: \"{$keyword}\"\n\n"
+            . "RULES:\n"
+            . "- Describe the scene with specific visual elements\n"
+            . "- Include main subjects, actions, and environment\n"
+            . "- Specify style if relevant (photorealistic, illustration, minimalist)\n"
+            . "- Avoid text overlay on the image\n"
+            . "- Keep it visually compelling and relevant to the topic\n\n"
+            . "Generate the image prompt now:\n";
 
         return $s . "\n" . $base;
     }
-
 
     /* =============================
    * PROMPT: regen thumbnail por post
@@ -567,16 +653,32 @@ class PluginsAlpha_Prompts
         // Regra dinâmica por provider
         $imageProvider = trim((string)$imageProvider);
         if ($imageProvider === 'pexels' || $imageProvider === 'unsplash') {
-            $tpl .= "Você é um gerador de TAGS de busca para bancos de imagens (Pexels/Unsplash).\n";
-            $tpl .= "- O resultado final deve ser APENAS uma frase curta (no máximo 4 PALAVRAS SIMPLES), como TAGS de busca.\n";
-            $tpl .= "- Ex.: \"cachorro no sofá\", \"mulher sorrindo notebook\".\n";
-            $tpl .= "- Não use prefixos como \"Imagem de\".\n";
-            $tpl .= "Contexto: {$title}.\n";
+            $tpl .= "\n\nYou are a search term generator for image banks (Pexels/Unsplash).\n";
+            $tpl .= "MANDATORY RULES:\n";
+            $tpl .= "- Return ONLY ONE search phrase with MAX 3-4 WORDS\n";
+            $tpl .= "- Use CONCRETE and VISUAL nouns (objects, people, actions, places)\n";
+            $tpl .= "- Base it ONLY on the title: \"{$title}\"\n";
+            $tpl .= "- DO NOT use commas, DO NOT separate into multiple tags\n";
+            $tpl .= "- DO NOT use prefixes like \"Image of\", \"Photo of\"\n";
+            $tpl .= "- DO NOT use abstract concepts (marketing, digital, strategy)\n";
+            $tpl .= "- USE tangible visual elements\n";
+            $tpl .= "- OUTPUT MUST BE IN ENGLISH\n\n";
+            $tpl .= "CORRECT EXAMPLES:\n";
+            $tpl .= "Title: '7 filmes de terror na Netflix' → 'person watching TV night'\n";
+            $tpl .= "Title: 'Marketing digital para WordPress' → 'person working laptop'\n";
+            $tpl .= "Title: 'Receitas de bolo de chocolate' → 'chocolate cake table'\n";
+            $tpl .= "Title: '5 dicas de produtividade' → 'organized desk notebook'\n";
+            $tpl .= "Title: 'Best hiking trails' → 'mountain trail hiker'\n\n";
+            $tpl .= "WRONG EXAMPLES:\n";
+            $tpl .= "❌ 'marketing, digital, wordpress' (multiple tags)\n";
+            $tpl .= "❌ 'digital marketing' (too abstract)\n";
+            $tpl .= "❌ 'Image of computer' (has prefix)\n";
+            $tpl .= "❌ 'pessoa trabalhando laptop' (not in English)\n\n";
+            $tpl .= "Now generate the English search term based on the provided title.\n";
         } else {
-            $tpl .= "\n\n";
-            $tpl .= "Regras específicas para IA:\n"
-                . "title: \"{$title}\".\n"
-                . "context: {$content}.\n";
+            $tpl .= "\n\nSpecific rules for AI image generation:\n";
+            $tpl .= "title: \"{$title}\".\n";
+            $tpl .= "context: {$content}.\n";
         }
 
         $plain = wp_strip_all_tags($content);
@@ -604,21 +706,37 @@ class PluginsAlpha_Prompts
         $title   = get_the_title($post);
         $content = wp_strip_all_tags($raw_html);
         $content = html_entity_decode($content, ENT_QUOTES, 'UTF-8');
-
         $locale  = get_locale() ?: 'pt_BR';
 
-        // regra dinâmica do campo prompt
-        if ($imageProvider === 'pexels' || $imageProvider === 'unsplash') {
-            $image_rule =
-                'No campo "prompt" gere (inglês) apenas TAGS curtas (até 3 palavras simples) para banco de imagens, como se estivese procurando algo especiico para um título (título do slide/página). Lembre-se de inserir '
-                . 'algum elemento especifico, como "retrato", "paisagem", "foto aérea", "foto macro", "notebook"/"celular"/"copo"/"carro", "homem"/"mulher", etc (são exemplos ficticios, procure coisas a ver com o título). afinal, a ideia é procurar por algo especifico sobre o slide em questão.' . "\n"
-                . "obrigatório \n"
-                . "- ser elementos obvios, procurando de fato algo em um bando imagens.\n"
-                . "- não insira frases genéricas sem elementos específicos, por exemplo, se procurar \"imagem velocidade carregamento site\", provavelmente vai gerar um resultado nada a ver com nada, além do mais, pra que procurar \"imagem\" num banco de imagens.\n"
-                . "- como especificado, a pesquisa deve ter no máximo 3 termos simples (sem palavras compostas, sem preposições, sem artigos, etc).\n";
+        $provider = strtolower(trim((string)$imageProvider));
+
+        // ---- Regra dinâmica para campo "prompt" (imagens dos slides) ----
+        if ($provider === 'pexels' || $provider === 'unsplash') {
+            $image_rule = ""
+                . "PROMPT FIELD RULES (for image banks - Pexels/Unsplash):\n"
+                . "- Generate search queries IN ENGLISH\n"
+                . "- Maximum 2-4 simple words per query\n"
+                . "- Use CONCRETE visual elements related to the slide title\n"
+                . "- Include specific objects: 'laptop', 'coffee cup', 'mountain', 'woman working'\n"
+                . "- DO NOT use generic phrases like 'speed loading website image'\n"
+                . "- DO NOT use the word 'image' or 'photo' (it's already an image bank)\n"
+                . "- DO NOT use prepositions, articles, or compound words\n\n"
+                . "CORRECT EXAMPLES:\n"
+                . "✅ 'laptop desk coffee' (for productivity slide)\n"
+                . "✅ 'mountain trail hiker' (for travel slide)\n"
+                . "✅ 'woman phone smiling' (for communication slide)\n\n"
+                . "WRONG EXAMPLES:\n"
+                . "❌ 'image of speed loading website' (generic + has 'image')\n"
+                . "❌ 'digital marketing strategy' (abstract, no visual elements)\n"
+                . "❌ 'velocidade carregamento' (not in English)\n";
         } else {
-            $image_rule =
-                'No campo "prompt" gere um prompt de FOTO REALISTA VERTICAL, cinematográfica, luz natural, sem texto, sem logos.';
+            $image_rule = ""
+                . "PROMPT FIELD RULES (for AI image generation):\n"
+                . "- Generate prompts IN ENGLISH for VERTICAL PHOTOREALISTIC images\n"
+                . "- Style: cinematic, natural lighting, portrait orientation (9:16)\n"
+                . "- NO text overlays, logos, or watermarks\n"
+                . "- Focus on the slide's main topic with clear visual elements\n"
+                . "- Include lighting/atmosphere details when relevant\n";
         }
 
         $base = self::replace_vars($tpl, [
@@ -628,14 +746,16 @@ class PluginsAlpha_Prompts
             'image_prompt_rule' => $image_rule,
         ]);
 
-        $s  = "Você é uma especialista em transformar posts de blog em Web Stories AMP.\n\n";
-        $s .= "- Título: {$title}\n";
-        $s .= "- Conteúdo: {$content}\n";
+        $s  = "You are a specialist in transforming blog posts into AMP Web Stories.\n\n";
+        $s .= "CONTEXT:\n";
+        $s .= "- Title: {$title}\n";
+        $s .= "- Content: {$content}\n";
         $s .= "- Brief: {$brief}\n";
         $s .= "- Locale: {$locale}\n\n";
-        $s .= "Tarefa:\n";
+        $s .= "TASK:\n";
+        $s .= "Convert the blog post into an engaging Web Story following the rules below.\n\n";
 
-        return $s . "\n\n" . $base . "\n\n" . self::story_json_format_block();
+        return $s . $base . "\n\n" . self::story_json_format_block();
     }
 
     /**
@@ -662,10 +782,19 @@ class PluginsAlpha_Prompts
 
         $cta_pages_str = empty($cta_pages) ? 'nenhuma' : implode(', ', $cta_pages);
 
-        // IMPORTANTE: o complete só retorna parsed['content'].
-        // Então a IA DEVE retornar JSON com chave "content"
-        // e content deve ser um JSON (string) no formato do WS: {"pages":[...]}
-        $spec = "{\n"
+        $prompt = ""
+            . "Você é um gerador de Web Stories a partir de conteúdo.\n"
+            . "Idioma: {$locale}\n"
+            . "Título base: {$title}\n"
+            . "Quantidade de páginas: {$slidesCount}\n"
+            . "Páginas com CTA (0-indexado): {$cta_pages_str}\n\n"
+
+            . "FORMATO OBRIGATÓRIO:\n"
+            . "Responda APENAS em JSON válido UTF-8.\n"
+            . "NÃO use markdown. NÃO explique nada.\n\n"
+
+            . "Estrutura obrigatória do JSON:\n"
+            . "{\n"
             . "  \"title\": \"\",\n"
             . "  \"desc\": \"\",\n"
             . "  \"slug\": \"\",\n"
@@ -674,17 +803,11 @@ class PluginsAlpha_Prompts
             . "      \"heading\": \"\",\n"
             . "      \"body\": \"\",\n"
             . "      \"cta_text\": \"\",\n"
-            . "      \"cta_url\": \"\",\n"
+            . "      \"cta_url\": \"\"\n"
             . "    }\n"
             . "  ]\n"
-            . "}";
+            . "}\n\n"
 
-        $prompt = ""
-            . "Você é um gerador de Web Stories a partir de conteúdo.\n"
-            . "Idioma: {$locale}\n"
-            . "Título: {$title}\n"
-            . "Quantidade de páginas: {$slidesCount}\n"
-            . "Páginas com CTA (0-indexado): {$cta_pages_str}\n"
             . "Regra de CTA:\n"
             . "- Apenas as páginas listadas devem conter CTA.\n"
             . "- Nas páginas com CTA, use para o cta_text, crie CTAs que tenham a ver com o conteúdo, não seja obvia demais como \"veja mais\", \"saiba mais\", mas traga coisas nesse sentido com no máximo 3 palavras etc e cta_url=\"{$cta_url_def}\".\n"
@@ -704,7 +827,6 @@ class PluginsAlpha_Prompts
             . "- Obrigatório evitar palavras de outros niveis de funil\n"
             . "- Regras para a descrição:\n"
             . "- Analise o nivel do funil do conteúdo e crie algo condizente com isso, a descrição deve ter entre 120 e 160 caracteres com cta no final. CTA levando em conta o nivel de funil e assim proibindo palavras de outros niveis\n"
-            . $spec . "\n\n"
             . "Regras editoriais:\n"
             . "- Slide 1 = capa com headline forte (máx 38 caracteres) + gancho (1 frase)\n"
             . "- Slides 2+ = progressão (máx 45 caracteres no heading)\n"
@@ -2254,7 +2376,6 @@ class PluginsAlpha_Prompts
                 $p = trim((string)($c['paragraph'] ?? ''));
                 if ($h === '') continue;
 
-                // formato “H3 1: ... / Brief: ...”
                 $line = "H3 {$n}: {$h}";
                 if ($p !== '') $line .= " — Brief: {$p}";
                 $list[] = $line;
@@ -2296,14 +2417,10 @@ class PluginsAlpha_Prompts
         [$minWords, $maxWords] = self::length_to_range($length);
 
         if ($goalMin <= 0 || $goalMax <= 0) {
-            // mais curto: por seção
             $per = max(90, (int) floor($maxWords / max(1, $sectionsCount)));
-
-            // metas menores (curto de verdade)
             $goalMin = (int) max(60, floor($per * 0.55));
             $goalMax = (int) max($goalMin + 30, floor($per * 0.75));
         }
-
 
         $childrenCount = 0;
         if (!empty($section['children']) && is_array($section['children'])) {
@@ -2312,7 +2429,7 @@ class PluginsAlpha_Prompts
 
         // se tem H3 sugerido, divide o budget entre H2 + H3s
         if ($childrenCount > 0) {
-            $parts = 1 + $childrenCount; // H2 + cada H3
+            $parts = 1 + $childrenCount;
             $goalMax = (int) max(100, floor($goalMax / $parts));
             $goalMin = (int) max(50, floor($goalMin / $parts));
         }
@@ -2320,99 +2437,98 @@ class PluginsAlpha_Prompts
         $url = trim((string)$url);
 
         $base = self::replace_vars($tpl, [
-            'keyword'             => $keyword,
-            'articleTitle'        => $articleTitle,
-            'locale'              => $locale,
-            'section_heading'     => $heading,
-            'section_level'       => $level,
-            'section_paragraph'   => $sectionParagraph,
-            'section_children'    => $children,            // opcional manter
+            'keyword'                   => $keyword,
+            'articleTitle'              => $articleTitle,
+            'locale'                    => $locale,
+            'section_heading'           => $heading,
+            'section_level'             => $level,
+            'section_paragraph'         => $sectionParagraph,
+            'section_children'          => $children,
             'section_children_detailed' => $childrenDetailed,
-            'section_bullets'     => $bullets,
-            'sections_count'      => (string)$sectionsCount,
-            'section_number'      => (string)$section_number,
-            'url'                 => $url,
+            'section_bullets'           => $bullets,
+            'sections_count'            => (string)$sectionsCount,
+            'section_number'            => (string)$section_number,
+            'url'                       => $url,
         ]);
-
 
         $ctx = '';
         $idx = max(1, (int)$section_number);
         $total = max(1, (int)$sectionsCount);
         $remaining = max(0, $total - $idx);
 
-        $state = "ESTADO DE GERAÇÃO (obrigatório):\n"
-            . "- Esta seção é a {$idx} de {$total} (restam {$remaining}), use esse dado para desenvolver os itens pedidos abaixo, levando sempre em conta quando pedir algum item especifico em alguma sessão de numero especifico.\n"
-            . "O título do artigo é: \n"
-            . "\"{$articleTitle}\"\n\n"
+        $state = "CONTEXTO DA SEÇÃO:\n"
+            . "Título do artigo: \"{$articleTitle}\"\n"
+            . "Esta é a seção {$idx} de {$total} (restam {$remaining})\n"
+            . "Data atual: " . SELF::date() . "\n"
+            . "Idioma: {$locale}\n\n"
 
-            . "REGRAS CRÍTICAS SOBRE O CONTEUDO:\n"
-            . "- Cada parágrafo deve ter no máximo 2 frases.\n"
-            . "- Quebre parágrafos com frequência (leitura mobile e focado em GEO).\n"
-            . "REGRAS CRÍTICAS SOBRE O TÍTULO:\n"
-            . "- O conteúdo desta seção DEVE ser coerente com o título do artigo.\n"
-            . "- Se o título promete um certo número de passos, dicas, motivos etc,\n"
-            . "- Não mude o foco do artigo. Não contradiga o que o título promete.\n"
-            . "- A primeira palavra deve sempre ser capitalizada nos títulos.\n\n"
-            . "- Não insira numeração se o título não for especifico sobre quantidades, exemplo 'x motivos para [...]', 'x itens sobre [...] etc'.\n\n";
+            . "COERÊNCIA COM O TÍTULO:\n"
+            . "- O conteúdo desta seção DEVE ser completamente coerente com o título do artigo\n"
+            . "- Se o título promete número específico (ex: '5 motivos'), esta seção deve entregar EXATAMENTE o item correspondente ao número da seção\n"
+            . "- Nunca mude o foco ou contradiga o que o título promete\n"
+            . "- Não invente numeração se o título não especifica quantidade\n\n"
+
+            . "REGRAS DE FORMATAÇÃO:\n"
+            . "- Cada parágrafo deve ter NO MÁXIMO 2-3 frases\n"
+            . "- Quebre parágrafos com frequência (otimizado para mobile e Google Discover)\n"
+            . "- Use HTML limpo: <p>, <strong>, <ul>, <ol>, <li>, <a>\n"
+            . "- Não use markdown, apenas HTML válido\n"
+            . "- Não use <h1> em nenhuma circunstância\n\n"
+
+            . "CAPITALIZAÇÃO DE TÍTULOS:\n"
+            . "- Use APENAS primeira palavra maiúscula + nomes próprios\n"
+            . "- ❌ ERRADO: <h2>Como Instalar WordPress</h2>\n"
+            . "- ✅ CORRETO: <h2>Como instalar WordPress</h2>\n"
+            . "- Exceções: siglas (SEO, HTML), produtos (WordPress, Netflix)\n\n";
 
         if ($template != 'modelar_youtube') {
-            $state .= "ESTRUTURA DE KEYWORDS:\n"
-                . "Distribua de maneira fluida a frase chave de foco, mas sem exagerar, só use quando de fato fizer sentido e use sempre de forma fluida, no máximo uma vez por sessão. A frase é: \"{$keyword}\".\n";
+            $state .= "PALAVRA-CHAVE DE FOCO:\n"
+                . "- Distribua de forma NATURAL a frase-chave: \"{$keyword}\"\n"
+                . "- Use NO MÁXIMO uma vez por seção\n"
+                . "- Só use quando fizer sentido contextualmente\n"
+                . "- Integre de forma fluida no texto, nunca forçada\n\n";
         }
 
-        // sufixo técnico: tamanho + estrutura + formato de saída
-        $tech = "Regras técnicas (não discuta, apenas cumpra):\n"
-            . "- Hoje é: " . SELF::date() . ". "
-            . "- Escreva SOMENTE esta seção (não escreva o artigo inteiro).\n"
-            . "- Comece EXATAMENTE com <{$level}>{$heading}</{$level}>.\n"
-            . "- NÃO escreva outros H2 fora desta seção.\n"
-            . "- NÃO use <h1>.\n"
-            . "- Use HTML limpo: <p>, <strong>, <ul>, <ol>, <li>.\n"
-            . "- Se passar de {$goalMax}, encurte antes de finalizar.\n"
-            . "- Só use bullet points se realmente ajudar.\n"
-            . "- Não use markdown; use somente HTML.\n"
-            . "- Se fizer sentido, inclua H3 dentro desta seção usando os subtítulos sugeridos.\n\n"
-            . "- Esta seção (incluindo QUALQUER H3 e TODO o texto abaixo deles) DEVE ter entre {$goalMin} e {$goalMax} palavras NO TOTAL.\n";
+        $brief = "BRIEF DA SEÇÃO (siga fielmente — esta é sua fonte principal):\n"
+            . "Heading ({$level}): {$heading}\n";
 
-        $tech .= "- Regra obrigatória: use o BRIEF DA SEÇÃO como fonte principal (expanda, não ignore).\n";
-        if ($childrenDetailed !== '') {
-            $tech .= "- Regra obrigatória: para cada H3 sugerido, siga o Brief do H3 correspondente.\n";
-        }
         if ($sectionParagraph !== '') {
-            $tech .= "- Regra obrigatória: o conteúdo do {$level} deve expandir o parágrafo-guia (não ficar genérico).\n";
+            $brief .= "Parágrafo-guia do {$level}: {$sectionParagraph}\n"
+                . "REGRA: EXPANDA este parágrafo com profundidade, contexto, critérios e exemplos práticos. Não apenas reescreva.\n\n";
         }
+
+        if ($childrenDetailed !== '') {
+            $brief .= "Subtítulos H3 sugeridos com briefs:\n{$childrenDetailed}\n"
+                . "REGRA: Crie cada H3 e desenvolva seguindo o brief específico de cada um.\n\n";
+        } else if ($children !== '') {
+            $brief .= "Subtítulos H3 sugeridos:\n{$children}\n\n";
+        }
+
+        if ($bullets !== '') {
+            $brief .= "Bullets sugeridos (use como guia, não liste literalmente):\n{$bullets}\n\n";
+        }
+
+        $brief .= "IMPORTANTE:\n"
+            . "- Não invente novos tópicos fora do escopo do brief\n"
+            . "- Desenvolva cada ponto com profundidade e exemplos práticos\n"
+            . "- Se o brief menciona elementos específicos (ferramentas, critérios, passos), você DEVE incluí-los\n\n";
+
+        $tech = "REGRAS TÉCNICAS (não discuta, apenas cumpra):\n"
+            . "- Escreva SOMENTE esta seção (não escreva o artigo inteiro)\n"
+            . "- Comece EXATAMENTE com: <{$level}>{$heading}</{$level}>\n"
+            . "- NÃO escreva outros H2 além deste\n"
+            . "- Esta seção (incluindo TODOS os H3 e TODO o texto) deve ter entre {$goalMin} e {$goalMax} palavras NO TOTAL\n"
+            . "- Se ultrapassar {$goalMax} palavras, encurte antes de finalizar\n"
+            . "- Use bullet points (<ul>, <li>) apenas quando realmente melhorar a clareza\n"
+            . "- Inclua H3 dentro desta seção se sugeridos no brief\n";
 
         if ($template === 'modelar_youtube') {
-            $tech .= "- Regra obrigatória: NÃO mencione vídeo, canal, link ou URL.\n";
+            $tech .= "- NUNCA mencione: vídeo, canal, link, URL, ou qualquer referência à fonte original\n";
         }
 
-        if ($bullets !== '') {
-            $tech .= "- Cubra os pontos sugeridos nos bullets (sem listar literalmente; use como guia).\n";
-        }
+        $tech .= "\n";
 
-        $brief = "BRIEF DA SEÇÃO (baseado no outline — siga fielmente):\n"
-            . "- Heading ({$level}): {$heading}\n";
-
-        if ($sectionParagraph !== '') {
-            $brief .= "- Parágrafo-guia do {$level}: {$sectionParagraph}\n";
-        }
-
-        if ($childrenDetailed !== '') {
-            $brief .= "- Subtítulos sugeridos (H3) e seus briefs:\n{$childrenDetailed}\n";
-        } else if ($children !== '') {
-            $brief .= "- Subtítulos sugeridos (H3):\n{$children}\n";
-        }
-
-        if ($bullets !== '') {
-            $brief .= "- Bullets sugeridos:\n{$bullets}\n";
-        }
-
-        $brief .= "\nRegras de uso do BRIEF:\n"
-            . "- Desenvolva com profundidade o parágrafo-guia do {$level} (não reescreva só; expanda com contexto, critérios, exemplos).\n"
-            . "- Se houver H3 sugeridos, crie cada H3 e desenvolva seguindo o Brief de cada um.\n"
-            . "- Não invente novos tópicos fora do escopo do brief.\n";
-
-        return $state . "\n" . $brief . "\n" . $tech . "\n" . $base . "\n" . $ctx . "\n\n";
+        return $state . $brief . $tech . $base . "\n" . $ctx . "\n\n";
     }
 
     public static function build_title_prompt_modelar_youtube(
@@ -2536,32 +2652,61 @@ class PluginsAlpha_Prompts
         return
             "Você é um jornalista sênior especializado em Google Discover, notícias e títulos de alto CTR.\n\n"
 
-            . "Seu objetivo é criar TÍTULOS CURTOS, CLAROS e IMPACTANTES, com estilo jornalístico profissional, "
-            . "capazes de gerar curiosidade real e cliques orgânicos no Google Discover.\n\n"
+            . "OBJETIVO:\n"
+            . "Criar títulos CURTOS, CLAROS e IMPACTANTES com estilo jornalístico profissional que geram curiosidade genuína e cliques orgânicos no Google Discover.\n\n"
 
             . "DIRETRIZES EDITORIAIS OBRIGATÓRIAS:\n"
-            . "- Trate o conteúdo como NOTÍCIA ou atualização relevante.\n"
-            . "- Priorize acontecimentos, mudanças, revelações, tendências ou fatos recentes.\n"
-            . "- Use linguagem clara, direta e natural, sem exageros artificiais.\n\n"
-            . "- Inclua a palavra-chave obrigatoriamente, mas envolva-a em um benefício emocional "
-            . "ou uma promessa de solução (Ex: [Palavra-chave] + [Benefício/Curiosidade]).\n\n"
+            . "- Trate o conteúdo como NOTÍCIA ou atualização relevante\n"
+            . "- Priorize: acontecimentos, mudanças, revelações, tendências ou fatos recentes\n"
+            . "- Use linguagem clara, direta e natural, sem exageros artificiais\n"
+            . "- Inclua a palavra-chave naturalmente dentro de um benefício emocional ou promessa de solução\n"
+            . "  Fórmula: [Palavra-chave] + [Benefício/Curiosidade]\n\n"
 
-            . "CARACTERÍSTICAS DE UM BOM TÍTULO PARA DISCOVER:\n"
-            . "- Especificidade: use números, dados, nomes próprios ou fatos concretos sempre que fizer sentido.\n"
-            . "- Emoção e curiosidade: desperte interesse real sem apelar para clickbait vazio.\n"
-            . "- Autoridade: o título deve parecer confiável e informativo.\n"
-            . "- Clareza: o leitor precisa entender imediatamente sobre o que é a matéria.\n"
-            . "- Urgência: sempre que aplicável, traga senso de novidade ou relevância imediata.\n\n"
+            . "CARACTERÍSTICAS DE TÍTULOS OTIMIZADOS PARA DISCOVER:\n"
+            . "1. ESPECIFICIDADE: Use números, dados, nomes próprios ou fatos concretos quando relevante\n"
+            . "2. EMOÇÃO E CURIOSIDADE: Desperte interesse genuíno sem clickbait vazio\n"
+            . "3. AUTORIDADE: O título deve parecer confiável e informativo\n"
+            . "4. CLAREZA: O leitor deve entender imediatamente sobre o que é a matéria\n"
+            . "5. URGÊNCIA: Quando aplicável, transmita senso de novidade ou relevância imediata\n"
+            . "6. CAPITALIZAÇÃO: Use apenas primeira palavra maiúscula + nomes próprios (padrão jornalístico)\n\n"
 
-            . "ESTILO:\n"
-            . "- Jornalístico, direto e profissional.\n"
-            . "- Frases bem construídas, com vocabulário rico, mas acessível.\n"
-            . "- Evite palavras genéricas, promessas vagas ou termos sensacionalistas.\n\n"
+            . "REGRAS DE ESTILO:\n"
+            . "- Tom jornalístico, direto e profissional\n"
+            . "- Frases bem construídas com vocabulário rico mas acessível\n"
+            . "- Evite palavras genéricas, promessas vagas ou sensacionalismo\n"
+            . "- Pareça escrito por um jornalista humano experiente\n"
+            . "- NUNCA use emojis, aspas desnecessárias ou símbolos estranhos\n\n"
 
-            . "REGRAS FINAIS:\n"
-            . "- O título deve parecer escrito por um jornalista humano experiente.\n"
-            . "- Nunca use emojis, aspas desnecessárias ou símbolos estranhos.\n"
-            . "- Não explique o processo. Apenas entregue os títulos.\n";
+            . "CONFORMIDADE COM POLÍTICAS DO DISCOVER:\n"
+            . "- NÃO faça promessas médicas, financeiras ou jurídicas específicas\n"
+            . "- NÃO use linguagem sensacionalista ou alarmista exagerada\n"
+            . "- NÃO mencione conteúdo adulto, violência gráfica ou temas sensíveis\n"
+            . "- NÃO use táticas enganosas ou informações falsas\n"
+            . "- NÃO prometa resultados garantidos ou milagrosos\n"
+            . "- MANTENHA títulos factuais e verificáveis\n\n"
+
+            . "EXEMPLOS DE TÍTULOS APROVADOS:\n"
+            . "✅ '7 filmes de terror na Netflix que ninguém está falando'\n"
+            . "✅ 'Como o Brasil se posicionou na COP30 em 2026'\n"
+            . "✅ 'Novo estudo revela impacto do sono na produtividade'\n"
+            . "✅ '5 cidades brasileiras com custo de vida mais acessível em 2026'\n\n"
+
+            . "EXEMPLOS DE TÍTULOS REJEITADOS:\n"
+            . "❌ 'Médicos CHOCADOS: Descubra o segredo para emagrecer 10kg' (promessa médica + sensacionalismo)\n"
+            . "❌ 'URGENTE: Você PRECISA fazer isso AGORA ou vai se arrepender' (alarmismo + clickbait vazio)\n"
+            . "❌ 'Ganhe R$ 10.000 por mês trabalhando de casa' (promessa financeira não verificável)\n"
+            . "❌ 'O que ELES não querem que você saiba sobre...' (teoria conspiratória)\n\n"
+
+            . "CHECKLIST FINAL:\n"
+            . "☐ Título é factual e verificável?\n"
+            . "☐ Evita promessas médicas, financeiras ou jurídicas específicas?\n"
+            . "☐ Tom é jornalístico e profissional (não sensacionalista)?\n"
+            . "☐ Palavra-chave está incluída naturalmente?\n"
+            . "☐ Capitalização correta (só primeira palavra + nomes próprios)?\n"
+            . "☐ Zero emojis, aspas desnecessárias ou símbolos?\n"
+            . "☐ Geraria cliques genuínos no Discover?\n\n"
+
+            . "IMPORTANTE: Gere os títulos no idioma especificado sem explicações adicionais.\n";
     }
 
     private static function default_title_modelar_youtube_prompt(): string
@@ -2596,40 +2741,116 @@ class PluginsAlpha_Prompts
 
     private static function default_outline_prompt(): string
     {
-        return "OBJETIVO E-E-A-T:\n"
-            . "Tarefa: criar um ESBOÇO (outline) do artigo.\n\n"
+        return
+            "OBJETIVO:\n"
+            . "Criar um ESBOÇO (outline) estratégico que maximize E-E-A-T e atenda à intenção de busca do usuário.\n\n"
+
+            . "ANÁLISE DE INTENÇÃO DE BUSCA (FUNIL):\n"
+            . "Identifique automaticamente a posição da palavra-chave no funil de busca:\n\n"
+
+            . "TOPO DE FUNIL (Conscientização - descoberta do problema):\n"
+            . "- Usuário está explorando um tema ou descobrindo um problema\n"
+            . "- Foco: educação, contexto amplo, conceitos básicos, panorama geral\n"
+            . "- Estrutura ideal: O que é? Por que importa? Como funciona? Tipos/categorias. Exemplos práticos\n"
+            . "- Palavras-chave típicas: 'o que é...', 'como funciona...', 'tipos de...', 'benefícios de...'\n"
+            . "- Exemplo: 'o que é marketing digital' → seções sobre definição, importância, canais, benefícios\n\n"
+
+            . "MEIO DE FUNIL (Consideração - avaliação de soluções):\n"
+            . "- Usuário conhece o problema e está comparando alternativas\n"
+            . "- Foco: comparações, prós e contras, critérios de escolha, cases, alternativas\n"
+            . "- Estrutura ideal: Opções disponíveis. Comparação detalhada. Quando usar cada uma. Casos de uso\n"
+            . "- Palavras-chave típicas: 'melhores...', 'vs', 'comparação', 'qual escolher...', 'alternativas para...'\n"
+            . "- Exemplo: 'WordPress vs Wix' → seções sobre facilidade, custos, recursos, quando escolher cada um\n\n"
+
+            . "FUNDO DE FUNIL (Decisão - pronto para agir):\n"
+            . "- Usuário decidido, precisa de instruções específicas para executar\n"
+            . "- Foco: tutoriais passo a passo, guias práticos, requisitos técnicos, troubleshooting\n"
+            . "- Estrutura ideal: Pré-requisitos. Passo a passo detalhado. Configurações. Erros comuns. Próximos passos\n"
+            . "- Palavras-chave típicas: 'como fazer...', 'tutorial...', 'passo a passo...', 'instalar...', 'configurar...'\n"
+            . "- Exemplo: 'como instalar WordPress' → seções sobre requisitos, instalação, configuração, primeiros passos\n\n"
+
             . "DIRETRIZES DO OUTLINE:\n"
-            . "- H2s DE VALOR: Os títulos das seções devem responder diretamente às dores do usuário ou curiosidade do Google Discover.\n"
-            . "- SEÇÃO DE 'INSIGHTS CHAVE': Crie um H2 inicial que resuma os pontos fundamentais discutidos no vídeo para oferecer valor imediato.\n"
-            . "- PROFUNDIDADE (H3): Alguns H2 devem ter subtópicos (children) que detalham o 'como fazer' ou 'por que isso funciona'.\n"
-            . "- LISTAS TÉCNICAS: Use bullets para organizar dados, passos ou requisitos que no vídeo estão dispersos.\n\n"
-            . "REGRAS RÍGIDAS:\n"
-            . "- Deve ser evitado capitalização de título, só capitalize quando realmente for necessário, naqueles momentos especificos.\n"
-            . "- NÃO utilize termos de encerramento como 'Conclusão'. Termine com um tópico de 'Aplicação Prática' ou 'Próximos Passos'.\n"
-            . "- O texto deve parecer um artigo nativo escrito por um especialista humano."
-            . "- Use H2 com tópicos bem diferentes entre si (sem repetição).\n"
-            . "- Inclua H3 apenas quando fizer sentido aprofundar um H2.\n"
-            . "- Em cada seção, sugira bullets com pontos concretos (quem/o quê/quando/onde/como/por quê, exemplos, dados, passos, cuidados).\n"
-            . "- Evite clichês e títulos genéricos (ex.: “Guia completo”).\n";
+            . "- H2s ESTRATÉGICOS: Títulos devem responder diretamente às necessidades do usuário conforme posição no funil\n"
+            . "- PRIMEIRA SEÇÃO DE VALOR: Primeiro H2 deve entregar insights imediatos (não use 'Introdução' genérica)\n"
+            . "  • Para topo: 'O que é [tema] e por que você deveria conhecer'\n"
+            . "  • Para meio: 'Principais critérios para escolher [solução]'\n"
+            . "  • Para fundo: 'O que você precisa antes de começar'\n"
+            . "- PROFUNDIDADE (H3): Adicione subtópicos que detalham 'como fazer' ou 'por que funciona'\n"
+            . "- ORGANIZAÇÃO: Use bullets nas instruções para dados, passos, requisitos, listas\n"
+            . "- PROGRESSÃO LÓGICA: Seções devem fluir naturalmente conforme jornada do usuário\n\n"
+
+            . "REGRAS DE CAPITALIZAÇÃO:\n"
+            . "- Use APENAS primeira palavra maiúscula + nomes próprios (padrão jornalístico)\n"
+            . "- ❌ ERRADO: 'Como Criar Um Site Profissional Em 2026'\n"
+            . "- ✅ CORRETO: 'Como criar um site profissional em 2026'\n"
+            . "- ✅ CORRETO: 'Melhores práticas de SEO no Google'\n"
+            . "- Exceções: siglas (SEO, CRM, API), produtos (WordPress, Netflix, Shopify), nomes próprios, meses\n\n"
+
+            . "QUALIDADE EDITORIAL:\n"
+            . "- Esboço deve parecer criado por especialista humano no assunto\n"
+            . "- H2s devem ser distintos e complementares (zero repetição de ângulos)\n"
+            . "- Inclua H3 apenas quando necessário aprofundar um H2 complexo\n"
+            . "- Bullets devem ter pontos concretos: quem, o quê, quando, onde, como, por quê, exemplos, dados\n"
+            . "- Evite clichês: 'Guia Completo', 'Tudo Sobre', 'O Melhor', 'Definitivo'\n"
+            . "- Cada seção deve ter instruções AUTO-SUFICIENTES (sem referências a outras seções)\n\n"
+
+            . "IMPORTANTE - INSTRUÇÕES ESPECÍFICAS:\n"
+            . "- Lembre-se: cada seção será escrita ISOLADAMENTE sem contexto das outras\n"
+            . "- Seja EXPLÍCITO sobre o que deve ser incluído em cada seção\n"
+            . "- Se pedir tabela: especifique TODAS as colunas/itens/critérios\n"
+            . "- Se pedir lista: especifique TODOS os elementos\n"
+            . "- Nunca use referências vagas como 'conforme mencionado', 'itens acima', 'critérios selecionados'\n";
     }
 
     private static function default_section_base_prompt(): string
     {
-        return "Você é um Especialista de Conteúdo Sênior (E-E-A-T).\n"
-            . "Sua tarefa é redigir UMA seção específica de um artigo de autoridade, a partir dos pontos fornecidos.\n\n"
-            . "Diretrizes:\n"
-            . "- Vá direto ao ponto: explique o 'como' e o 'porque' com clareza.\n"
-            . "- Evite conteúdo AI Fluff, traga dados e do porquê você escolheria aquela opção, sempre com base nas suas experiências. "
-            . "Evite coisas como \"um x (necessidade) confiável pode fazer toda a diferença\", use termos técnicos para mostrar a melhor solução.\n"
-            . "- Quero um conteúdo sempre em primeira pessoa, falando de experiências e recomendações suas com base em testes, usabilidade e dando a sua opinião sobre qual o que é melhor.\n"
-            . "- Faça de tudo para melhorar a autoridade do conteúdo, mencione ferramentas onlines quando necessário, ferramentas que você usa que poucas pessoas conhecem, se destaque sempre como autoridade no assunto e demonstre isso com comparativos, mencionando sempre o seu ponto de vista pessoal sobre cada um.\n"
-            . "- Parágrafos curtos (2–4 linhas) e escaneáveis.\n"
-            . "- Use <strong> apenas para destacar conceitos essenciais (sem exagero).\n"
-            . "- Não invente estatísticas; quando não houver dado, use linguagem prudente.\n\n"
-            . "Faça CTA fluido com links externos sobre cada ferramenta mencionada com a tag \"a\" com target _blank.\n\n"
-            . "Pontos-chave para transformar em conteúdo denso, com profundidade:\n"
+        return
+            "IDENTIDADE E TOM:\n"
+            . "Você é um Especialista Sênior de Conteúdo (E-E-A-T) com anos de experiência prática no assunto.\n"
+            . "Escreva SEMPRE em PRIMEIRA PESSOA, compartilhando suas experiências, testes e recomendações.\n\n"
+
+            . "ESTILO DE ESCRITA:\n"
+            . "- Vá direto ao ponto: explique o 'como' e o 'porquê' com clareza\n"
+            . "- Use tom pessoal e autoral: 'Eu testei...', 'Na minha experiência...', 'Prefiro X porque...'\n"
+            . "- Demonstre autoridade através de comparações técnicas e opiniões fundamentadas\n"
+            . "- Parágrafos curtos: 2-3 frases no máximo (otimizado para mobile)\n"
+            . "- Use <strong> apenas para destacar conceitos essenciais (sem exagero)\n\n"
+
+            . "EVITE AI FLUFF (frases vazias de IA):\n"
+            . "❌ NÃO use: 'Um X confiável pode fazer toda a diferença'\n"
+            . "❌ NÃO use: 'É importante escolher a ferramenta certa'\n"
+            . "❌ NÃO use: 'Existem várias opções disponíveis'\n"
+            . "✅ USE: Termos técnicos específicos, critérios objetivos, comparações práticas\n"
+            . "✅ USE: 'Testei 12 ferramentas e o X se destacou por Y'\n"
+            . "✅ USE: 'Prefiro A em vez de B porque...' (com razão técnica)\n\n"
+
+            . "DEMONSTRAÇÃO DE AUTORIDADE:\n"
+            . "- Mencione ferramentas específicas que você usa (incluindo as menos conhecidas)\n"
+            . "- Faça comparações práticas entre opções ('X vs Y: prefiro X porque...')\n"
+            . "- Compartilhe insights de testes reais ('Após testar por 3 meses...')\n"
+            . "- Dê sua opinião pessoal fundamentada sobre cada solução\n"
+            . "- Cite critérios técnicos objetivos (velocidade, custo, facilidade, suporte)\n\n"
+
+            . "CTAs E LINKS EXTERNOS:\n"
+            . "- Inclua links para ferramentas mencionadas de forma NATURAL no texto\n"
+            . "- Use: <a href=\"URL\" target=\"_blank\" rel=\"noopener\">nome da ferramenta</a>\n"
+            . "- Integre o link no fluxo do texto, não force\n"
+            . "- Exemplo: 'Uso o <a href=\"...\" target=\"_blank\" rel=\"noopener\">SEMrush</a> para análise de concorrentes porque...'\n\n"
+
+            . "DADOS E ESTATÍSTICAS:\n"
+            . "- NÃO invente estatísticas ou números\n"
+            . "- Se não tiver dados concretos, use linguagem prudente: 'Na minha experiência...', 'Percebi que...'\n"
+            . "- Prefira evidências qualitativas (seus testes) a quantitativas inventadas\n\n"
+
+            . "CONTEÚDO DENSO E PROFUNDO:\n"
+            . "- Desenvolva cada ponto com exemplos práticos e contexto real\n"
+            . "- Explique o 'porquê' por trás de cada recomendação\n"
+            . "- Inclua critérios de decisão e trade-offs\n"
+            . "- Antecipe dúvidas e objeções do leitor\n\n"
+
+            . "BRIEF E SUBTÍTULOS:\n"
+            . "Use o brief fornecido como base e os subtítulos sugeridos para estruturar o conteúdo:\n\n"
             . "{{section_bullets}}\n\n"
-            . "Subtítulos sugeridos (se aplicável):\n"
             . "{{section_children}}\n";
     }
 

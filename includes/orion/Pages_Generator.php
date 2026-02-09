@@ -609,58 +609,63 @@ class PluginsAlpha_Pages_Generator
 
     // chama endpoint dedicado (ou complete, se você não tiver meta_description)
     $respSlug = PluginsAlpha_AI::slug($promptSlug);
-    // SLUG: aplica no post (update)
+
     if (!is_wp_error($respSlug)) {
-      $slugTxt = '';
-
-      if (is_string($respSlug)) {
-        $slugTxt = $respSlug;
-      } elseif (is_array($respSlug)) {
-        $slugTxt = (string)($respSlug['slug'] ?? $respSlug['content'] ?? '');
-      } elseif (is_object($respSlug)) {
-        $slugTxt = (string)($respSlug->slug ?? $respSlug->content ?? '');
-      }
-
-      $slugTxt = trim(wp_strip_all_tags(html_entity_decode($slugTxt, ENT_QUOTES, 'UTF-8')));
-
-      // se vier {"slug":"..."} como texto
-      if ($slugTxt !== '' && $slugTxt[0] === '{') {
-        $j = json_decode($slugTxt, true);
-        if (is_array($j)) {
-          $slugTxt = trim((string)($j['slug'] ?? $j['content'] ?? $slugTxt));
+    
+        $slugTxt = '';
+    
+        // --------- EXTRAÇÃO SEGURA ----------
+        if (is_string($respSlug)) {
+            $slugTxt = $respSlug;
+        } elseif (is_array($respSlug)) {
+            $slugTxt = (string)($respSlug['slug'] ?? $respSlug['content'] ?? '');
+        } elseif (is_object($respSlug)) {
+            $slugTxt = (string)($respSlug->slug ?? $respSlug->content ?? '');
         }
-      }
-
-      // se vier com prefixo tipo "slug: ..."
-      $slugTxt = preg_replace('/^\s*(slug|post_name)\s*:\s*/i', '', $slugTxt);
-
-      // pega só a primeira linha
-      $slugTxt = preg_split("/\r\n|\r|\n/", $slugTxt)[0] ?? $slugTxt;
-      $slugTxt = trim($slugTxt);
-
-      // sanitiza e fallback
-      $newSlug = sanitize_title($slugTxt);
-      if ($newSlug === '') {
-        $newSlug = sanitize_title($chosenTitle);
-      }
-      if ($newSlug === '') {
-        $newSlug = sanitize_title($keyword);
-      }
-      if ($newSlug === '') {
-        $newSlug = sanitize_title(uniqid('orion_', false));
-      }
-
-      // garante unicidade pro post_type atual
-      $newSlug = wp_unique_post_slug($newSlug, $draft_id, 'draft', $post_type, 0);
-
-      // atualiza post_name
-      wp_update_post([
-        'ID'       => $draft_id,
-        'post_name' => $newSlug,
-      ]);
-
-      update_post_meta($draft_id, '_pga_generated_slug', $newSlug);
+    
+        $slugTxt = trim($slugTxt);
+    
+        // --------- SE VIER JSON EM TEXTO ----------
+        if ($slugTxt !== '' && ($slugTxt[0] === '{' || $slugTxt[0] === '[')) {
+            $j = json_decode($slugTxt, true);
+            if (is_array($j)) {
+                $slugTxt = (string)($j['slug'] ?? $j['content'] ?? '');
+            }
+        }
+    
+        // --------- REMOVE PREFIXOS ----------
+        $slugTxt = preg_replace('/^\s*(slug|post_name)\s*:\s*/i', '', $slugTxt);
+    
+        // --------- PRIMEIRA LINHA APENAS ----------
+        $slugTxt = preg_split("/\r\n|\r|\n/", $slugTxt)[0] ?? $slugTxt;
+        $slugTxt = trim($slugTxt);
+    
+        // --------- SANITIZAÇÃO ----------
+        $newSlug = sanitize_title($slugTxt);
+    
+        // --------- FALLBACKS EM ORDEM ----------
+        if ($newSlug === '') {
+            $newSlug = sanitize_title($chosenTitle);
+        }
+        if ($newSlug === '') {
+            $newSlug = sanitize_title($keyword);
+        }
+        if ($newSlug === '') {
+            $newSlug = sanitize_title(uniqid('orion_', false));
+        }
+    
+        // --------- GARANTE UNICIDADE ----------
+        $newSlug = wp_unique_post_slug($newSlug, $draft_id, 'draft', $post_type, 0);
+    
+        // --------- ATUALIZA POST ----------
+        wp_update_post([
+            'ID'        => $draft_id,
+            'post_name' => $newSlug,
+        ]);
+    
+        update_post_meta($draft_id, '_pga_generated_slug', $newSlug);
     }
+
 
 
     // jobArgs úteis pro provider/prompt 
@@ -693,14 +698,20 @@ class PluginsAlpha_Pages_Generator
 
     $outline = PluginsAlpha_AI::outline($outlinePrompt, $jobArgs);
 
+    error_log("DEBUG: outline raw response: " . print_r($outline, true));
+
     if (is_wp_error($outline)) {
       return self::fail_job($draft_id, $outline, 'outline');
     }
 
     // Se vier { "sections": [...] }, pega só o array interno 
     $sections = $outline['sections'] ?? $outline;
+
+    // força lista numerada
     if (!is_array($sections)) {
-      $sections = [];
+        $sections = [];
+    } elseif (array_keys($sections) !== range(0, count($sections) - 1)) {
+        $sections = array_values($sections);
     }
 
     // 9) NORMALIZA ids (mantém teu padrão) 
@@ -716,21 +727,31 @@ class PluginsAlpha_Pages_Generator
       if (empty($sec['id'])) {
         $sec['id'] = (string)$h2Index;
       }
+      if (!isset($sec['children']) || !is_array($sec['children'])) {
+            $sec['children'] = [];
+        }
       if (!empty($sec['children']) && is_array($sec['children'])) {
         $childIndex = 1;
         foreach ($sec['children'] as $ci => $child) {
-          if (!is_array($child)) {
-            $child = ['heading' => (string)$child, 'level' => 'h3',];
-          }
-          if (empty($child['level'])) {
+            if (!is_array($child)) {
+                $child = [
+                    'heading' => (string)$child,
+                    'level'   => 'h3',
+                ];
+            }
+            $sec['level'] = strtolower(trim($sec['level'] ?? 'h2'));
+            if (!in_array($sec['level'], ['h2', 'h3'], true)) {
+                $sec['level'] = 'h2';
+            }
+
+        
             $child['level'] = 'h3';
-          }
-          if (empty($child['id'])) {
-            $child['id'] = $sec['id'] . '.' . $childIndex;
-          }
-          $sec['children'][$ci] = $child;
-          $childIndex++;
+            $child['id'] = $child['id'] ?? ($sec['id'] . '.' . $childIndex);
+        
+            $sec['children'][$ci] = $child;
+            $childIndex++;
         }
+
       }
       $normalized[] = $sec;
       $h2Index++;
@@ -955,34 +976,63 @@ class PluginsAlpha_Pages_Generator
     // chama endpoint dedicado (ou complete, se você não tiver meta_description)
     $respMeta = PluginsAlpha_AI::meta_description($promptMeta);
 
+    $meta_desc = '';
+    
     if (!is_wp_error($respMeta)) {
-      $raw = trim((string)$respMeta);
-
-      if ($raw !== '') {
-        // sanitiza: sem tags, uma linha só
-        $raw = wp_strip_all_tags($raw);
-        $raw = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
-        $raw = preg_replace('/\s+/', ' ', $raw);
-
-        // limite seguro
-        if (mb_strlen($raw) > 160) {
-          $raw = mb_substr($raw, 0, 157) . '...';
+    
+        $raw = '';
+    
+        // --------- EXTRAÇÃO SEGURA ----------
+        if (is_string($respMeta)) {
+            $raw = $respMeta;
+        } elseif (is_array($respMeta)) {
+            $raw = (string)($respMeta['meta_description'] ?? $respMeta['description'] ?? $respMeta['content'] ?? '');
+        } elseif (is_object($respMeta)) {
+            $raw = (string)($respMeta->meta_description ?? $respMeta->description ?? $respMeta->content ?? '');
+        }
+    
+        $raw = trim($raw);
+    
+        // --------- SE VIER JSON EM TEXTO ----------
+        if ($raw !== '' && ($raw[0] === '{' || $raw[0] === '[')) {
+            $j = json_decode($raw, true);
+            if (is_array($j)) {
+                $raw = (string)(
+                    $j['meta_description']
+                    ?? $j['description']
+                    ?? $j['content']
+                    ?? ''
+                );
+            }
+        }
+    
+        // --------- REMOVE PREFIXOS ----------
+        $raw = preg_replace('/^\s*(meta\s*description|meta\s*descri[cç][aã]o|description)\s*:\s*/i', '', $raw);
+    
+        // --------- PRIMEIRA LINHA ----------
+        $raw = preg_split("/\r\n|\r|\n/", $raw)[0] ?? $raw;
+        $raw = trim($raw);
+    
+        // --------- SANITIZAÇÃO ----------
+        if ($raw !== '') {
+            $raw = wp_strip_all_tags($raw);
+            $raw = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
+            $raw = preg_replace('/\s+/', ' ', $raw);
+            $raw = trim($raw);
         }
 
-        // aplica
-        $meta_desc = trim($raw);
-
-        // salva agora (opcional, mas útil)
-        if ($meta_desc !== '') {
-          update_post_meta($post_id, '_pga_meta_description', $meta_desc);
+        // --------- APLICA ----------
+        if ($raw !== '') {
+            $meta_desc = $raw;
+            update_post_meta($post_id, '_pga_meta_description', $meta_desc);
         }
-      }
     }
-
-    // fallback forte: se por algum motivo ficou vazio, não quebra o fluxo
+    
+    // --------- FALLBACK FINAL ----------
     if ($meta_desc === '') {
-      $meta_desc = '';
+        $meta_desc = '';
     }
+
 
     // --- 5) Agenda / criação final do post ---
     $generate_image = array_key_exists('generate_image', $args)

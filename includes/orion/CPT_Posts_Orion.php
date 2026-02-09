@@ -118,10 +118,7 @@ class PluginsAlpha_CPT_Posts_Orion
 
       if (class_exists('PluginsAlpha_AI')) {
         // aqui ele vai usar openai/gemini conforme get_text_provider ou args
-        $resolved = PluginsAlpha_AI::image_prompt($meta_prompt, [
-          // se quiser forçar um provider de TEXTO aqui:
-          // 'provider' => 'openai' ou 'gemini'
-        ]);
+        $resolved = PluginsAlpha_AI::image_prompt($meta_prompt, []);
 
         if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
           $final_prompt = $resolved;

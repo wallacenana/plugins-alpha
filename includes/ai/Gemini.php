@@ -100,48 +100,103 @@ class PluginsAlpha_Gemini
         return $txt;
     }
 
-    public static function complete(
-        string $prompt,
-        array $schema = [],
-        array $args = []
-    ) {
-        // ---- SETTINGS (DB) ----
-        $gemini = self::cfg();
+    public static function complete(string $prompt, array $schema = [], array $args = [])
+    {
+        $c = self::cfg();
 
-        $key        = trim((string)($gemini['key'] ?? ''));
-        $model      = (string)($args['model'] ?? $gemini['model_text'] ?? 'gemini-1.5-pro');
-        $temperature = $args['temperature'] ?? $gemini['temperature'] ?? 0.6;
-        $maxTokens  = (int)($args['max_tokens'] ?? $gemini['max_tokens'] ?? 6000);
-        $timeout    = (int)($args['timeout'] ?? 60);
+        $model = $c['model'] ?? $c['model_text'];
 
-        if ($key === '') {
-            return new WP_Error('pga_no_key', 'Gemini API Key ausente.');
-        }
+        $isStructured = !empty($schema);
 
-        // ---- CHAMADA ----
-        $txt = self::call_gemini(
-            $prompt,
-            [
-                'key'         => $key,
-                'model'       => $model,
+        // 🔒 defaults seguros
+        $maxTokens = $args['max_tokens']
+            ?? ($isStructured ? 1800 : 5000);
+
+        $temperature = $args['temperature']
+            ?? ($isStructured ? 0.15 : 0.95);
+
+        $topP = $args['top_p']
+            ?? ($isStructured ? 0.7 : 0.95);
+
+        // 🔴 MODO JSON HARD
+        $systemPrompt = $isStructured
+            ? "Você deve responder APENAS com JSON válido UTF-8.
+Não use markdown.
+Não use aspas tipográficas.
+Não quebre linhas dentro de strings.
+Não inclua texto fora do JSON.
+Não explique nada."
+            : "Você é um gerador de artigos focado em SEO GEO e E-E-A-T.";
+
+        /**
+         * 📌 Gemini NÃO usa roles system/user separados.
+         * Tudo precisa ir no texto do prompt.
+         */
+        $finalPrompt = trim($systemPrompt) . "\n\n" . $prompt;
+
+        $body = [
+            'contents' => [
+                [
+                    'role'  => 'user',
+                    'parts' => [
+                        ['text' => $finalPrompt]
+                    ]
+                ]
+            ],
+            'generationConfig' => [
                 'temperature' => $temperature,
-                'max_tokens'  => $maxTokens,
-                'timeout'     => $timeout,
+                'topP'        => $topP,
+                'maxOutputTokens' => $maxTokens,
             ]
+        ];
+
+        $argsReq = [
+            'headers' => [
+                'Content-Type' => 'application/json',
+            ],
+            'timeout' => $c['timeout'] ?? 60,
+            'body'    => wp_json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ];
+
+        $endpoint = sprintf(
+            'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s',
+            $model,
+            $c['key']
         );
 
-        if (is_wp_error($txt)) {
-            return $txt;
+        $res = wp_remote_post($endpoint, $argsReq);
+        if (is_wp_error($res)) {
+            return $res;
         }
 
-        $txt = trim((string)$txt);
-        
-        if (empty($schema)) {
+        $raw  = wp_remote_retrieve_body($res);
+        $json = json_decode($raw, true);
+
+        if (
+            !isset($json['candidates'][0]['content']['parts'][0]['text'])
+        ) {
+            return new WP_Error(
+                'pga_gemini_invalid',
+                'Resposta inválida do Gemini.',
+                ['raw' => $raw]
+            );
+        }
+
+        $txt = trim((string)$json['candidates'][0]['content']['parts'][0]['text']);
+
+        // 🔥 PARSE CONTROLADO (IGUAL AO OPENAI)
+        if (!$isStructured) {
             return ['content' => $txt];
         }
 
-        $parsed = self::extract_json($txt);
-        if (!$parsed) {
+        // remove lixo antes/depois
+        if (preg_match('/\{.*\}/s', $txt, $m)) {
+            $txt = $m[0];
+        }
+
+        $parsed = json_decode($txt, true);
+
+        if (!is_array($parsed)) {
             return new WP_Error(
                 'pga_parse',
                 'Falha ao decodificar JSON do modelo.',
@@ -149,34 +204,17 @@ class PluginsAlpha_Gemini
             );
         }
 
-        // 🔹 SE o JSON tiver "content" string, unwrap
-        if (isset($parsed['content']) && is_string($parsed['content'])) {
-            return [
-                'content' => trim($parsed['content']),
-            ];
-        }
-
-        // 🔹 caso contrário, retorna o JSON estruturado normal
-        foreach ($schema as $keyName => $_) {
-            if (!array_key_exists($keyName, $parsed)) {
+        // valida contrato mínimo
+        foreach ($schema as $key => $_) {
+            if (!array_key_exists($key, $parsed)) {
                 return new WP_Error(
                     'pga_schema_missing',
-                    "Campo obrigatório ausente no JSON: {$keyName}",
+                    "Campo obrigatório ausente no JSON: {$key}",
                     ['response' => $parsed]
                 );
             }
         }
 
         return $parsed;
-    }
-
-    private static function extract_json(string $raw): ?array
-    {
-        if (preg_match('/\{.*\}/s', $raw, $m)) {
-            $raw = $m[0];
-        }
-
-        $decoded = json_decode($raw, true);
-        return is_array($decoded) ? $decoded : null;
     }
 }

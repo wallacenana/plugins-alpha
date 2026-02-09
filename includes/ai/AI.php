@@ -313,7 +313,7 @@ class PluginsAlpha_AI
         $opts = [
             'template'    => 'outline',
             'temperature' => $args['temperature'] ?? 0.6,
-            'max_tokens'  => $args['max_tokens'] ?? 1200,
+            'max_tokens'  => $args['max_tokens'] ?? 4096,
             'provider'    => $provider,
         ];
 
@@ -444,45 +444,56 @@ class PluginsAlpha_AI
             return $class;
         }
 
-        // 🔹 contrato da resposta
-        $schema = [
-            'description' => 'string',
-        ];
-
-        // 🔹 opções centralizadas
+        // 🔹 opções (meta description = TEXTO LIVRE)
         $opts = [
             'template'    => 'meta_description',
             'temperature' => $args['temperature'] ?? 0.6,
-            'max_tokens'  => $args['max_tokens'] ?? 1200,
+            'max_tokens'  => $args['max_tokens'] ?? 300,
             'provider'    => $provider,
         ];
 
-        // 🔥 chamada correta (igual ao story)
-        $resp = $class::complete($prompt, $schema, $opts);
+        // ⚠️ SEM schema
+        $resp = $class::complete($prompt, [], $opts);
         if (is_wp_error($resp)) {
             return $resp;
         }
 
-        // 🔒 contrato mínimo
-        if (!is_array($resp) || empty($resp['description'])) {
-            return new WP_Error(
-                'pga_meta_desc_invalid',
-                'Resposta inválida para meta description.'
-            );
+        // ---------- EXTRAÇÃO ROBUSTA ----------
+        $descTxt = '';
+
+        if (is_string($resp)) {
+            $descTxt = $resp;
+        } elseif (is_array($resp)) {
+            $descTxt = (string)($resp['content'] ?? '');
+        } elseif (is_object($resp)) {
+            $descTxt = (string)($resp->content ?? '');
         }
 
-        $desc = trim((string) $resp['description']);
+        $descTxt = trim(wp_strip_all_tags(
+            html_entity_decode($descTxt, ENT_QUOTES, 'UTF-8')
+        ));
 
-        if ($desc === '') {
-            return new WP_Error(
-                'pga_meta_desc_empty',
-                'Meta description vazia.'
-            );
+        // se vier JSON como texto
+        if ($descTxt !== '' && $descTxt[0] === '{') {
+            $j = json_decode($descTxt, true);
+            if (is_array($j)) {
+                $descTxt = (string)($j['description'] ?? $j['content'] ?? $descTxt);
+            }
         }
 
-        return $desc;
+        // remove prefixos comuns
+        $descTxt = preg_replace('/^\s*(meta\s*description|description)\s*:\s*/i', '', $descTxt);
+
+        // uma linha só
+        $descTxt = preg_split("/\r\n|\r|\n/", $descTxt)[0] ?? $descTxt;
+        $descTxt = trim($descTxt);
+
+        if ($descTxt === '') {
+            return new WP_Error('pga_meta_desc_empty', 'Meta description vazia.');
+        }
+
+        return $descTxt;
     }
-
 
     public static function slug(string $prompt, array $args = [])
     {
@@ -501,12 +512,7 @@ class PluginsAlpha_AI
             return $class;
         }
 
-        // 🔹 contrato
-        $schema = [
-            'slug' => 'string',
-        ];
-
-        // 🔹 opções
+        // 🔹 opções (slug = texto livre)
         $opts = [
             'template'    => 'slug',
             'temperature' => $args['temperature'] ?? 0.3,
@@ -514,27 +520,48 @@ class PluginsAlpha_AI
             'provider'    => $provider,
         ];
 
-        $resp = $class::complete($prompt, $schema, $opts);
+        // ⚠️ SEM schema
+        $resp = $class::complete($prompt, [], $opts);
         if (is_wp_error($resp)) {
             return $resp;
         }
 
-        if (!is_array($resp) || empty($resp['slug'])) {
-            return new WP_Error(
-                'pga_slug_invalid',
-                'Resposta inválida para slug.',
-                ['response' => $resp]
-            );
+        // ---------- EXTRAÇÃO ROBUSTA ----------
+        $slugTxt = '';
+
+        if (is_string($resp)) {
+            $slugTxt = $resp;
+        } elseif (is_array($resp)) {
+            $slugTxt = (string)($resp['content'] ?? '');
+        } elseif (is_object($resp)) {
+            $slugTxt = (string)($resp->content ?? '');
         }
 
-        $slug = trim((string) $resp['slug']);
+        $slugTxt = trim(wp_strip_all_tags(
+            html_entity_decode($slugTxt, ENT_QUOTES, 'UTF-8')
+        ));
 
-        if ($slug === '') {
+        // se vier algo tipo {"slug":"..."} como texto
+        if ($slugTxt !== '' && $slugTxt[0] === '{') {
+            $j = json_decode($slugTxt, true);
+            if (is_array($j)) {
+                $slugTxt = (string)($j['slug'] ?? $j['content'] ?? $slugTxt);
+            }
+        }
+
+        // remove prefixos comuns
+        $slugTxt = preg_replace('/^\s*(slug|post_name)\s*:\s*/i', '', $slugTxt);
+
+        // só primeira linha
+        $slugTxt = preg_split("/\r\n|\r|\n/", $slugTxt)[0] ?? $slugTxt;
+        $slugTxt = trim($slugTxt);
+
+        if ($slugTxt === '') {
             return new WP_Error('pga_slug_empty', 'Slug vazia.');
         }
 
-        // 🔒 normalização final de segurança
-        $slug = sanitize_title($slug);
+        // 🔒 sanitização final
+        $slug = sanitize_title($slugTxt);
 
         if ($slug === '') {
             return new WP_Error('pga_slug_invalid_final', 'Slug inválida após sanitização.');
@@ -542,7 +569,6 @@ class PluginsAlpha_AI
 
         return $slug;
     }
-
 
     public static function image_prompt(string $prompt, array $args = [])
     {
@@ -561,10 +587,7 @@ class PluginsAlpha_AI
             return $class;
         }
 
-        $schema = [
-            'prompt' => 'string',
-        ];
-
+        // 🔹 opções (image prompt = TEXTO LIVRE)
         $opts = [
             'template'    => 'image_prompt',
             'temperature' => $args['temperature'] ?? 0.6,
@@ -572,25 +595,44 @@ class PluginsAlpha_AI
             'provider'    => $provider,
         ];
 
-        $resp = $class::complete($prompt, $schema, $opts);
+        // ⚠️ SEM schema
+        $resp = $class::complete($prompt, [], $opts);
         if (is_wp_error($resp)) {
             return $resp;
         }
 
-        if (!is_array($resp) || empty($resp['prompt'])) {
-            return new WP_Error(
-                'pga_image_prompt_invalid',
-                'Resposta inválida para image prompt.',
-                ['response' => $resp]
-            );
+        // ---------- EXTRAÇÃO ROBUSTA ----------
+        $imgPrompt = '';
+
+        if (is_string($resp)) {
+            $imgPrompt = $resp;
+        } elseif (is_array($resp)) {
+            $imgPrompt = (string)($resp['content'] ?? '');
+        } elseif (is_object($resp)) {
+            $imgPrompt = (string)($resp->content ?? '');
         }
 
-        $imgPrompt = trim((string) $resp['prompt']);
+        $imgPrompt = trim(wp_strip_all_tags(
+            html_entity_decode($imgPrompt, ENT_QUOTES, 'UTF-8')
+        ));
+
+        // se vier JSON como texto
+        if ($imgPrompt !== '' && $imgPrompt[0] === '{') {
+            $j = json_decode($imgPrompt, true);
+            if (is_array($j)) {
+                $imgPrompt = (string)($j['prompt'] ?? $j['content'] ?? $imgPrompt);
+            }
+        }
+
+        // remove prefixos comuns
+        $imgPrompt = preg_replace('/^\s*(image\s*prompt|prompt)\s*:\s*/i', '', $imgPrompt);
+
+        // uma linha só
+        $imgPrompt = preg_split("/\r\n|\r|\n/", $imgPrompt)[0] ?? $imgPrompt;
+        $imgPrompt = trim($imgPrompt);
+
         if ($imgPrompt === '') {
-            return new WP_Error(
-                'pga_image_prompt_empty',
-                'Prompt de imagem vazio.'
-            );
+            return new WP_Error('pga_image_prompt_empty', 'Prompt de imagem vazio.');
         }
 
         return $imgPrompt;

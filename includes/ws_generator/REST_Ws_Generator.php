@@ -650,7 +650,6 @@ class PluginsAlpha_REST_Ws_Generator
                 $att_id = (int)$att_id;
                 $img_url = wp_get_attachment_image_url($att_id, 'full') ?: '';
 
-                // grava no slide
                 $pages[$index]['image_id']  = $att_id;
                 $pages[$index]['image_url'] = $img_url;
                 $pages[$index]['image']     = $img_url;
@@ -668,7 +667,6 @@ class PluginsAlpha_REST_Ws_Generator
                 ]);
             }
 
-            // Caso provider NÃO seja banco, gera direto (IA/pollinations/etc)
             if (!class_exists('PluginsAlpha_Images')) {
                 return new \WP_Error('pga_ws_images_missing', 'PluginsAlpha_Images ausente.', ['status' => 500]);
             }
@@ -1116,7 +1114,25 @@ class PluginsAlpha_REST_Ws_Generator
                     'cta_url_default'  => get_permalink($pid) ?: '',
                 ]);
 
-                $ai_raw = PluginsAlpha_AI::complete($prompt);
+                $schema = [
+                    'title' => 'string',
+                    'desc'  => 'string',
+                    'slug'  => 'string',
+                    'pages' => 'array',
+                ];
+
+                $ai_raw = PluginsAlpha_AI::complete(
+                    $prompt,
+                    $schema,
+                    [
+                        'temperature' => 0.15,
+                        'top_p'       => 0.7,
+                        'max_tokens'  => 1800,
+                    ]
+                );
+
+
+                error_log('PGA WS AI RAW: ' . print_r($ai_raw, true));
                 if (is_wp_error($ai_raw)) {
                     return new WP_Error(
                         'pga_ws_ai_fail',
@@ -1152,9 +1168,6 @@ class PluginsAlpha_REST_Ws_Generator
                 if (!is_array($obj)) {
                     return new WP_Error('pga_ws_badjson', 'JSON inválido (story).', ['status' => 500]);
                 }
-
-                error_log('AI NORMALIZED STORY (FINAL): ' . print_r($obj, true));
-
 
                 // meta
                 $meta_title_story = self::clean($obj['title'] ?? '');

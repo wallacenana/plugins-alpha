@@ -409,8 +409,6 @@ class PluginsAlpha_REST
             return new WP_Error('pga_prompts_missing', 'Classe de prompts não encontrada.', ['status' => 500]);
         }
 
-
-
         $meta_img_prompt = PluginsAlpha_Prompts::build_image_prompt(
             $keyword,
             $title,
@@ -423,14 +421,7 @@ class PluginsAlpha_REST
 
         // 2) IA de TEXTO refina o meta-prompt em prompt final de imagem
         if ($meta_img_prompt !== '' && class_exists('PluginsAlpha_AI')) {
-            // provider de TEXTO (openai/gemini)
-            $textProvider = class_exists('PluginsAlpha_AI')
-                ? PluginsAlpha_AI::get_text_provider()
-                : 'openai';
-
-            $resolved = PluginsAlpha_AI::image_prompt($meta_img_prompt, [
-                'provider' => $textProvider,
-            ]);
+            $resolved = PluginsAlpha_AI::image_prompt($meta_img_prompt, []);
 
             if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
                 $img_prompt = trim($resolved);
