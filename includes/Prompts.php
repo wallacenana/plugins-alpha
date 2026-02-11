@@ -394,17 +394,14 @@ class PluginsAlpha_Prompts
         $ctx .= "Título do artigo: {$articleTitle}\n";
         $ctx .= "Palavra-chave de foco (GEO): {$keyword}\n";
         $ctx .= "Data atual: " . SELF::date() . "\n";
-        $ctx .= "Idioma de saída: {$locale}\n\n";
+        $ctx .= "Idioma de saída (idioma que deve ser): {$locale}\n\n";
 
         $ctx .= "ESTRUTURA E TAMANHO:\n";
         $ctx .= "- Esboço deve ter entre {$cfg['min_sections']} e {$cfg['max_sections']} seções H2\n";
         $ctx .= "- Conteúdo final terá entre {$minWords} e {$maxWords} palavras\n";
-        $ctx .= "- Inclua primeira seção H2 contextualizando o tema (não use 'Introdução' genérica)\n\n";
 
-        $ctx .= "ANÁLISE DE INTENÇÃO DO TÍTULO:\n";
-        $ctx .= "- O esboço DEVE ser completamente coerente com o título do artigo\n";
+        $ctx .= "ANÁLISE DO TÍTULO:\n";
         $ctx .= "- Se o título promete QUANTIDADE ESPECÍFICA (ex: '5 motivos', '7 dicas', '3 erros'), você DEVE criar EXATAMENTE esse número de H2s\n";
-        $ctx .= "- Cada H2 deve corresponder a um item prometido no título\n";
         $ctx .= "- Exemplos de estrutura:\n";
         $ctx .= "  • Título: '5 motivos para usar WordPress' → H2s: 'Motivo 1: Flexibilidade total', 'Motivo 2: Comunidade ativa', etc.\n";
         $ctx .= "  • Título: '7 erros comuns em SEO' → H2s: 'Erro 1: Ignorar pesquisa de palavras-chave', 'Erro 2: Conteúdo duplicado', etc.\n";
@@ -415,12 +412,13 @@ class PluginsAlpha_Prompts
         $ctx .= "CONTEXTUALIZAÇÃO PARA SEÇÕES FUTURAS:\n";
         $ctx .= "- CRÍTICO: Cada seção será escrita ISOLADAMENTE por outro chat sem contexto das outras seções\n";
         $ctx .= "- Você DEVE ser ESPECÍFICO e EXPLÍCITO nas instruções de cada seção\n";
+        $ctx .= "- Crie um paragraph para criar um breve contexto sobre o assunto da seção\n";
         $ctx .= "- NUNCA use referências vagas como:\n";
         $ctx .= "  ❌ 'use os critérios dos itens selecionados'\n";
         $ctx .= "  ❌ 'conforme mencionado anteriormente'\n";
         $ctx .= "  ❌ 'baseado na lista acima'\n";
         $ctx .= "- SEMPRE especifique COMPLETAMENTE o que deve ser feito:\n";
-        $ctx .= "  ✅ 'crie tabela comparando: preço, facilidade de uso, recursos, suporte'\n";
+        $ctx .= "  ✅ 'crie tabela comparando: preço, facilidade de uso, recursos, suporte. Os itens serão: xx, xxx, xxx'\n";
         $ctx .= "  ✅ 'explique os 3 tipos: WordPress.com, WordPress.org, Managed WordPress'\n";
         $ctx .= "  ✅ 'detalhe cada passo: 1) escolher domínio, 2) contratar hospedagem, 3) instalar WordPress'\n";
         $ctx .= "- Se pedir tabela, especifique TODOS os itens/colunas/critérios que devem estar nela\n";
@@ -429,23 +427,22 @@ class PluginsAlpha_Prompts
         $ctx .= "CAPITALIZAÇÃO (OBRIGATÓRIO):\n";
         $ctx .= "- Use APENAS primeira palavra maiúscula + nomes próprios nos H2 e H3\n";
         $ctx .= "- ❌ ERRADO: 'Como Instalar WordPress No Seu Servidor'\n";
+        $ctx .= "- ❌ ERRADO: 'como instalar wordpress no seu servidor'\n";
         $ctx .= "- ✅ CORRETO: 'Como instalar WordPress no seu servidor'\n";
-        $ctx .= "- Exceções: siglas (SEO, HTML), produtos (WordPress, Netflix), nomes próprios\n\n";
+        $ctx .= "- ✅ CORRETO: 'O que é SEO'\n";
+        $ctx .= "- ✅ CORRETO: 'Quem foi Moana'\n";
+        $ctx .= "- ✅ CORRETO: 'Como usar E-E-A-T'\n\n";
 
         $ctx .= "FINALIZAÇÃO DO OUTLINE:\n";
         $ctx .= "- ÚLTIMA seção H2 NUNCA deve ser: 'Conclusão', 'Finalizando', 'Considerações finais', 'Resumo'\n";
         $ctx .= "- Opções válidas de última seção (escolha uma que faça sentido para o tema):\n";
+        $ctx .= "  ✅ 'O que assistir [tempo baseado no título ('hoje', 'fim de semana')]'\n";
         $ctx .= "  ✅ 'Próximos passos para [objetivo]'\n";
         $ctx .= "  ✅ 'Como aplicar [tema] na prática'\n";
         $ctx .= "  ✅ 'Erros comuns ao [ação] e como evitá-los'\n";
         $ctx .= "  ✅ 'Recursos e ferramentas recomendadas para [tema]'\n";
         $ctx .= "  ✅ 'Checklist de implementação de [solução]'\n";
         $ctx .= "- Objetivo: manter engajamento, não encerrar o clique\n\n";
-
-        $ctx .= "PERSONALIDADE E TOM:\n";
-        $ctx .= "- Você é um jornalista sênior especializado em Google Discover e conteúdo de alto CTR\n";
-        $ctx .= "- O esboço deve parecer criado por um especialista humano no assunto\n";
-        $ctx .= "- Não use markdown, apenas HTML válido\n";
 
         return $base . "\n\n" . $ctx . "\n\n" . $suffix;
     }
@@ -2460,33 +2457,23 @@ class PluginsAlpha_Prompts
             . "Título do artigo: \"{$articleTitle}\"\n"
             . "Esta é a seção {$idx} de {$total} (restam {$remaining})\n"
             . "Data atual: " . SELF::date() . "\n"
+            . "Frase chave: \"{$keyword}\"\n"
+            . "Título da sessão: \"{$heading}\"\n"
             . "Idioma: {$locale}\n\n"
 
-            . "COERÊNCIA COM O TÍTULO:\n"
-            . "- O conteúdo desta seção DEVE ser completamente coerente com o título do artigo\n"
-            . "- Se o título promete número específico (ex: '5 motivos'), esta seção deve entregar EXATAMENTE o item correspondente ao número da seção\n"
-            . "- Nunca mude o foco ou contradiga o que o título promete\n"
-            . "- Não invente numeração se o título não especifica quantidade\n\n"
-
             . "REGRAS DE FORMATAÇÃO:\n"
-            . "- Cada parágrafo deve ter NO MÁXIMO 2-3 frases\n"
-            . "- Quebre parágrafos com frequência (otimizado para mobile e Google Discover)\n"
-            . "- Use HTML limpo: <p>, <strong>, <ul>, <ol>, <li>, <a>\n"
-            . "- Não use markdown, apenas HTML válido\n"
-            . "- Não use <h1> em nenhuma circunstância\n\n"
+            . "- Use HTML limpo: p, strong, ul, ol, li, a... etc\n"
 
-            . "CAPITALIZAÇÃO DE TÍTULOS:\n"
-            . "- Use APENAS primeira palavra maiúscula + nomes próprios\n"
-            . "- ❌ ERRADO: <h2>Como Instalar WordPress</h2>\n"
-            . "- ✅ CORRETO: <h2>Como instalar WordPress</h2>\n"
-            . "- Exceções: siglas (SEO, HTML), produtos (WordPress, Netflix)\n\n";
+            . "CONTEXTO CRÍTICO:\n"
+            . "- Você está gerando APENAS a seção {$section_number} de um total de {$sectionsCount} seções\n"
+            . "- Cada seção é gerada ISOLADAMENTE - você NÃO tem acesso ao conteúdo das outras seções\n\n";
 
         if ($template != 'modelar_youtube') {
             $state .= "PALAVRA-CHAVE DE FOCO:\n"
-                . "- Distribua de forma NATURAL a frase-chave: \"{$keyword}\"\n"
-                . "- Use NO MÁXIMO uma vez por seção\n"
                 . "- Só use quando fizer sentido contextualmente\n"
-                . "- Integre de forma fluida no texto, nunca forçada\n\n";
+                . "- Como você sabe, mais importante que frases chaves, para o Google, é o contexto do artigo\n"
+                . "- Integre de forma fluida no texto, nunca forçada\n"
+                . "- Ex: para a frase chave \"filmes de desenho\", a frase \"Filmes de desenho na Netflix conquistam cada vez mais espaço entre opções familiares\" não é nada fluida como primeira frase do conteúdo\n\n";
         }
 
         $brief = "BRIEF DA SEÇÃO (siga fielmente — esta é sua fonte principal):\n"
@@ -2509,9 +2496,7 @@ class PluginsAlpha_Prompts
         }
 
         $brief .= "IMPORTANTE:\n"
-            . "- Não invente novos tópicos fora do escopo do brief\n"
-            . "- Desenvolva cada ponto com profundidade e exemplos práticos\n"
-            . "- Se o brief menciona elementos específicos (ferramentas, critérios, passos), você DEVE incluí-los\n\n";
+            . "- Não invente novos tópicos fora do escopo do brief\n";
 
         $tech = "REGRAS TÉCNICAS (não discuta, apenas cumpra):\n"
             . "- Escreva SOMENTE esta seção (não escreva o artigo inteiro)\n"
@@ -2519,7 +2504,7 @@ class PluginsAlpha_Prompts
             . "- NÃO escreva outros H2 além deste\n"
             . "- Esta seção (incluindo TODOS os H3 e TODO o texto) deve ter entre {$goalMin} e {$goalMax} palavras NO TOTAL\n"
             . "- Se ultrapassar {$goalMax} palavras, encurte antes de finalizar\n"
-            . "- Use bullet points (<ul>, <li>) apenas quando realmente melhorar a clareza\n"
+            . "- Use bullet points (<ul>, <li>) apenas quando realmente melhorar a clareza, mas apenas em sessões de numeros impares ou quando o brief sugerir\n"
             . "- Inclua H3 dentro desta seção se sugeridos no brief\n";
 
         if ($template === 'modelar_youtube') {

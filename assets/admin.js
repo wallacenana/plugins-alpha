@@ -1576,6 +1576,138 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $done.empty();
     (list || []).forEach(k => $('<li/>').text(k).appendTo($done));
   }
+  // ---------- Importar / Exportar / Limpar POR GRUPO ----------
+
+  // input[type=file] único para todos os grupos
+  let importTargetBox = null;
+  let $file = $('#pga_kw_file');
+  if (!$file.length) {
+    $file = $('<input type="file" id="pga_kw_file" accept=".txt,text/plain" style="display:none">');
+    $('body').append($file);
+  }
+
+  // Clique em "Importar .txt" dentro de um grupo
+  $(document).off('click.pgaImport').on('click.pgaImport', '.pga_import_box', function () {
+    importTargetBox = $(this).closest('.pga-gen-box');
+    if (!importTargetBox.length) return;
+    $file.trigger('click');
+    window.PGA_IS_DIRTY = true;
+  });
+
+  // Quando o arquivo é escolhido
+  $file.off('change.pgaImport').on('change.pgaImport', function () {
+    const f = this.files && this.files[0];
+    if (!f || !importTargetBox) {
+      this.value = '';
+      importTargetBox = null;
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async function (ev) {
+      const text = String(ev.target.result || '');
+      const $ta = importTargetBox.find('.pga_keywords');
+
+      const cur = textareaToArray($ta.val());
+      const neu = textareaToArray(text);
+      const set = Array.from(new Set(cur.concat(neu)));
+
+      $ta.val(set.join('\n'));
+      $file.val('');
+      importTargetBox = null;
+
+      if (window.Swal) {
+        await Swal.fire({
+          icon: 'info',
+          title: __('Importado', 'plugins-alpha'),
+          text: sprintf(
+            _n(
+              '%d linha foi carregada. Clique em "Salvar configurações" para persistir.',
+              '%d linhas foram carregadas. Clique em "Salvar configurações" para persistir.',
+              neu.length,
+              'plugins-alpha'
+            ),
+            neu.length
+          )
+        });
+      }
+
+      pgaSaveBoxesToLocal();
+    };
+    reader.readAsText(f, 'utf-8');
+  });
+
+  // Exportar .txt do grupo atual
+  $(document).off('click.pgaExport').on('click.pgaExport', '.pga_export_box', function () {
+    const $box = $(this).closest('.pga-gen-box');
+    const txt = String($box.find('.pga_keywords').val() || '');
+    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'keywords.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+
+  // Limpar apenas o grupo atual
+  $(document).off('click.pgaDeleteGenerator').on('click.pgaDeleteGenerator', '.pga_clear_box', async function () {
+    const $box = $(this).closest('.pga-gen-box');
+    const $container = $('#pga_gen_container');
+    const totalBoxes = $container.find('.pga-gen-box').length;
+
+    if (!$box.length) return;
+
+    // se for o único, só limpa
+    if (totalBoxes <= 1) {
+      const ok = await pgaConfirm({
+        icon: 'warning',
+        title: __('Limpar este gerador?', 'plugins-alpha'),
+        text: __('Este é o único gerador. Vamos apenas limpar os campos.', 'plugins-alpha'),
+        confirmButtonText: __('Limpar', 'plugins-alpha'),
+        cancelButtonText: __('Cancelar', 'plugins-alpha')
+      });
+
+      if (!ok) return;
+
+      $box.find('.pga_keywords').val('');
+      $box.find('.pga_total').val('6');
+      $box.find('.pga_per_day').val('3');
+      $box.find('.pga_template_key').val('article');
+      $box.find('.pga_locale').val('pt_BR');
+      $box.find('.pga_length').val('short');
+      $box.find('.pga_category').val('0');
+
+      pgaUpdateBoxTitle($box);
+      return;
+    }
+
+    const ok = await pgaConfirm({
+      icon: 'warning',
+      title: __('Excluir gerador?', 'plugins-alpha'),
+      text: __('Este gerador será removido.', 'plugins-alpha'),
+      confirmButtonText: __('Excluir', 'plugins-alpha'),
+      cancelButtonText: __('Cancelar', 'plugins-alpha')
+    });
+
+    if (!ok) return;
+
+    $box.remove();
+
+    // reindexa
+    const $boxes = $container.find('.pga-gen-box');
+    $boxes.each(function (idx) {
+      const $b = $(this);
+      $b.attr('data-gen', idx + 1);
+      pgaUpdateBoxTitle($b);
+    });
+
+    // garante IDs no primeiro
+    const $first = $boxes.first();
+    if ($first.length) pgaActivateBox($first);
+
+    window.PGA_IS_DIRTY = true;
+  });
 
   function loadTabs() {
     const tabs = parseJson(localStorage.getItem(KEY_TABS_INDEX), []);

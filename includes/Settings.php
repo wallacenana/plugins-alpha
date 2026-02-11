@@ -369,7 +369,6 @@ class PluginsAlpha_Settings
     $gem  = $o['apis']['gemini'] ?? [];
     $yt   = $o['apis']['youtube'] ?? [];
 
-    error_log('Rendering CORE tab with APIs: ' . json_encode($o['apis'] ?? []));
   ?>
     <h2 class="title">OpenAI</h2>
     <table class="form-table" role="presentation">

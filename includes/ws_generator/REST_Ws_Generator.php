@@ -1131,8 +1131,6 @@ class PluginsAlpha_REST_Ws_Generator
                     ]
                 );
 
-
-                error_log('PGA WS AI RAW: ' . print_r($ai_raw, true));
                 if (is_wp_error($ai_raw)) {
                     return new WP_Error(
                         'pga_ws_ai_fail',

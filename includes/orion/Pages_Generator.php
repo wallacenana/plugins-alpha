@@ -698,8 +698,6 @@ class PluginsAlpha_Pages_Generator
 
     $outline = PluginsAlpha_AI::outline($outlinePrompt, $jobArgs);
 
-    error_log("DEBUG: outline raw response: " . print_r($outline, true));
-
     if (is_wp_error($outline)) {
       return self::fail_job($draft_id, $outline, 'outline');
     }
