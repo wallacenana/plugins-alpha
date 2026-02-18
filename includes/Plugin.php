@@ -80,7 +80,7 @@ class PluginsAlpha_Plugin
     // JS principal
     $page = isset($_GET['page']) ? sanitize_key((string) $_GET['page']) : '';
 
-    if ($page !== 'plugins-alpha-ws-generator') {
+    if ($page !== 'plugins-alpha-ws-generator' && $page !== 'plugins-alpha-rss') {
       wp_enqueue_script(
         'pga-admin',
         PGA_URL . 'assets/admin.js',
@@ -103,6 +103,21 @@ class PluginsAlpha_Plugin
       );
 
       wp_localize_script('pga-rss', 'PGA_CFG', [
+        'rest'   => esc_url_raw(rest_url('pga/v1')),
+        'nonce'  => wp_create_nonce('wp_rest'),
+        'options' => class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [],
+        'site_url'     => site_url(),
+      ]);
+
+      wp_enqueue_script(
+        'pga-admin-rss',
+        PGA_URL . 'assets/admin-rss.js',
+        ['jquery', 'sweetalert2', 'wp-i18n'],
+        pga_asset_ver('assets/admin-rss.js'),
+        true
+      );
+
+      wp_localize_script('pga-admin-rss', 'PGA_CFG', [
         'rest'   => esc_url_raw(rest_url('pga/v1')),
         'nonce'  => wp_create_nonce('wp_rest'),
         'options' => class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [],

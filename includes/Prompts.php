@@ -24,7 +24,7 @@ class PluginsAlpha_Prompts
         }
 
         $slug = sanitize_key((string)($_POST['slug'] ?? ''));
-        if ($slug === '' || in_array($slug, ['article', 'modelar_youtube', 'global'], true)) {
+        if ($slug === '' || in_array($slug, ['article', 'modelar_youtube', 'rss', 'global'], true)) {
             wp_send_json_error(['message' => 'Modelo inválido.'], 400);
         }
 
@@ -121,7 +121,6 @@ class PluginsAlpha_Prompts
         $template = sanitize_key($template);
         $stage    = sanitize_key($stage);
 
-
         if ($template === 'modelar_youtube') {
             if ($stage === 'title') {
                 return self::default_title_modelar_youtube_prompt();
@@ -131,6 +130,18 @@ class PluginsAlpha_Prompts
             }
             if ($stage === 'section') {
                 return self::default_section_modelar_youtube_prompt();
+            }
+        }
+
+        if ($template === 'rss') {
+            if ($stage === 'title') {
+                return self::default_title_rss_prompt();
+            }
+            if ($stage === 'outline') {
+                return self::default_outline_rss_prompt();
+            }
+            if ($stage === 'section') {
+                return self::default_section_rss_prompt();
             }
         }
 
@@ -157,6 +168,14 @@ class PluginsAlpha_Prompts
             default:
                 return self::default_outline_prompt();
         }
+    }
+    private static function replace_vars(string $tpl, array $vars): string
+    {
+        $map = [];
+        foreach ($vars as $k => $v) {
+            $map['{{' . $k . '}}'] = (string)$v;
+        }
+        return strtr($tpl, $map);
     }
 
     /* =============================
@@ -185,7 +204,7 @@ class PluginsAlpha_Prompts
             . "    {\n"
             . "      \"id\": \"1\",\n"
             . "      \"level\": \"h2\",\n"
-            . "      \"paragraph\": \"p\",\n"
+            . "      \"paragraph\": \"contexto sobre o tema apresentado\",\n"
             . "      \"heading\": \"Título H2...\",\n"
             . "      \"bullets\": [\"...\", \"...\"],\n"
             . "      \"children\": [\n"
@@ -313,19 +332,6 @@ class PluginsAlpha_Prompts
         return $base . $ctx . "\n\n" . $suffix;
     }
 
-
-    /* =============================
-   * VAR REPLACE
-   * ============================= */
-    private static function replace_vars(string $tpl, array $vars): string
-    {
-        $map = [];
-        foreach ($vars as $k => $v) {
-            $map['{{' . $k . '}}'] = (string)$v;
-        }
-        return strtr($tpl, $map);
-    }
-
     /* =============================
    * BUILDERS (API pública)
    * ============================= */
@@ -356,6 +362,236 @@ class PluginsAlpha_Prompts
             . "- Retorne apenas JSON válido, sem markdown, sem comentários\n"
             . "- Siga exatamente a estrutura especificada abaixo\n"
             . self::title_json_suffix();
+    }
+
+    public static function build_title_rss_prompt(
+        string $seed_title,
+        string $locale = 'pt_BR',
+        string $url = ''
+    ): string {
+
+        $tpl = self::get_prompt_for('rss', 'title');
+
+        $base = self::replace_vars($tpl, [
+            'tituloRef'  => $seed_title,
+            'locale'     => $locale,
+            'url'        => $url,
+        ]);
+
+        $sourceContext = $url
+            ? "Fonte original da notícia: {$url}\n"
+            : '';
+
+        return
+            "CONTEXTO DA NOTÍCIA:\n"
+            . "Título base: \"{$seed_title}\"\n"
+            . $sourceContext
+            . "Idioma de saída: {$locale}\n"
+            . "Data atual: " . self::date() . "\n\n"
+            . "INSTRUÇÕES:\n"
+            . "- Reescreva o título\n"
+            . "- Não invente informações\n"
+            . "- Evite clickbait exagerado\n\n"
+            . $base
+            . "\n\nFORMATO DE SAÍDA:\n"
+            . "Responda APENAS em JSON UTF-8 válido no formato:\n"
+            . "{ \"title\": \"Título final aqui\" }\n";
+    }
+
+    public static function build_outline_rss_prompt(
+        string $chosenTitle,
+        string $seedTitle,
+        string $length,
+        string $locale,
+        string $url = '',
+        string $font = '',
+        string $sourceContent = '',
+    ): string {
+
+        $tpl = self::get_prompt_for('rss', 'outline');
+
+        $base = self::replace_vars($tpl, [
+            'tituloRef'  => $seedTitle,
+            'locale'     => $locale,
+            'url'        => $url,
+        ]);
+
+        [$minWords, $maxWords] = self::length_to_range($length);
+        $cfg = self::outline_config($length);
+
+        return
+            "CONTEXTO DA NOTÍCIA:\n"
+            . "Título original: {$seedTitle}\n"
+            . "Título reescrito: {$chosenTitle}\n"
+            . "Url do artigo RSS Fonte original (se houver): \"{$url}\"\n"
+            . "Idioma: {$locale}\n"
+            . "Caso não consiga acessar a URL ou não exista (essa aqui: \"{$url}\"), traga informações atualizadas através da pesquisa. Pesquise pelo titulo \"{$seedTitle}\" no site \"{$font}\", não insira informações com base em outra pesquisa, somente retorne um valor invalido no json para não deixar continuar o progresso.\n\n"
+
+            . "IMPORTANTE: SEMPRE GERE ALGUM CONTEÚDO, MESMO QUE HOUVER DESCONTEXTUALIZAÇÃO DE COMANDOS"
+
+            . "ESTRUTURA:\n"
+            . "- Entre {$cfg['min_sections']} e {$cfg['max_sections']} seções H2\n"
+            . "- Conteúdo final estimado: {$minWords} a {$maxWords} palavras\n\n"
+
+            . $base . "\n\n"
+            . "CONTEÚDO BASE DA NOTÍCIA (se não tiver nada, execute os comandos acima de pesquisar pelo titulo, diretamente da fonte indicada ({$font})):\n"
+            . "-----inicio----\n"
+            . $sourceContent . "\n"
+            . "-----fim----\n\n"
+
+            . self::outline_json_suffix([
+                'min_sections' => (int)$cfg['min_sections'],
+                'max_sections' => (int)$cfg['max_sections'],
+                'min_words'    => (int)$minWords,
+                'max_words'    => (int)$maxWords,
+                'locale'       => (string)$locale,
+            ]);
+    }
+
+    public static function build_section_rss_prompt(
+        string $articleTitle,
+        array  $section,
+        string $length,
+        string $locale,
+        int    $sectionsCount,
+        string $section_number,
+        string $url = '',
+        string $font = '',
+    ): string {
+        $tpl    = self::get_prompt_for('rss', 'outline');
+
+        $heading = trim((string)($section['heading'] ?? ''));
+        $level   = strtolower(trim((string)($section['level'] ?? 'h2')));
+        if ($level !== 'h2' && $level !== 'h3') $level = 'h2';
+
+        $sectionParagraph = trim((string)($section['paragraph'] ?? ''));
+
+        // children detalhado (H3 sugeridos com paragraph)
+        $childrenDetailed = '';
+        if (!empty($section['children']) && is_array($section['children'])) {
+            $list = [];
+            $n = 1;
+            foreach ($section['children'] as $c) {
+                $h = trim((string)($c['heading'] ?? ''));
+                $p = trim((string)($c['paragraph'] ?? ''));
+                if ($h === '') continue;
+
+                $line = "H3 {$n}: {$h}";
+                if ($p !== '') $line .= " — Brief: {$p}";
+                $list[] = $line;
+                $n++;
+            }
+            if ($list) $childrenDetailed = implode("\n", $list);
+        }
+
+        // bullets (da própria seção)
+        $bullets = '';
+        if (!empty($section['bullets']) && is_array($section['bullets'])) {
+            $list = [];
+            foreach ($section['bullets'] as $b) {
+                $b = trim((string)$b);
+                if ($b !== '') $list[] = '- ' . $b;
+            }
+            if ($list) $bullets = implode("\n", $list);
+        }
+
+        // children headings (H3 sugeridos)
+        $children = '';
+        if (!empty($section['children']) && is_array($section['children'])) {
+            $list = [];
+            foreach ($section['children'] as $c) {
+                $h = trim((string)($c['heading'] ?? ''));
+                if ($h !== '') $list[] = '- ' . $h;
+            }
+            if ($list) $children = implode("\n", $list);
+        }
+
+        // word goal
+        $goalMin = 0;
+        $goalMax = 0;
+        if (!empty($section['word_goal']) && is_array($section['word_goal'])) {
+            $goalMin = (int)($section['word_goal']['min'] ?? 0);
+            $goalMax = (int)($section['word_goal']['max'] ?? 0);
+        }
+
+        [$minWords, $maxWords] = self::length_to_range($length);
+
+        $sectionsCount = max(1, (int)$sectionsCount);
+
+        // Se só existe 1 seção → usa o range inteiro
+        if ($sectionsCount === 1) {
+            $goalMin = $minWords;
+            $goalMax = $maxWords;
+        } else {
+
+            // Distribuição proporcional simples
+            $goalMin = (int) floor($minWords / $sectionsCount);
+            $goalMax = (int) floor($maxWords / $sectionsCount);
+
+            // Ajuste leve para dar margem editorial
+            $goalMax = (int) floor($goalMax * 1.10); // +10% de flexibilidade
+        }
+
+        // Garantia mínima apenas para evitar micro seção
+        $goalMin = max(40, $goalMin);
+        $goalMax = max($goalMin + 30, $goalMax);
+
+        $idx = max(1, (int)$section_number);
+        $total = max(1, (int)$sectionsCount);
+        $remaining = max(0, $total - $idx);
+
+        $base = self::replace_vars($tpl, [
+            'articleTitle'              => $articleTitle,
+            'locale'                    => $locale,
+            'section_heading'           => $heading,
+            'section_level'             => $level,
+            'section_paragraph'         => $sectionParagraph,
+            'section_children'          => $children,
+            'section_children_detailed' => $childrenDetailed,
+            'section_bullets'           => $bullets,
+            'sections_count'            => (string)$sectionsCount,
+            'section_number'            => (string)$section_number,
+            'url'                       => $url,
+            'font'                      => $font,
+        ]);
+
+        $state = "CONTEXTO DA SEÇÃO:\n"
+            . "Título do artigo: \"{$articleTitle}\"\n"
+            . "Título da seção: \"{$heading}\"\n"
+            . "Fonte original: {$url} ou {$font}\n"
+            . "Idioma final para escrever: {$locale}\n"
+            . "Você está gerando APENAS a seção {$idx} de {$total} (restam {$remaining}) (Cada seção é gerada ISOLADAMENTE - você NÃO tem acesso ao conteúdo das outras seções)\n\n"
+
+            . "REGRAS CRITICAS OBRIGATÓRIAS:\n"
+            . "Cada sessão deve ser de h2 até h2, ou seja, quando tiver h3, ele também deve ter no máximo {$goalMax} palavras, ou seja, h2+h3+[quantos outros h3 tiverem] a soma máxima tem qser de {$goalMax} palavras\n"
+
+            . "Tente acessar a URL para extrair informações, mas se não conseguir, use o conteúdo do site \"{$font}\" para se informar sobre a notícia. Não invente informações que não estejam presentes na URL ou no site de referência.\n\n";
+
+        $brief = "BRIEF DA SEÇÃO (siga fielmente):\n"
+            . "Heading ({$level}): {$heading}\n";
+
+        if ($sectionParagraph !== '') {
+            $brief .= "Parágrafo-guia: {$sectionParagraph}\n"
+                . "REGRA: EXPANDA com profundidade, contexto e exemplos. Não apenas reescreva, mas acima de tudo, modele com base no conteúdo existente na noticia real.\n\n";
+        }
+
+        if ($childrenDetailed !== '') {
+            $brief .= "Subtítulos H3 com briefs:\n{$childrenDetailed}\n"
+                . "REGRA: Crie cada H3 e desenvolva seguindo o brief.\n\n";
+        } else if ($children !== '') {
+            $brief .= "Subtítulos H3 sugeridos:\n{$children}\n\n";
+        }
+
+        if ($bullets !== '') {
+            $brief .= "Os bullets são guias para o conteúdo, sao dados importantes extraidos para ajudar a cada sessão:\n{$bullets}\n\n";
+        }
+
+        $tech = "REGRAS TÉCNICAS (obrigatório):\n"
+            . "- Comece EXATAMENTE com: <{$level}>{$heading}</{$level}>\n"
+            . "- NÃO escreva outros H2\n"
+            . "- Esta seção inteira deve ter entre {$goalMin} e {$goalMax} palavras\n\n";
+
+        return $state . $brief . $tech . $base . "Não use markdown";
     }
 
     public static function build_outline_prompt(
@@ -896,6 +1132,7 @@ class PluginsAlpha_Prompts
             : [
                 'article' => ['label' => 'Artigo (padrão)', 'builtin' => 1, 'enabled' => 1],
                 'modelar_youtube' => ['label' => 'Modelar YouTube', 'builtin' => 1, 'enabled' => 1],
+                'rss' => ['label' => 'Modelar RSS', 'builtin' => 1, 'enabled' => 1],
             ];
 
         // Garante que os 2 core sempre apareçam
@@ -905,10 +1142,13 @@ class PluginsAlpha_Prompts
         if (!isset($tpls['modelar_youtube'])) {
             $tpls['modelar_youtube'] = ['label' => 'Modelar YouTube', 'builtin' => 1, 'enabled' => 1];
         }
+        if (!isset($tpls['rss'])) {
+            $tpls['rss'] = ['label' => 'Modelar RSS', 'builtin' => 1, 'enabled' => 1];
+        }
 
         // Ordena: core primeiro
         uksort($tpls, function ($a, $b) {
-            $prio = ['article' => 0, 'modelar_youtube' => 1, 'global' => 2];
+            $prio = ['article' => 0, 'modelar_youtube' => 2, 'rss' => 1, 'global' => 3];
             $pa = $prio[$a] ?? (!empty($tpls_all[$a]['builtin']) ? 10 : 20);
             $pb = $prio[$b] ?? (!empty($tpls_all[$b]['builtin']) ? 10 : 20);
 
@@ -916,7 +1156,7 @@ class PluginsAlpha_Prompts
             return strcmp($a, $b);
         });
 
-        $core_templates = ['article', 'modelar_youtube'];
+        $core_templates = ['article', 'modelar_youtube', 'rss'];
 
         $core_defaults = [];
         foreach ($core_templates as $ct) {
@@ -938,18 +1178,14 @@ class PluginsAlpha_Prompts
             $tpls_all['modelar_youtube'] = ['label' => 'Modelar YouTube', 'enabled' => 1, 'builtin' => 1];
         }
 
+        if (empty($tpls_all['rss'])) {
+            $tpls_all['rss'] = ['label' => 'Modelar RSS', 'enabled' => 1, 'builtin' => 1];
+        }
+
         if (empty($tpls_all['global'])) {
             $tpls_all['global'] = ['label' => 'Global', 'enabled' => 1, 'builtin' => 1];
         }
 
-        // Se não existir nenhum custom ainda, adiciona 1 exemplo (desativado) pra guiar
-        $has_custom = false;
-        foreach ($tpls_all as $k => $v) {
-            if (empty($v['builtin'])) {
-                $has_custom = true;
-                break;
-            }
-        }
 
         // Só pra organizar: nativos primeiro
         uksort($tpls_all, function ($a, $b) use ($tpls_all) {
@@ -1074,7 +1310,7 @@ class PluginsAlpha_Prompts
                                 }
 
                                 $default = self::default_prompt_for($tpl_slug, $stage_key);
-                                $canRestore = in_array($tpl_slug, ['article', 'modelar_youtube'], true);
+                                $canRestore = in_array($tpl_slug, ['article', 'modelar_youtube', 'rss'], true);
                             ?>
                                 <div
                                     class="pga-stage-card"
@@ -1208,7 +1444,7 @@ class PluginsAlpha_Prompts
                                 <tbody>
                                     <?php foreach ($tpls_all as $slug => $row):
                                         $slug = sanitize_key((string)$slug);
-                                        $is_builtin = !empty($row['builtin']) || in_array($slug, ['global', 'article', 'modelar_youtube'], true);
+                                        $is_builtin = !empty($row['builtin']) || in_array($slug, ['global', 'article', 'modelar_youtube', 'rss'], true);
                                         $label = (string)($row['label'] ?? $slug);
                                         $enabled = !empty($row['enabled']) ? 1 : 0;
                                         $is_default = !empty($row['is_default']) ? 1 : 0;
@@ -1615,18 +1851,18 @@ class PluginsAlpha_Prompts
                     const res = await Swal.fire({
                         title: 'Adicionar modelo',
                         html: `<div style="text-align:left">
-        <div style="font-size:13px;color:#666;margin:0 0 10px">
-          Digite um nome (ex.: <b>Receitas</b>, <b>Review</b>, <b>Modelar URL</b>).
-        </div>
-        <input id="pga_tpl_label" class="swal2-input" style="margin: 0!important" placeholder="Nome do modelo" autocomplete="off">
-      </div>`,
+                            <div style="font-size:13px;color:#666;margin:0 0 10px">
+                            Digite um nome (ex.: <b>Receitas</b>, <b>Review</b>, <b>Modelar URL</b>).
+                            </div>
+                            <input id="pga_tpl_label" class="swal2-input" style="margin: 0!important" placeholder="Nome do modelo" autocomplete="off">
+                        </div>`,
                         focusConfirm: false,
                         showCancelButton: true,
                         confirmButtonText: 'Adicionar',
                         cancelButtonText: 'Cancelar',
                         preConfirm: () => {
                             const label = (document.getElementById('pga_tpl_label')?.value || '').trim();
-                            const enabled = !!document.getElementById('pga_tpl_enabled')?.checked;
+                            const enabled = 'enabled';
 
                             if (label.length < 2) {
                                 Swal.showValidationMessage('Digite um nome com ao menos 2 caracteres.');
@@ -2194,7 +2430,7 @@ class PluginsAlpha_Prompts
             $label   = is_array($meta) && isset($meta['label']) ? sanitize_text_field((string)$meta['label']) : $slug;
             $enabled = is_array($meta) && array_key_exists('enabled', $meta) ? (int)!empty($meta['enabled']) : 1;
 
-            if (in_array($slug, ['article', 'modelar_youtube'], true)) {
+            if (in_array($slug, ['article', 'modelar_youtube', 'rss'], true)) {
                 $clean_templates[$slug] = [
                     'label'      => $label ?: $slug,
                     'enabled'    => 1,
@@ -2226,7 +2462,7 @@ class PluginsAlpha_Prompts
                     $current_templates[$tpl_slug] = [
                         'label'   => $tpl_slug,
                         'enabled' => 1,
-                        'builtin' => in_array($tpl_slug, ['article', 'modelar_youtube'], true) ? 1 : 0,
+                        'builtin' => in_array($tpl_slug, ['article', 'modelar_youtube', 'rss'], true) ? 1 : 0,
                     ];
                 }
 
@@ -2257,17 +2493,17 @@ class PluginsAlpha_Prompts
     {
         switch ($length) {
             case 'short':
-                return [400, 800];
+                return [300, 500];
             case 'medium':
-                return [800, 1500];
+                return [600, 1000];
             case 'long':
-                return [1500, 2500];
+                return [1200, 2200];
             case 'extra-long':
             case 'extra_long':
             case 'extra':
                 return [2500, 5000];
             default:
-                return [400, 800];
+                return [300, 500];
         }
     }
 
@@ -2275,17 +2511,17 @@ class PluginsAlpha_Prompts
     {
         switch ($length) {
             case 'short':
-                return ['min_sections' => 4, 'max_sections' => 8];
+                return ['min_sections' => 1, 'max_sections' => 4];
             case 'medium':
-                return ['min_sections' => 8, 'max_sections' => 15];
+                return ['min_sections' => 4, 'max_sections' => 8];
             case 'long':
-                return ['min_sections' => 15, 'max_sections' => 20];
+                return ['min_sections' => 8, 'max_sections' => 15];
             case 'extra-long':
             case 'extra_long':
             case 'extra':
-                return ['min_sections' => 20, 'max_sections' => 30];
+                return ['min_sections' => 15, 'max_sections' => 30];
             default:
-                return ['min_sections' => 4, 'max_sections' => 8];
+                return ['min_sections' => 1, 'max_sections' => 4];
         }
     }
 
@@ -2319,6 +2555,7 @@ class PluginsAlpha_Prompts
         $keyword = trim((string)($args['keyword'] ?? ''));
         $qty     = min(5, max(1, (int)($args['qty'] ?? 3)));
         $locale  = $args['locale'] ?? 'pt_BR';
+        $context  = $args['context'] ?? '';
 
         $lang = match ($locale) {
             'pt_BR' => 'português do Brasil',
@@ -2327,14 +2564,23 @@ class PluginsAlpha_Prompts
             default => 'português',
         };
 
-        $p = "Gere exatamente {$qty} perguntas frequentes (FAQ) sobre \"{$keyword}\"\n."
+        $c = '';
+        if ($context !== '') {
+            $c = "Use o conteudo abaixo como base para criar as perguntas e torna-las mais verdadeiras\n"
+                . "-----Inicio---\n"
+                . $context . "\n"
+                . "-----fim---\n\n";
+        }
 
+        $p = "Gere exatamente {$qty} perguntas frequentes (FAQ) sobre \"{$keyword}\"\n."
             . "Regras obrigatórias:\n"
             . "- Escreva em {$lang}.\n"
             . "- Use perguntas reais que um usuário faria.\n"
             . "- Respostas objetivas, claras e diretas.\n"
             . "- Não use listas, markdown ou emojis.\n"
             . "- Não mencione IA, modelos ou processos internos.\n\n"
+
+            . $c
 
             . "Formato de saída:\n"
             . "Retorne APENAS um objeto JSON válido no padrão Schema.org FAQPage,\n"
@@ -2424,13 +2670,6 @@ class PluginsAlpha_Prompts
             $childrenCount = count($section['children']);
         }
 
-        // se tem H3 sugerido, divide o budget entre H2 + H3s
-        if ($childrenCount > 0) {
-            $parts = 1 + $childrenCount;
-            $goalMax = (int) max(100, floor($goalMax / $parts));
-            $goalMin = (int) max(50, floor($goalMin / $parts));
-        }
-
         $url = trim((string)$url);
 
         $base = self::replace_vars($tpl, [
@@ -2481,7 +2720,7 @@ class PluginsAlpha_Prompts
 
         if ($sectionParagraph !== '') {
             $brief .= "Parágrafo-guia do {$level}: {$sectionParagraph}\n"
-                . "REGRA: EXPANDA este parágrafo com profundidade, contexto, critérios e exemplos práticos. Não apenas reescreva.\n\n";
+                . "REGRA: Desenvolva com clareza e objetividade, mantendo ritmo jornalístico. Evite explicações excessivamente longas ou acadêmicas.\n\n";
         }
 
         if ($childrenDetailed !== '') {
@@ -2694,6 +2933,29 @@ class PluginsAlpha_Prompts
             . "IMPORTANTE: Gere os títulos no idioma especificado sem explicações adicionais.\n";
     }
 
+    private static function default_title_rss_prompt(): string
+    {
+        return
+            "Crie um título otimizado e original baseado no RSS fornecido.\n\n"
+            . "REGRAS:\n\n"
+            . "ORIGINALIDADE (OBRIGATÓRIA):\n"
+            . "- NUNCA copie o título original\n"
+            . "- Reescreva completamente com suas próprias palavras\n"
+            . "- Mude a estrutura e ângulo\n"
+            . "- Mantenha o tema/assunto, mas com abordagem diferente\n\n"
+
+            . "OTIMIZAÇÃO:\n"
+            . "- Máximo 60-70 caracteres\n"
+            . "- Capitalização: só primeira palavra + nomes próprios\n"
+            . "- Tom jornalístico e direto\n\n"
+
+            . "EXEMPLO:\n"
+            . "RSS: \"10 melhores filmes de ação de 2024\"\n"
+            . "❌ ERRADO: \"Os 10 melhores filmes de ação de 2024\"\n"
+            . "✅ CORRETO: \"7 filmes de ação brutais que chegaram em 2024\"\n"
+            . "✅ CORRETO: \"Filmes de ação de 2024 que ninguém esperava\"\n\n";
+    }
+
     private static function default_title_modelar_youtube_prompt(): string
     {
         return "Você é um redator sênior especializado em SEO e Google Discover.\n\n"
@@ -2787,6 +3049,46 @@ class PluginsAlpha_Prompts
             . "- Nunca use referências vagas como 'conforme mencionado', 'itens acima', 'critérios selecionados'\n";
     }
 
+    private static function default_outline_rss_prompt(): string
+    {
+        return
+            "Crie um esboço (outline) completo baseado no conteúdo RSS fornecido.\n\n"
+            . "ANTI-PLÁGIO (OBRIGATÓRIO):\n"
+            . "- NÃO copie estrutura do RSS\n"
+            . "- NÃO copie títulos de seções\n"
+            . "- Crie estrutura ORIGINAL e reorganizada\n"
+            . "- Use RSS apenas para extrair FATOS/TEMAS\n"
+            . "ex.:\n"
+            . "A Netflix anunciou um acordo para adquirir a Warner Bros. Discovery (WBD) num dos maiores negócios da história do entretenimento global\n"
+            . "Plagio, pois copia a mesma estrutura: \"a Netflix surpreendeu o mercado ao anunciar um acordo para adquirir a Warner Bros. Discovery\"\n"
+            . "- Não deve copiar nenhuma estrutura de frase.\n\n"
+
+            . "ESTRUTURA DO ESBOÇO:\n"
+            . "A ideia deste esboço é criar uma estrutura de notica, então, vamos ter no máximo 2 sessões com paragrafos curtos com no máximo 3 frases\n"
+            . "Crie então essa estrutura com uma sessão h2 e nada de h3, a ideia é criar um conteúdo mais fluido e com cara de notícia, nada de estrutura grande e complexa\n"
+            . "A estrutura deve conter elementos focados em dar clareza sobre o conteúdo apresentado\n"
+            . "Lembre-se de sempre contextualizar com dados veridicos retirados do RSS, não invente dados ou fatos\n"
+            . "Para os Bullets, insira ao menos 20, onde cada um tem q ter uma informação precisa, como: \n"
+            . "\"No dia [data em numero se possivel] a [empresa], se reuniu com [quem]...\" \n"
+            . "\"Segundo informações obtidas no site oficial da [empresa]...\" \n"
+            . "Nunca insira informações não concretas, como: no inicio do ano, ouvimos dizer, [empresa] executou/fez [algo]...\n\n"
+
+            . "DIRETRIZES DE PROFUNDIDADE:\n"
+            . "- Cada brief deve ter instruções COMPLETAS e ESPECÍFICAS\n"
+            . "- Não use referências vagas: 'conforme mencionado', 'itens acima'\n"
+            . "- Se mencionar lista/comparação, especifique TODOS os itens\n"
+            . "- Extraia TODOS os fatos relevantes do RSS e distribua nas seções\n"
+            . "- Se houver algum video na página relacionada, insira o embed do video, caso não seja de um provedor próprio, passe o link para a sessão a qual deve ficar o vídeo\n"
+            . "- Reorganize informações para criar fluxo lógico diferente do original\n\n"
+
+            . "REGRAS:\n"
+            . "- Capitalização: só primeira palavra + nomes próprios\n"
+            . "- Cada brief isolado e completo (contexto independente)\n"
+            . "- Quantidade de H2s: conforme necessário para cobrir tema com profundidade\n"
+            . "- Não limite a uma seções se o tema exigir mais\n"
+            . "- Instrua a inserir um embed do youtube quando for encontrado algum video na página, descreva o link do video encontrado no artigo\n";
+    }
+
     private static function default_section_base_prompt(): string
     {
         return
@@ -2837,6 +3139,67 @@ class PluginsAlpha_Prompts
             . "Use o brief fornecido como base e os subtítulos sugeridos para estruturar o conteúdo:\n\n"
             . "{{section_bullets}}\n\n"
             . "{{section_children}}\n";
+    }
+
+    private static function default_section_rss_prompt(): string
+    {
+        return
+            "Você está MODELANDO conteúdo baseado em RSS fornecido.\n\n"
+
+            . "LINKS EXTERNOS OBRIGATÓRIOS:\n"
+            . "- SEMPRE adicione links quando mencionar:\n"
+            . "  • Streamings: Netflix, Prime Video, Disney+, Max, Apple TV+, Paramount+, etc\n"
+            . "  • Empresas citadas: Warner, Universal, Sony, etc\n"
+            . "  • Sites oficiais mencionados\n"
+            . "- Formato HTML obrigatório: <a href=\"URL\" target=\"_blank\" rel=\"noopener\">Nome</a>\n"
+            . "- NUNCA use formato Markdown [texto](url)\n"
+            . "- Exemplo correto: <a href=\"https://www.netflix.com\" target=\"_blank\" rel=\"noopener\">Netflix</a>\n\n"
+
+            . "URLs PADRÃO (use estes):\n"
+            . "- Netflix: https://www.netflix.com\n"
+            . "- Prime Video: https://www.primevideo.com\n"
+            . "- Disney+: https://www.disneyplus.com\n"
+            . "- Max: https://www.max.com\n"
+            . "- Apple TV+: https://tv.apple.com\n"
+            . "- Paramount+: https://www.paramountplus.com\n\n"
+
+            . "ANTI-PLÁGIO (OBRIGATÓRIO):\n"
+            . "- NUNCA copie estrutura de frases\n"
+            . "- Mude completamente ordem das informações\n"
+            . "- Use vocabulário totalmente diferente\n"
+            . "- Adicione tom autoral em primeira pessoa plural\n\n"
+
+            . "TOM:\n"
+            . "- Primeira pessoa plural: 'Vimos', 'Notamos', 'Descobrimos'\n"
+            . "- Natural e conversacional\n"
+            . "- Parágrafos: máximo 2-4 linhas (2-3 frases)\n\n"
+
+            . "FORMATAÇÃO HTML:\n"
+            . "- Use <p>, <strong>, <a>\n"
+            . "- Links: <a href=\"...\" target=\"_blank\" rel=\"noopener\">...</a>\n"
+            . "- NUNCA use Markdown\n\n"
+
+            . "E-E-A-T - FATOS VERIFICÁVEIS:\n"
+            . "- Sempre inclua datas exatas quando disponíveis\n"
+            . "- Mencione fonte oficial: 'Segundo site oficial da [empresa]'\n"
+            . "- Use dados concretos: valores, números, prazos\n"
+            . "- Exemplo: 'No dia 15 de fevereiro, a Warner anunciou no site oficial...'\n\n"
+
+            . "PROIBIDO:\n"
+            . "- Copiar estrutura de frases\n"
+            . "- Links em Markdown\n"
+            . "- Inventar fatos não presentes no RSS\n"
+            . "- Mencionar fonte do RSS (ex: 'Adoro Cinema publicou')\n"
+            . "- Usar emojis\n"
+            . "- Criar listas de qualquer tipo, sem que seja passado pelo paragrafo ou bullets\n"
+            . "- Parágrafos longos (máx 3 frases)\n\n"
+
+            . "PROCESSO:\n"
+            . "1. Extraia FATOS do RSS\n"
+            . "2. Reescreva com vocabulário diferente\n"
+            . "3. Mude ordem das informações\n"
+            . "4. Adicione links HTML para streamings/empresas\n"
+            . "5. Insira datas e dados verificáveis\n";
     }
 
     private static function default_section_modelar_youtube_prompt(): string

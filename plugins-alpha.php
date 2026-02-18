@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Alpha Suite
  * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Alpha Órion, Alpha Stories e muito mais.
- * Version: 3.1.6
+ * Version: 3.1.7
  * Author: Wallace Tavares
  * Author URI: https://pluginsalpha.com/
  * Text Domain: plugins-alpha
@@ -17,7 +17,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('PLUGINS_ALPHA_VERSION', '3.1.6');
+define('PLUGINS_ALPHA_VERSION', '3.1.7');
 
 // Constantes
 define('PGA_FILE', __FILE__);
@@ -108,79 +108,161 @@ spl_autoload_register(function ($class) {
 
 // Bootstrap
 add_action('plugins_loaded', function () {
-  if (class_exists('PluginsAlpha_Plugin')) {
-    PluginsAlpha_Plugin::init();
 
-    if (class_exists('PluginsAlpha_REST')) {
-      add_action('rest_api_init', ['PluginsAlpha_REST', 'register_routes']);
-    }
-
-    if (class_exists('PluginsAlpha_REST_Ws_Generator')) {
-      add_action('rest_api_init', ['PluginsAlpha_REST_Ws_Generator', 'register_routes']);
-    }
-    
-    if (class_exists('PluginsAlpha_RESTRSS')) {
-      add_action('rest_api_init', ['PluginsAlpha_RESTRSS', 'register_routes']);
-    }
-
-    if (class_exists('PluginsAlpha_License')) {
-      PluginsAlpha_License::init();
-    }
-
-    if (class_exists('PluginsAlpha_Updater')) {
-      PluginsAlpha_Updater::init(__FILE__);
-    }
-
-    if (class_exists('PluginsAlpha_WS_CPT')) {
-      PluginsAlpha_WS_CPT::init();
-    }
-
-    if (class_exists('PluginsAlpha_WS_Metabox')) {
-      PluginsAlpha_WS_Metabox::init();
-    }
-  }
-});
-
-add_action('wp_ajax_pga_orion_prompts_export', ['PluginsAlpha_Prompts', 'ajax_export']);
-PluginsAlpha_Prompts::register_ajax();
-
-// Ativação/Desativação
-register_activation_hook(PGA_FILE, function () {
-
-  // 🔒 evita rodar fora do admin (segurança)
-  if (!is_admin()) {
+  if (!class_exists('PluginsAlpha_Plugin')) {
     return;
   }
 
-  // ✅ garante que o CPT vai existir no flush
-  if (class_exists('PluginsAlpha_CPT_Posts_Orion')) {
-    PluginsAlpha_CPT_Posts_Orion::register();
+  PluginsAlpha_Plugin::init();
+
+  // REST
+  if (class_exists('PluginsAlpha_REST')) {
+    add_action('rest_api_init', ['PluginsAlpha_REST', 'register_routes']);
   }
 
-  // ✅ flush final
-  flush_rewrite_rules(false);
+  if (class_exists('PluginsAlpha_REST_Ws_Generator')) {
+    add_action('rest_api_init', ['PluginsAlpha_REST_Ws_Generator', 'register_routes']);
+  }
 
-  // cron/licença depois não atrapalha rewrite
-  do_action('plugins_alpha/activate');
+  if (class_exists('PluginsAlpha_RESTRSS')) {
+    add_action('rest_api_init', ['PluginsAlpha_RESTRSS', 'register_routes']);
+  }
+
+  // Outros módulos
   if (class_exists('PluginsAlpha_License')) {
-    PluginsAlpha_License::schedule_cron();
+    PluginsAlpha_License::init();
+  }
+
+  if (class_exists('PluginsAlpha_Updater')) {
+    PluginsAlpha_Updater::init(PGA_FILE);
+  }
+
+  if (class_exists('PluginsAlpha_WS_CPT')) {
+    PluginsAlpha_WS_CPT::init();
+  }
+
+  if (class_exists('PluginsAlpha_WS_Metabox')) {
+    PluginsAlpha_WS_Metabox::init();
   }
 });
+
+
+/*
+|--------------------------------------------------------------------------
+| INTERVALO DE 1 MINUTO (OBRIGATÓRIO)
+|--------------------------------------------------------------------------
+*/
+
+add_filter('cron_schedules', function ($schedules) {
+
+  if (!isset($schedules['every_minute'])) {
+    $schedules['every_minute'] = [
+      'interval' => 60,
+      'display'  => 'Every Minute'
+    ];
+  }
+
+  return $schedules;
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| CRON MASTER
+|--------------------------------------------------------------------------
+*/
+
+add_action('pga_master_cron', ['PluginsAlpha_CRON', 'dispatch']);
+
+/*
+|--------------------------------------------------------------------------
+| ATIVAÇÃO
+|--------------------------------------------------------------------------
+*/
+
+register_activation_hook(PGA_FILE, function () {
+
+  // cria tabelas
+  pga_create_tables();
+
+  // agenda cron
+  if (!wp_next_scheduled('pga_master_cron')) {
+    wp_schedule_event(time(), 'every_minute', 'pga_master_cron');
+  }
+
+  flush_rewrite_rules(false);
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| DESATIVAÇÃO
+|--------------------------------------------------------------------------
+*/
 
 register_deactivation_hook(PGA_FILE, function () {
-  do_action('plugins_alpha/deactivate');
 
-  if (class_exists('PluginsAlpha_License')) {
-    PluginsAlpha_License::clear_cron();
-  }
-
+  wp_clear_scheduled_hook('pga_master_cron');
   flush_rewrite_rules(false);
 });
 
-add_action('update_option_pga_story_base', function ($old, $new) {
-  if ($old !== $new) flush_rewrite_rules(false);
-}, 10, 2);
 
+/*
+|--------------------------------------------------------------------------
+| CRIAÇÃO DAS TABELAS
+|--------------------------------------------------------------------------
+*/
+
+function pga_create_tables()
+{
+  global $wpdb;
+  $charset = $wpdb->get_charset_collate();
+
+  require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+  dbDelta("CREATE TABLE {$wpdb->prefix}pga_generators (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        tab_id VARCHAR(100) NOT NULL,
+        name VARCHAR(190) NOT NULL,
+        active TINYINT(1) DEFAULT 1,
+        start_hour TINYINT DEFAULT 0,
+        end_hour TINYINT DEFAULT 23,
+        interval_hours INT DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY tab_id (tab_id),
+        KEY active (active)
+    ) $charset;");
+
+  dbDelta("CREATE TABLE {$wpdb->prefix}pga_generator_config (
+        generator_id BIGINT UNSIGNED NOT NULL,
+        config_json LONGTEXT NOT NULL,
+        PRIMARY KEY (generator_id)
+    ) $charset;");
+
+  dbDelta("CREATE TABLE {$wpdb->prefix}pga_generator_items (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        generator_id BIGINT UNSIGNED NOT NULL,
+        keyword TEXT NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        post_id BIGINT DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        generated_at DATETIME NULL,
+        PRIMARY KEY (id),
+        KEY generator_id (generator_id),
+        KEY status (status)
+    ) $charset;");
+
+  dbDelta("CREATE TABLE {$wpdb->prefix}pga_generator_runtime (
+        generator_id BIGINT UNSIGNED NOT NULL,
+        next_run DATETIME NULL,
+        last_run DATETIME NULL,
+        lock_until DATETIME NULL,
+        last_status VARCHAR(50) DEFAULT NULL,
+        PRIMARY KEY (generator_id)
+    ) $charset;");
+}
 
 // Link “Dashboard” na tela de Plugins
 add_filter('plugin_action_links_' . plugin_basename(PGA_FILE), function ($links) {

@@ -980,64 +980,94 @@ class PluginsAlpha_REST
         });
     }
 
+    public static function get_text_provider($format = 'orion_posts'): string
+    {
+        $provider = 'openai';
 
-    // ---------------------- diagnóstico da OpenAI ----------------------
+        if (class_exists('PluginsAlpha_Settings')) {
+            $opts   = PluginsAlpha_Settings::get();
+            $bucket = $opts[$format] ?? [];
+
+            if (!empty($bucket['text_provider'])) {
+                $candidate = (string)$bucket['text_provider'];
+                if (in_array($candidate, ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity'], true)) {
+                    $provider = $candidate;
+                }
+            }
+        }
+
+        return $provider;
+    }
+    
     public static function selftest($req)
     {
-        $v = self::verify_nonce($req);
-        if (is_wp_error($v)) return $v;
-
-        $p = $req->get_json_params();
-        if (!is_array($p)) $p = [];
-
-        $opt       = PluginsAlpha_Settings::get();
-        $key       = trim($p['key'] !== '' ? $p['key'] : ($opt['apis']['openai']['key'] ?? ''));
-        $model     = trim($p['model'] !== '' ? $p['model'] : ($opt['apis']['openai']['model_text'] ?? 'gpt-4o-mini'));
-        $temp      = floatval($p['temperature'] !== '' ? $p['temperature'] : ($opt['apis']['openai']['temperature'] ?? 0.6));
-        $maxTokens = intval($p['max_tokens'] !== '' ? $p['max_tokens'] : ($opt['apis']['openai']['max_tokens'] ?? 512));
-
-        if (!$key) {
-            return new WP_Error('agp_no_key', 'Nenhuma chave OpenAI informada.', ['status' => 400]);
+        if (!current_user_can('manage_options')) {
+            return new WP_Error('forbidden', 'Sem permissão.', ['status' => 403]);
         }
 
-        $args = [
-            'headers' => [
-                'Content-Type'  => 'application/json',
-                'Authorization' => 'Bearer ' . $key,
-            ],
-            'timeout' => 20,
-            'body'    => json_encode([
-                'model'       => $model,
-                'messages'    => [['role' => 'user', 'content' => 'Responda apenas: pong']],
-                'temperature' => $temp,
-                'max_tokens'  => max(16, min($maxTokens, 256)), // limite baixo só pro teste
-            ]),
-        ];
-
-        $t0 = microtime(true);
-        $r  = wp_remote_post('https://api.openai.com/v1/chat/completions', $args);
-        $ms = round((microtime(true) - $t0) * 1000);
-
-        if (is_wp_error($r)) {
-            return new WP_Error('agp_http', $r->get_error_message(), ['status' => 500]);
+        if (!class_exists('PluginsAlpha_Settings')) {
+            return new WP_Error('config_missing', 'Configurações não encontradas.');
         }
 
-        $code = wp_remote_retrieve_response_code($r);
-        $body = json_decode(wp_remote_retrieve_body($r), true);
+        $opts = PluginsAlpha_Settings::get();
 
-        if ($code !== 200) {
-            $msg = $body['error']['message'] ?? 'HTTP ' . $code;
-            return new WP_Error('agp_api_fail', $msg, ['status' => $code]);
+        $errors = [];
+
+        /*
+    |--------------------------------------------------------------------------
+    | TEXTO
+    |--------------------------------------------------------------------------
+    */
+
+        $textProvider = self::get_text_provider('orion_posts');
+        $textKey = trim($opts['apis'][$textProvider]['key'] ?? '');
+
+        if ($textKey === '') {
+            $errors[] = strtoupper($textProvider) . ': chave não configurada.';
         }
 
-        $text = (string)($body['choices'][0]['message']['content'] ?? '');
-        $ok   = (stripos($text, 'pong') !== false);
+        /*
+    |--------------------------------------------------------------------------
+    | IMAGEM (com inherit)
+    |--------------------------------------------------------------------------
+    */
 
-        return [
-            'ok'        => $ok,
-            'latencyMs' => $ms,
-            'model'     => $model,
-            'sample'    => $text,
-        ];
+        $context = $req->get_param('context') ?: 'post';
+
+        $globalImg = is_array($opts['apis']['images'] ?? null)
+            ? $opts['apis']['images']
+            : [];
+
+        $imgProvider = $globalImg['provider'] ?? 'none';
+
+        if ($context === 'story') {
+            $storyProv = $opts['stories']['images_provider'] ?? 'inherit';
+
+            if ($storyProv && $storyProv !== 'inherit') {
+                $imgProvider = $storyProv;
+            }
+        }
+
+        // Se tiver provider definido, exige chave
+        if ($imgProvider && $imgProvider !== 'none') {
+            $imgKey = trim($opts['apis'][$imgProvider]['key'] ?? '');
+
+            if ($imgKey === '') {
+                $errors[] = strtoupper($imgProvider) . ': chave de imagem não configurada.';
+            }
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | RESULTADO
+    |--------------------------------------------------------------------------
+    */
+
+        return rest_ensure_response([
+            'ok'        => empty($errors),
+            'text'      => $textProvider,
+            'image'     => $imgProvider,
+            'errors'    => $errors,
+        ]);
     }
 }

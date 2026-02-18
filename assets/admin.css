@@ -602,16 +602,19 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-cancel) {
   font-weight: 500 !important;
 }
 
-#pga_plan:hover {
+#pga_plan:hover,
+#pga_save_keywords:hover {
   background: var(--pga-bg);
 }
 
-#pga_plan svg {
+#pga_plan svg,
+#pga_save_keywords svg {
   width: 15px;
   height: 15px;
 }
 
 #pga_plan,
+#pga_save_keywords,
 div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm) {
   border: none !important;
   padding: 11px 16px !important;
@@ -628,6 +631,7 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm) {
   opacity: 1;
 }
 
+#pga_save_keywords:hover,
 #pga_plan:hover,
 div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):hover {
   background: var(--pga-accent);
@@ -873,7 +877,6 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
   display: flex;
   width: 100%;
   gap: 10px;
-  padding-top: 25px;
 }
 
 .pga-plan>div {
@@ -1003,6 +1006,10 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
   transition: all 0.2s;
 }
 
+#pga_save_keywords.pga-rss:hover svg{
+  color: var(--pga-bg);
+}
+
 aside {
   background-color: #ffffff;
   border-radius: 12px;
@@ -1107,17 +1114,17 @@ details.pga-tpl summary {
 
 
 .pga-bottom-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #fff;
-  border-top: 1px solid #e5e5e5;
-  padding: 10px 14px;
+  margin-top: 14px;
+  background: rgba(255, 255, 255, .88);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--pga-line);
+  border-radius: 14px;
+  padding: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  z-index: 9999;
+  gap: 10px;
+  box-shadow: var(--pga-shadow);
 }
 
 .pga-bottom-bar__left {
@@ -1384,23 +1391,6 @@ details.pga-tpl summary {
   font-size: 16px;
   width: 16px;
   height: 16px;
-}
-
-/* ====== Fixed bottom bar ====== */
-.pga-bottom-bar {
-  position: sticky;
-  bottom: 12px;
-  margin-top: 14px;
-  background: rgba(255, 255, 255, .88);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--pga-line);
-  border-radius: 14px;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  box-shadow: var(--pga-shadow);
 }
 
 .pga-bottom-left {
@@ -2508,4 +2498,10 @@ details.pga-tpl summary {
 
 .pga-table-description {
   padding: 15px
+}
+
+.swal2-radio {
+  flex-direction: column !important;
+  gap: 15px !important;
+  align-items: flex-start !important;
 }

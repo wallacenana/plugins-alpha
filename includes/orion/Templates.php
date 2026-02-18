@@ -34,6 +34,12 @@ class PluginsAlpha_Orion_Templates
                 'builtin'    => 1,
                 'is_default' => 1,
             ],
+            'rss' => [
+                'label'      => __('Modelar RSS', 'plugins-alpha'),
+                'enabled'    => 1,
+                'builtin'    => 1,
+                'is_default' => 1,
+            ],
         ];
     }
 
@@ -76,6 +82,8 @@ class PluginsAlpha_Orion_Templates
         $all['article']['builtin'] = 1;
         $all['modelar_youtube']['enabled'] = 1;
         $all['modelar_youtube']['builtin'] = 1;
+        $all['rss']['builtin'] = 1;
+        $all['rss']['enabled'] = 1;
 
         // ✅ regra: se for default, enabled = 1
         foreach ($all as $slug => $row) {
@@ -102,6 +110,12 @@ class PluginsAlpha_Orion_Templates
                 'enabled'    => 1,
                 'is_default' => 1,
             ],
+            'rss' => [
+                'label'      => __('Modelar RSS', 'plugins-alpha'),
+                'builtin'    => 1,
+                'enabled'    => 1,
+                'is_default' => 1,
+            ],
         ];
     }
 
@@ -111,6 +125,7 @@ class PluginsAlpha_Orion_Templates
 
         // ✅ remove global sempre
         unset($all['global']);
+        unset($all['rss']);
 
         // filtra enabled...
         $out = [];

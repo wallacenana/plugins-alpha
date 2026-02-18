@@ -17,7 +17,7 @@ class PluginsAlpha_OpenAI
             'temperature'  => (float)  ($oa['temperature'] ?? 0.6),
             'max_tokens'   => (int)    ($oa['max_tokens']  ?? 6000),
             'max_output_tokens'   => (int)    ($oa['max_tokens']  ?? 6000),
-            'timeout'      => 120,
+            'timeout'      => 500,
         ];
     }
 
@@ -33,52 +33,59 @@ class PluginsAlpha_OpenAI
         $c = self::cfg();
 
         $model = $c['model'] ?? $c['model_text'];
-
         $isStructured = !empty($schema);
+        $useSearch = !empty($args['use_search']);
 
         // 🔒 defaults seguros
         $maxTokens = $args['max_tokens']
-            ?? ($isStructured ? 1800 : 5000);
+            ?? ($isStructured ? 1800 : 8000);
 
         $temperature = $args['temperature']
-            ?? ($isStructured ? 0.15 : 0.95);
+            ?? ($isStructured ? 0.45 : 0.6);
 
         $topP = $args['top_p']
             ?? ($isStructured ? 0.7 : 0.95);
 
         $presencePenalty = $args['presence_penalty']
-            ?? ($isStructured ? 0.0 : 0.7);
+            ?? ($isStructured ? 0 : 0.9);
 
         $frequencyPenalty = $args['frequency_penalty']
-            ?? ($isStructured ? 0.0 : 0.9);
+            ?? ($isStructured ? 0 : 0.9);
 
-        // 🔴 MODO JSON HARD
+        // 🔴 SYSTEM PROMPT
         $systemPrompt = $isStructured
-            ? "Você deve responder APENAS com JSON válido UTF-8.
-Não use markdown.
-Não use aspas tipográficas.
-Não quebre linhas dentro de strings.
-Não inclua texto fora do JSON.
-Não explique nada."
+            ? "Você deve responder APENAS com JSON válido UTF-8.\n"
+            . "Não use markdown.\n"
+            . "Não use aspas tipográficas.\n"
+            . "Não quebre linhas dentro de strings.\n"
+            . "Não inclua texto fora do JSON.\n"
+            . "Não explique nada."
             : "Você é um gerador de artigos focado em SEO GEO e E-E-A-T.";
 
+        // 🧠 BODY (Responses API)
         $body = [
-            'model' => $model,
-            'max_tokens' => $maxTokens,
-            'temperature' => $temperature,
-            'top_p' => $topP,
-            'presence_penalty' => $presencePenalty,
-            'frequency_penalty' => $frequencyPenalty,
-            'messages' => [
-                ['role' => 'system', 'content' => trim($systemPrompt)],
-                ['role' => 'user',   'content' => $prompt],
+            "model" => $model,
+            "max_output_tokens" => $maxTokens,
+            "temperature" => $temperature,
+            "top_p" => $topP,
+            "presence_penalty" => $presencePenalty,
+            "frequency_penalty" => $frequencyPenalty,
+            "input" => [
+                [
+                    "role" => "system",
+                    "content" => trim($systemPrompt),
+                ],
+                [
+                    "role" => "user",
+                    "content" => $prompt,
+                ]
             ],
         ];
+        $body["tools"] = [
+            ["type" => "web_search"]
+        ];
+        $body["tool_choice"] = "auto";
 
-        // 🧯 STOP defensivo (evita vazamento de texto fora do JSON)
-        if ($isStructured) {
-            $body['stop'] = ["\n\n", "\n```"];
-        }
 
         $argsReq = [
             'headers' => [
@@ -89,7 +96,8 @@ Não explique nada."
             'body'    => wp_json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
 
-        $res = wp_remote_post('https://api.openai.com/v1/chat/completions', $argsReq);
+        $res = wp_remote_post('https://api.openai.com/v1/responses', $argsReq);
+
         if (is_wp_error($res)) {
             return $res;
         }
@@ -97,7 +105,31 @@ Não explique nada."
         $raw = wp_remote_retrieve_body($res);
         $json = json_decode($raw, true);
 
-        if (!isset($json['choices'][0]['message']['content'])) {
+        // 🔍 Extração robusta do texto
+        $txt = '';
+
+        // 1️⃣ caminho fácil (às vezes vem pronto)
+        if (!empty($json['output_text'])) {
+            $txt = $json['output_text'];
+        }
+
+        // 2️⃣ caminho robusto
+        if (!$txt && !empty($json['output']) && is_array($json['output'])) {
+            foreach ($json['output'] as $item) {
+                if (
+                    isset($item['type']) &&
+                    $item['type'] === 'message' &&
+                    !empty($item['content'][0]['text'])
+                ) {
+                    $txt = $item['content'][0]['text'];
+                    break;
+                }
+            }
+        }
+
+        error_log(print_r($txt, true));
+
+        if (!$txt) {
             return new WP_Error(
                 'pga_openai_invalid',
                 'Resposta inválida da IA.',
@@ -105,29 +137,24 @@ Não explique nada."
             );
         }
 
-        $txt = trim((string)$json['choices'][0]['message']['content']);
+        $txt = trim((string)$txt);
 
-        // 🔥 PARSE CONTROLADO
+        // 🔥 MODO TEXTO NORMAL
         if (!$isStructured) {
             return ['content' => $txt];
         }
 
-        // remove lixo antes/depois
+        // 🔥 PARSE CONTROLADO JSON
         if (preg_match('/\{.*\}/s', $txt, $m)) {
             $txt = $m[0];
         }
 
         $parsed = json_decode($txt, true);
 
-        if (!is_array($parsed)) {
-            return new WP_Error(
-                'pga_parse',
-                'Falha ao decodificar JSON do modelo.',
-                ['snippet' => mb_substr($txt, 0, 800)]
-            );
-        }
+        if (!is_array($parsed))
+            return $parsed = $txt;
 
-        // valida contrato mínimo
+        // 🔒 valida contrato mínimo
         foreach ($schema as $key => $_) {
             if (!array_key_exists($key, $parsed)) {
                 return new WP_Error(

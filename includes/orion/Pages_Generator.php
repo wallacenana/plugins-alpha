@@ -256,9 +256,9 @@ class PluginsAlpha_Pages_Generator
                       <?php
                       // últimos posts Orion (ajuste o post_type se for outro)
                       $orion_posts = get_posts([
-                        'post_type'      => 'post',
-                        'post_status'    => 'publish',
-                        'numberposts'    => 100,
+                        'post_type'      => ['post', 'page', 'posts_orion'],
+                        'post_status'    => 'any',
+                        'numberposts'    => -1,
                         'orderby'        => 'date',
                         'order'          => 'DESC',
                       ]);
@@ -560,38 +560,8 @@ class PluginsAlpha_Pages_Generator
       }
     }
 
-    if ($template === 'modelar_youtube') {
-      $yt = PluginsAlpha_Youtube::fetch_video_data($url);
-      if (is_wp_error($yt)) return $yt;
+    $titles = PluginsAlpha_Titles::getTitle($template, $keyword, $locale, $url, $draft_id);
 
-      // Aqui "keyword" pode ser:
-      // - o próprio $keyword (se você usa URL no campo)
-      // - OU um assunto derivado
-      // - OU simplesmente $yt['title'] (muita gente prefere isso)
-      $topic = $keyword ?: ($yt['title'] ?? '');
-
-      $titlePrompt = PluginsAlpha_Prompts::build_title_prompt_modelar_youtube(
-        $yt,
-        $topic,
-        3,
-        5,
-        $locale
-      );
-    } else {
-      $titlePrompt = PluginsAlpha_Prompts::build_title_prompt(
-        $template,
-        $keyword,
-        3,
-        5,
-        $locale,
-        $url
-      );
-    }
-
-    $titles = PluginsAlpha_AI::titles($titlePrompt, $jobArgs);
-    if (is_wp_error($titles)) {
-      return self::fail_job($draft_id, $titles, 'titles');
-    }
     $chosenTitle = self::pick_best_title((array)$titles, $keyword);
     if (!$chosenTitle) {
       $chosenTitle = ucfirst($keyword);
@@ -611,62 +581,60 @@ class PluginsAlpha_Pages_Generator
     $respSlug = PluginsAlpha_AI::slug($promptSlug);
 
     if (!is_wp_error($respSlug)) {
-    
-        $slugTxt = '';
-    
-        // --------- EXTRAÇÃO SEGURA ----------
-        if (is_string($respSlug)) {
-            $slugTxt = $respSlug;
-        } elseif (is_array($respSlug)) {
-            $slugTxt = (string)($respSlug['slug'] ?? $respSlug['content'] ?? '');
-        } elseif (is_object($respSlug)) {
-            $slugTxt = (string)($respSlug->slug ?? $respSlug->content ?? '');
+
+      $slugTxt = '';
+
+      // --------- EXTRAÇÃO SEGURA ----------
+      if (is_string($respSlug)) {
+        $slugTxt = $respSlug;
+      } elseif (is_array($respSlug)) {
+        $slugTxt = (string)($respSlug['slug'] ?? $respSlug['content'] ?? '');
+      } elseif (is_object($respSlug)) {
+        $slugTxt = (string)($respSlug->slug ?? $respSlug->content ?? '');
+      }
+
+      $slugTxt = trim($slugTxt);
+
+      // --------- SE VIER JSON EM TEXTO ----------
+      if ($slugTxt !== '' && ($slugTxt[0] === '{' || $slugTxt[0] === '[')) {
+        $j = json_decode($slugTxt, true);
+        if (is_array($j)) {
+          $slugTxt = (string)($j['slug'] ?? $j['content'] ?? '');
         }
-    
-        $slugTxt = trim($slugTxt);
-    
-        // --------- SE VIER JSON EM TEXTO ----------
-        if ($slugTxt !== '' && ($slugTxt[0] === '{' || $slugTxt[0] === '[')) {
-            $j = json_decode($slugTxt, true);
-            if (is_array($j)) {
-                $slugTxt = (string)($j['slug'] ?? $j['content'] ?? '');
-            }
-        }
-    
-        // --------- REMOVE PREFIXOS ----------
-        $slugTxt = preg_replace('/^\s*(slug|post_name)\s*:\s*/i', '', $slugTxt);
-    
-        // --------- PRIMEIRA LINHA APENAS ----------
-        $slugTxt = preg_split("/\r\n|\r|\n/", $slugTxt)[0] ?? $slugTxt;
-        $slugTxt = trim($slugTxt);
-    
-        // --------- SANITIZAÇÃO ----------
-        $newSlug = sanitize_title($slugTxt);
-    
-        // --------- FALLBACKS EM ORDEM ----------
-        if ($newSlug === '') {
-            $newSlug = sanitize_title($chosenTitle);
-        }
-        if ($newSlug === '') {
-            $newSlug = sanitize_title($keyword);
-        }
-        if ($newSlug === '') {
-            $newSlug = sanitize_title(uniqid('orion_', false));
-        }
-    
-        // --------- GARANTE UNICIDADE ----------
-        $newSlug = wp_unique_post_slug($newSlug, $draft_id, 'draft', $post_type, 0);
-    
-        // --------- ATUALIZA POST ----------
-        wp_update_post([
-            'ID'        => $draft_id,
-            'post_name' => $newSlug,
-        ]);
-    
-        update_post_meta($draft_id, '_pga_generated_slug', $newSlug);
+      }
+
+      // --------- REMOVE PREFIXOS ----------
+      $slugTxt = preg_replace('/^\s*(slug|post_name)\s*:\s*/i', '', $slugTxt);
+
+      // --------- PRIMEIRA LINHA APENAS ----------
+      $slugTxt = preg_split("/\r\n|\r|\n/", $slugTxt)[0] ?? $slugTxt;
+      $slugTxt = trim($slugTxt);
+
+      // --------- SANITIZAÇÃO ----------
+      $newSlug = sanitize_title($slugTxt);
+
+      // --------- FALLBACKS EM ORDEM ----------
+      if ($newSlug === '') {
+        $newSlug = sanitize_title($chosenTitle);
+      }
+      if ($newSlug === '') {
+        $newSlug = sanitize_title($keyword);
+      }
+      if ($newSlug === '') {
+        $newSlug = sanitize_title(uniqid('orion_', false));
+      }
+
+      // --------- GARANTE UNICIDADE ----------
+      $newSlug = wp_unique_post_slug($newSlug, $draft_id, 'draft', $post_type, 0);
+
+      // --------- ATUALIZA POST ----------
+      wp_update_post([
+        'ID'        => $draft_id,
+        'post_name' => $newSlug,
+      ]);
+
+      update_post_meta($draft_id, '_pga_generated_slug', $newSlug);
     }
-
-
 
     // jobArgs úteis pro provider/prompt 
     $jobArgs['keyword'] = $keyword;
@@ -699,7 +667,7 @@ class PluginsAlpha_Pages_Generator
     $outline = PluginsAlpha_AI::outline($outlinePrompt, $jobArgs);
 
     if (is_wp_error($outline)) {
-      return self::fail_job($draft_id, $outline, 'outline');
+      return PluginsAlpha_FailJob::fail_job($draft_id, $outline, 'outline');
     }
 
     // Se vier { "sections": [...] }, pega só o array interno 
@@ -707,9 +675,9 @@ class PluginsAlpha_Pages_Generator
 
     // força lista numerada
     if (!is_array($sections)) {
-        $sections = [];
+      $sections = [];
     } elseif (array_keys($sections) !== range(0, count($sections) - 1)) {
-        $sections = array_values($sections);
+      $sections = array_values($sections);
     }
 
     // 9) NORMALIZA ids (mantém teu padrão) 
@@ -726,30 +694,29 @@ class PluginsAlpha_Pages_Generator
         $sec['id'] = (string)$h2Index;
       }
       if (!isset($sec['children']) || !is_array($sec['children'])) {
-            $sec['children'] = [];
-        }
+        $sec['children'] = [];
+      }
       if (!empty($sec['children']) && is_array($sec['children'])) {
         $childIndex = 1;
         foreach ($sec['children'] as $ci => $child) {
-            if (!is_array($child)) {
-                $child = [
-                    'heading' => (string)$child,
-                    'level'   => 'h3',
-                ];
-            }
-            $sec['level'] = strtolower(trim($sec['level'] ?? 'h2'));
-            if (!in_array($sec['level'], ['h2', 'h3'], true)) {
-                $sec['level'] = 'h2';
-            }
+          if (!is_array($child)) {
+            $child = [
+              'heading' => (string)$child,
+              'level'   => 'h3',
+            ];
+          }
+          $sec['level'] = strtolower(trim($sec['level'] ?? 'h2'));
+          if (!in_array($sec['level'], ['h2', 'h3'], true)) {
+            $sec['level'] = 'h2';
+          }
 
-        
-            $child['level'] = 'h3';
-            $child['id'] = $child['id'] ?? ($sec['id'] . '.' . $childIndex);
-        
-            $sec['children'][$ci] = $child;
-            $childIndex++;
+
+          $child['level'] = 'h3';
+          $child['id'] = $child['id'] ?? ($sec['id'] . '.' . $childIndex);
+
+          $sec['children'][$ci] = $child;
+          $childIndex++;
         }
-
       }
       $normalized[] = $sec;
       $h2Index++;
@@ -876,7 +843,7 @@ class PluginsAlpha_Pages_Generator
     );
 
     if (is_wp_error($resp)) {
-      return self::fail_job($post_id, $resp, 'section_' . $section_id);
+      return PluginsAlpha_FailJob::fail_job($post_id, $resp, 'section_' . $section_id);
     }
 
     $content_html = trim((string)($resp['content'] ?? ''));
@@ -975,60 +942,60 @@ class PluginsAlpha_Pages_Generator
     $respMeta = PluginsAlpha_AI::meta_description($promptMeta);
 
     $meta_desc = '';
-    
-    if (!is_wp_error($respMeta)) {
-    
-        $raw = '';
-    
-        // --------- EXTRAÇÃO SEGURA ----------
-        if (is_string($respMeta)) {
-            $raw = $respMeta;
-        } elseif (is_array($respMeta)) {
-            $raw = (string)($respMeta['meta_description'] ?? $respMeta['description'] ?? $respMeta['content'] ?? '');
-        } elseif (is_object($respMeta)) {
-            $raw = (string)($respMeta->meta_description ?? $respMeta->description ?? $respMeta->content ?? '');
-        }
-    
-        $raw = trim($raw);
-    
-        // --------- SE VIER JSON EM TEXTO ----------
-        if ($raw !== '' && ($raw[0] === '{' || $raw[0] === '[')) {
-            $j = json_decode($raw, true);
-            if (is_array($j)) {
-                $raw = (string)(
-                    $j['meta_description']
-                    ?? $j['description']
-                    ?? $j['content']
-                    ?? ''
-                );
-            }
-        }
-    
-        // --------- REMOVE PREFIXOS ----------
-        $raw = preg_replace('/^\s*(meta\s*description|meta\s*descri[cç][aã]o|description)\s*:\s*/i', '', $raw);
-    
-        // --------- PRIMEIRA LINHA ----------
-        $raw = preg_split("/\r\n|\r|\n/", $raw)[0] ?? $raw;
-        $raw = trim($raw);
-    
-        // --------- SANITIZAÇÃO ----------
-        if ($raw !== '') {
-            $raw = wp_strip_all_tags($raw);
-            $raw = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
-            $raw = preg_replace('/\s+/', ' ', $raw);
-            $raw = trim($raw);
-        }
 
-        // --------- APLICA ----------
-        if ($raw !== '') {
-            $meta_desc = $raw;
-            update_post_meta($post_id, '_pga_meta_description', $meta_desc);
+    if (!is_wp_error($respMeta)) {
+
+      $raw = '';
+
+      // --------- EXTRAÇÃO SEGURA ----------
+      if (is_string($respMeta)) {
+        $raw = $respMeta;
+      } elseif (is_array($respMeta)) {
+        $raw = (string)($respMeta['meta_description'] ?? $respMeta['description'] ?? $respMeta['content'] ?? '');
+      } elseif (is_object($respMeta)) {
+        $raw = (string)($respMeta->meta_description ?? $respMeta->description ?? $respMeta->content ?? '');
+      }
+
+      $raw = trim($raw);
+
+      // --------- SE VIER JSON EM TEXTO ----------
+      if ($raw !== '' && ($raw[0] === '{' || $raw[0] === '[')) {
+        $j = json_decode($raw, true);
+        if (is_array($j)) {
+          $raw = (string)(
+            $j['meta_description']
+            ?? $j['description']
+            ?? $j['content']
+            ?? ''
+          );
         }
+      }
+
+      // --------- REMOVE PREFIXOS ----------
+      $raw = preg_replace('/^\s*(meta\s*description|meta\s*descri[cç][aã]o|description)\s*:\s*/i', '', $raw);
+
+      // --------- PRIMEIRA LINHA ----------
+      $raw = preg_split("/\r\n|\r|\n/", $raw)[0] ?? $raw;
+      $raw = trim($raw);
+
+      // --------- SANITIZAÇÃO ----------
+      if ($raw !== '') {
+        $raw = wp_strip_all_tags($raw);
+        $raw = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
+        $raw = preg_replace('/\s+/', ' ', $raw);
+        $raw = trim($raw);
+      }
+
+      // --------- APLICA ----------
+      if ($raw !== '') {
+        $meta_desc = $raw;
+        update_post_meta($post_id, '_pga_meta_description', $meta_desc);
+      }
     }
-    
+
     // --------- FALLBACK FINAL ----------
     if ($meta_desc === '') {
-        $meta_desc = '';
+      $meta_desc = '';
     }
 
 
@@ -1109,14 +1076,13 @@ class PluginsAlpha_Pages_Generator
         : $faq_json;
 
       if (is_array($faq)) {
-        $faq_block = self::render_faq_block($faq);
+        $faq_block = PluginsAlpha_FAQ::render_faq_block($faq, $content_html);
 
         if ($faq_block !== '') {
           $content_html .= "\n\n" . $faq_block;
         }
       }
     }
-
 
     $res = self::do_schedule_post($post_id, [
       'keyword'        => $keyword,
@@ -1134,7 +1100,7 @@ class PluginsAlpha_Pages_Generator
     ]);
 
     if (is_wp_error($res)) {
-      return self::fail_job($post_id, $res, 'finalize');
+      return PluginsAlpha_FailJob::fail_job($post_id, $res, 'finalize');
     }
 
     return [
@@ -1145,56 +1111,6 @@ class PluginsAlpha_Pages_Generator
       'keyword'   => $keyword,
     ];
   }
-
-  private static function render_faq_block(array $faq): string
-  {
-    if (
-      ($faq['@type'] ?? '') !== 'FAQPage' ||
-      empty($faq['mainEntity']) ||
-      !is_array($faq['mainEntity'])
-    ) {
-      return '';
-    }
-
-    $out = [];
-
-    // H2 – título da FAQ
-    $out[] = '<!-- wp:heading {"level":2} -->';
-    $out[] = '<h2>Perguntas frequentes</h2>';
-    $out[] = '<!-- /wp:heading -->';
-
-    foreach ($faq['mainEntity'] as $item) {
-      $q = html_entity_decode((string)($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-      $a = html_entity_decode((string)($item['acceptedAnswer']['text'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-      $q = trim($q);
-      $a = trim($a);
-
-      if ($q === '' || $a === '') {
-        continue;
-      }
-
-      // Pergunta (H3)
-      $out[] = '<!-- wp:heading {"level":3} -->';
-      $out[] = '<h3>' . esc_html($q) . '</h3>';
-      $out[] = '<!-- /wp:heading -->';
-
-      // Resposta (parágrafo)
-      $out[] = '<!-- wp:paragraph -->';
-      $out[] = '<p>' . esc_html($a) . '</p>';
-      $out[] = '<!-- /wp:paragraph -->';
-    }
-
-    // JSON-LD como bloco HTML isolado
-    $out[] = '<!-- wp:html -->';
-    $out[] = '<script type="application/ld+json">'
-      . wp_json_encode($faq, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-      . '</script>';
-    $out[] = '<!-- /wp:html -->';
-
-    return implode("\n", $out);
-  }
-
 
   /**
    * Define limite "saudável" de links internos por tamanho de texto.
@@ -1788,25 +1704,5 @@ class PluginsAlpha_Pages_Generator
       'post_id'   => $post_id,
       'view_link' => get_permalink($post_id),
     ];
-  }
-
-  private static function fail_job($post_id, WP_Error $err)
-  {
-    $data = $err->get_error_data() ?: [];
-
-    wp_update_post([
-      'ID'          => $post_id,
-      'post_status' => 'draft',
-      'post_title'  => '(Falhou) ' . get_the_title($post_id),
-    ]);
-
-    update_post_meta($post_id, '_pga_last_error', [
-      'code'    => $err->get_error_code(),
-      'message' => $err->get_error_message(),
-      'data'    => $data,
-      'time'    => time(),
-    ]);
-
-    return $err;
   }
 }

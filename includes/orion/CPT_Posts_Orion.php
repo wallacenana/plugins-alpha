@@ -116,7 +116,7 @@ class PluginsAlpha_CPT_Posts_Orion
       // 2) IA de TEXTO gera o PROMPT FINAL DE IMAGEM
       $final_prompt = $meta_prompt;
 
-      if (class_exists('PluginsAlpha_AI')) {
+      if (class_exists('PluginsAlpha_AI') && $raw_prompt === '') {
         // aqui ele vai usar openai/gemini conforme get_text_provider ou args
         $resolved = PluginsAlpha_AI::image_prompt($meta_prompt, []);
 
@@ -131,7 +131,7 @@ class PluginsAlpha_CPT_Posts_Orion
 
       // 3) Gera a thumbnail com o provider de IMAGEM configurado
       $thumb_id = PluginsAlpha_Images::generate_by_settings(
-        $final_prompt, // ou $prompt, dependendo do que você deixou
+        $final_prompt,
         $post_id
       );
 
