@@ -39,7 +39,7 @@ class PluginsAlpha_Stories_MetaBox
   {
     add_meta_box(
       'alpha_storys_sidebar_meta',
-      __('Opções', 'plugins-alpha'),
+      __('Opções', 'alpha-suite'),
       [self::class, 'render'],
       'alpha_storys',
       'side',
@@ -166,12 +166,12 @@ class PluginsAlpha_Stories_MetaBox
     <div class="alpha-field">
       <label>
         <input type="checkbox" name="storys_autoplay" value="1" checked <?php checked($autoplay, 1); ?>>
-        <?php esc_html_e('Autoplay', 'plugins-alpha'); ?>
+        <?php esc_html_e('Autoplay', 'alpha-suite'); ?>
       </label>
     </div>
 
     <div class="alpha-field">
-      <label for="storys_duration"><?php esc_html_e('Tempo por página (s)', 'plugins-alpha'); ?></label>
+      <label for="storys_duration"><?php esc_html_e('Tempo por página (s)', 'alpha-suite'); ?></label>
       <select name="storys_duration" id="storys_duration">
         <?php foreach (['5', '7', '10', '12'] as $d): ?>
           <option value="<?php echo esc_attr($d); ?>" <?php selected($duration, $d); ?>>
@@ -184,12 +184,12 @@ class PluginsAlpha_Stories_MetaBox
     <div class="alpha-field">
       <label>
         <input type="checkbox" name="storys_show_controls" value="1" checked <?php checked($show_ctrl, 1); ?>>
-        <?php esc_html_e('Mostrar botão Play/Pause', 'plugins-alpha'); ?>
+        <?php esc_html_e('Mostrar botão Play/Pause', 'alpha-suite'); ?>
       </label>
     </div>
 
     <div class="alpha-field">
-      <label for="storys_style"><?php esc_html_e('Preset de estilo', 'plugins-alpha'); ?></label>
+      <label for="storys_style"><?php esc_html_e('Preset de estilo', 'alpha-suite'); ?></label>
       <select name="storys_style" id="storys_style">
         <?php
         $choices = [
@@ -212,7 +212,7 @@ class PluginsAlpha_Stories_MetaBox
     </div>
 
     <div class="alpha-field">
-      <label for="storys_font"><?php esc_html_e('Fonte', 'plugins-alpha'); ?></label>
+      <label for="storys_font"><?php esc_html_e('Fonte', 'alpha-suite'); ?></label>
       <select name="storys_font" id="storys_font">
         <?php
         $fonts = [
@@ -236,21 +236,21 @@ class PluginsAlpha_Stories_MetaBox
 
     <div class="alpha-row">
       <div class="alpha-field">
-        <label><?php esc_html_e('Cor de fundo', 'plugins-alpha'); ?></label>
+        <label><?php esc_html_e('Cor de fundo', 'alpha-suite'); ?></label>
         <input type="color" class="alpha-color" name="storys_background_color"
           value="<?php echo esc_attr($bg_color); ?>">
       </div>
     </div>
     <div class="alpha-row">
       <div class="alpha-field">
-        <label><?php esc_html_e('Cor do texto', 'plugins-alpha'); ?></label>
+        <label><?php esc_html_e('Cor do texto', 'alpha-suite'); ?></label>
         <input type="color" class="alpha-color" name="storys_text_color"
           value="<?php echo esc_attr($text_color); ?>">
       </div>
     </div>
     <div class="alpha-row">
       <div class="alpha-field">
-        <label><?php esc_html_e('Cor de destaque', 'plugins-alpha'); ?></label>
+        <label><?php esc_html_e('Cor de destaque', 'alpha-suite'); ?></label>
         <input type="color" class="alpha-color" name="storys_accent_color"
           value="<?php echo esc_attr($accent); ?>">
       </div>
@@ -258,7 +258,7 @@ class PluginsAlpha_Stories_MetaBox
 
     <div class="alpha-sep"></div>
     <div class="alpha-field">
-      <label><?php esc_html_e('Logo do Publisher', 'plugins-alpha'); ?></label>
+      <label><?php esc_html_e('Logo do Publisher', 'alpha-suite'); ?></label>
 
       <img id="alpha_storys_logo_preview" class="alpha-thumb"
         src="<?php echo esc_url($effective_url ?: ''); ?>"
@@ -278,7 +278,7 @@ class PluginsAlpha_Stories_MetaBox
         data-alpha-media-clear="alpha_storys_logo_id"
         data-alpha-preview="alpha_storys_logo_preview"
         style="margin-left:6px;">
-        <?php esc_html_e('Remover', 'plugins-alpha'); ?>
+        <?php esc_html_e('Remover', 'alpha-suite'); ?>
       </button>
 
     </div>

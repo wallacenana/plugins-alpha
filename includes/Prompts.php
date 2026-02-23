@@ -57,7 +57,7 @@ class PluginsAlpha_Prompts
     const OPTION = 'pga_orion_prompts';
     public static function date()
     {
-        return date("d/m/Y");
+        return wp_date('d/m/Y');
     }
 
     /* =============================
@@ -67,12 +67,12 @@ class PluginsAlpha_Prompts
     public static function stages(): array
     {
         return [
-            'title'                => __('Título', 'plugins-alpha'),
-            'outline'              => __('Esboço', 'plugins-alpha'),
-            'section'              => __('Seções', 'plugins-alpha'),
-            'meta_description'     => __('Meta descrição', 'plugins-alpha'),
-            'keywords'             => __('Gerar keywords', 'plugins-alpha'),
-            'slug'                 => __('Slug', 'plugins-alpha'),
+            'title'                => __('Título', 'alpha-suite'),
+            'outline'              => __('Esboço', 'alpha-suite'),
+            'section'              => __('Seções', 'alpha-suite'),
+            'meta_description'     => __('Meta descrição', 'alpha-suite'),
+            'keywords'             => __('Gerar keywords', 'alpha-suite'),
+            'slug'                 => __('Slug', 'alpha-suite'),
         ];
     }
 
@@ -184,35 +184,41 @@ class PluginsAlpha_Prompts
     private static function title_json_suffix(): string
     {
         return "Responda APENAS em JSON UTF-8 válido no formato:\n"
-            . "{ \"titles\": [\"Título 1\", \"Título 2\", \"Título 3\"] }\n";
+            . "{ \"title\": [\"Título 1\", \"Título 2\", \"Título 3\"] }\n";
     }
 
-    private static function outline_json_suffix(array $limits = []): string
+    private static function outline_json_suffix(): string
     {
-        $minSections = isset($limits['min_sections']) ? (int)$limits['min_sections'] : 4;
-        $maxSections = isset($limits['max_sections']) ? (int)$limits['max_sections'] : 6;
-
-        $locale = isset($limits['locale']) ? (string)$limits['locale'] : 'pt_BR';
-
-        return "Responda SOMENTE em JSON UTF-8 válido, sem markdown.\n"
-            . "Regras técnicas (não discuta, apenas cumpra):\n"
-            . "- O outline deve estar no idioma {$locale}.\n"
-            . "- Crie entre {$minSections} e {$maxSections} seções H2.\n"
-            . "Formato exato:\n"
-            . "{\n"
-            . "  \"sections\": [\n"
+        return
+            "Você está tendo muitos problemas para gerar um json válido POR FAVOR, PRESTE MUITA ATENÇÃO NA ABERTURA E FECHAMENTO DAS TAGS, ESTOU GASTANDO MUITOS CRÉDITOS NESSE MODELO QUE SÓ ESTÁ RETORNANDO UM JSON VÁLIDO, SE ATENTE EM ENVIAR UM JSON VALIDO, COM NO MÁXIMO 1 CHILDREN\n"
+            . "Responda SOMENTE em JSON UTF-8 válido, sem markdown, não se esqueça de fechar o json, crie um json 100% válido, TENTE NÃO COLOCAR EM ASPAS OS DETALHES IMPORTANTES, POIS ISSO VAI ATRAPALHAR NA CRIAÇÃO DE UM JSON VÁLIDO, FOQUE APENAS NO JSON VÁLIDO\n"
+            . "Formato exato (MÁXIMO DE 20 BULLETS INDEPENDENTE DA OCASIÃO, PROIBIDO GERAR BULLETS DUPLICADOS E INFINITOS):\n"
+            . "{"
+            . "\"sections\": [\n"
+            . "  {\n"
+            . "   \"id\": 1,\n"
+            . "   \"level\": \"h2\",\n"
+            . "   \"paragraph\": \"contexto sobre o tema apresentado\",\n"
+            . "   \"heading\": \"Título H2...\",\n"
+            . "   \"bullets\": [\n"
+            . "     \"...\",\n"
+            . "     \"...\"\n"
+            . "  ],\n"
+            . "  \"children\": [\n (se houver necessidade de h3 na sessão)"
             . "    {\n"
-            . "      \"id\": \"1\",\n"
-            . "      \"level\": \"h2\",\n"
-            . "      \"paragraph\": \"contexto sobre o tema apresentado\",\n"
-            . "      \"heading\": \"Título H2...\",\n"
-            . "      \"bullets\": [\"...\", \"...\"],\n"
-            . "      \"children\": [\n"
-            . "        {\"id\":\"1\",\"level\":\"h3\",\"heading\":\"Subtítulo H3...\",\"paragraph\":\"paragrafo sobre o h3...\",\"bullets\":[\"...\",\"...\"]}\n"
+            . "      \"id\": 1,\n"
+            . "      \"level\": \"h3\",\n"
+            . "      \"heading\": \"Subtítulo H3...\",\n"
+            . "      \"paragraph\": \"paragrafo sobre o h3...\",\n"
+            . "      \"bullets\": [\n"
+            . "        \"...\",\n"
+            . "        \"...\"\n"
             . "      ]\n"
             . "    }\n"
-            . "  ]\n"
-            . "}\n";
+            . "   ]\n"
+            . "  }\n"
+            . " ]\n"
+            . "}";
     }
 
     private static function meta_description_json_suffix(): string
@@ -297,6 +303,7 @@ class PluginsAlpha_Prompts
         }
         $ctx .= "- Título do artigo: {$articleTitle}\n";
         $ctx .= "- Hoje é: " . SELF::date();
+        $ctx .= "O esboço deve ser gerada no idioma, pode traduzir incluse a KW: {$locale}\n\n";
 
         if (!empty($chapters)) {
             $ctx .= "- Capítulos (use como esqueleto principal do outline):\n";
@@ -321,13 +328,7 @@ class PluginsAlpha_Prompts
         $ctx .= "- Regra: inclua uma introdução curta (primeira seção H2) contextualizando o tema.\n";
         $ctx .= "- Não use markdown; use somente HTML.\n";
 
-        $suffix = self::outline_json_suffix([
-            'min_sections' => (int)$cfg['min_sections'],
-            'max_sections' => (int)$cfg['max_sections'],
-            'min_words'    => (int)$minWords,
-            'max_words'    => (int)$maxWords,
-            'locale'       => (string)$locale,
-        ]);
+        $suffix = self::outline_json_suffix();
 
         return $base . $ctx . "\n\n" . $suffix;
     }
@@ -354,7 +355,7 @@ class PluginsAlpha_Prompts
             "CONTEXTO DO TEMA:\n"
             . "Assunto principal: \"{$keyword}\"\n"
             . "Quantidade de títulos a gerar: entre {$min} e {$max}\n"
-            . "Idioma de saída: {$locale}\n"
+            . "O titulo deve ser gerado em, pode traduzir incluse a KW: {$locale}\n"
             . "Data atual: " . SELF::date() . " (use o ano quando relevante)\n\n"
             . $base
             . "\n\n"
@@ -386,7 +387,7 @@ class PluginsAlpha_Prompts
             "CONTEXTO DA NOTÍCIA:\n"
             . "Título base: \"{$seed_title}\"\n"
             . $sourceContext
-            . "Idioma de saída: {$locale}\n"
+            . "O titulo deve ser gerado em, pode traduzir incluse a KW: {$locale}\n"
             . "Data atual: " . self::date() . "\n\n"
             . "INSTRUÇÕES:\n"
             . "- Reescreva o título\n"
@@ -420,32 +421,47 @@ class PluginsAlpha_Prompts
         $cfg = self::outline_config($length);
 
         return
-            "CONTEXTO DA NOTÍCIA:\n"
+            "Você é um jornalista espealista criar esboço com base em uma noticia.\n"
+            . "Crie apenas o esboço e passe as infomações conforme listado abaixo.\n\n"
+
+            . "É PROIBIDO GERAR ALGO SEM TER INFORMAÇÕES PEDIDAS ABAIXO.\n\n"
+
+            . "CONTEXTO DA NOTÍCIA:\n"
             . "Título original: {$seedTitle}\n"
             . "Título reescrito: {$chosenTitle}\n"
             . "Url do artigo RSS Fonte original (se houver): \"{$url}\"\n"
-            . "Idioma: {$locale}\n"
-            . "Caso não consiga acessar a URL ou não exista (essa aqui: \"{$url}\"), traga informações atualizadas através da pesquisa. Pesquise pelo titulo \"{$seedTitle}\" no site \"{$font}\", não insira informações com base em outra pesquisa, somente retorne um valor invalido no json para não deixar continuar o progresso.\n\n"
+            . "O esboço deve ser gerado em, pode traduzir incluse a KW: {$locale}\n\n"
 
-            . "IMPORTANTE: SEMPRE GERE ALGUM CONTEÚDO, MESMO QUE HOUVER DESCONTEXTUALIZAÇÃO DE COMANDOS"
+            . "Se a URL não puder ser acessada e estiver vazia, pesquise pelo título \"{$seedTitle}\" no site \"{$font}\".\n"
+            . "Se não encontrar conteúdo confiável na fonte indicada, retorne:\n"
+            . "Não crie mais niveis, o máximo que deve ser criado é o h3, mas isso se for pedido mais abaixo pelo usuário:\n"
+            . "{\"sections\":[]}\n\n"
 
             . "ESTRUTURA:\n"
-            . "- Entre {$cfg['min_sections']} e {$cfg['max_sections']} seções H2\n"
-            . "- Conteúdo final estimado: {$minWords} a {$maxWords} palavras\n\n"
+            . "- Gere entre {$cfg['min_sections']} e {$cfg['max_sections']} seções H2\n"
+            . "- Conteúdo estimado entre {$minWords} e {$maxWords} palavras\n"
+            . "- Cada seção deve conter no máximo 20 bullets (vinte, VINTEEEEE, MÁXIMO 20, MÁXIMO DE 20 BULLETS, MAXIMO, MAXIMO MAXIMOOOOOOO, NUNCA GERAR MAIS DO QUE ISSOOOOO)\n"
+            . "- Se não houver fatos suficientes, gere apenas os existentes\n"
+            . "- Cada bullet deve ter no máximo 100 caracteres e não ter caracteres especiais, aspas ou formatação de texto, apenas texto corrido.\n"
+            . "- Cada paragraph deve ter no máximo 100 caracteres e não ter caracteres especiais, aspas ou formatação de texto, apenas texto corrido.\n"
+            . "CORRETO:\n"
+            . "- \"No dia [x] de [mês x] de [ano x] (se for o caso), [Pessoa 1] acusou [pessoa 2]\"\n"
+            . "- \"[pessoa 1] se reuniu com [pessoa 2] em [quando e onde]\"\n"
+            . "- \"[empresa x] propõe janela de [x] dias para exibição teatral\"\n\n"
+
+            . "ERRADO:\n"
+            . "- \"A situação atual levanta questões sobre ética\"\n"
+            . "- \"A forma como as empresas gerenciam isso pode afetar...\"\n"
+            . "- \"A resolução terá implicações para...\"\n\n"
 
             . $base . "\n\n"
-            . "CONTEÚDO BASE DA NOTÍCIA (se não tiver nada, execute os comandos acima de pesquisar pelo titulo, diretamente da fonte indicada ({$font})):\n"
+
+            . "CONTEÚDO BASE DA NOTÍCIA:\n"
             . "-----inicio----\n"
             . $sourceContent . "\n"
             . "-----fim----\n\n"
 
-            . self::outline_json_suffix([
-                'min_sections' => (int)$cfg['min_sections'],
-                'max_sections' => (int)$cfg['max_sections'],
-                'min_words'    => (int)$minWords,
-                'max_words'    => (int)$maxWords,
-                'locale'       => (string)$locale,
-            ]);
+            . self::outline_json_suffix();
     }
 
     public static function build_section_rss_prompt(
@@ -458,7 +474,7 @@ class PluginsAlpha_Prompts
         string $url = '',
         string $font = '',
     ): string {
-        $tpl    = self::get_prompt_for('rss', 'outline');
+        $tpl    = self::get_prompt_for('rss', 'section');
 
         $heading = trim((string)($section['heading'] ?? ''));
         $level   = strtolower(trim((string)($section['level'] ?? 'h2')));
@@ -559,7 +575,7 @@ class PluginsAlpha_Prompts
             . "Título do artigo: \"{$articleTitle}\"\n"
             . "Título da seção: \"{$heading}\"\n"
             . "Fonte original: {$url} ou {$font}\n"
-            . "Idioma final para escrever: {$locale}\n"
+            . "Idioma final para escrever, pode traduzir incluse a KW: {$locale}\n"
             . "Você está gerando APENAS a seção {$idx} de {$total} (restam {$remaining}) (Cada seção é gerada ISOLADAMENTE - você NÃO tem acesso ao conteúdo das outras seções)\n\n"
 
             . "REGRAS CRITICAS OBRIGATÓRIAS:\n"
@@ -583,7 +599,7 @@ class PluginsAlpha_Prompts
         }
 
         if ($bullets !== '') {
-            $brief .= "Os bullets são guias para o conteúdo, sao dados importantes extraidos para ajudar a cada sessão:\n{$bullets}\n\n";
+            $brief .= "Os bullets são guias para o conteúdo, sao dados importantes extraidos para ajudar a cada sessão, isso não quer dizer que tenha que colocar bullets no conteúdo, você receberá mais abaixo informações sobre isso:\n{$bullets}\n\n";
         }
 
         $tech = "REGRAS TÉCNICAS (obrigatório):\n"
@@ -617,20 +633,14 @@ class PluginsAlpha_Prompts
             'template'     => $template,
         ]);
 
-        $suffix = self::outline_json_suffix([
-            'min_sections' => (int)$cfg['min_sections'],
-            'max_sections' => (int)$cfg['max_sections'],
-            'min_words'    => (int)$minWords,
-            'max_words'    => (int)$maxWords,
-            'locale'       => (string)$locale,
-        ]);
+        $suffix = self::outline_json_suffix();
 
         // CONTEXTO INTERNO
         $ctx  = "\n\nCONTEXTO INTERNO:\n";
         $ctx .= "Título do artigo: {$articleTitle}\n";
         $ctx .= "Palavra-chave de foco (GEO): {$keyword}\n";
         $ctx .= "Data atual: " . SELF::date() . "\n";
-        $ctx .= "Idioma de saída (idioma que deve ser): {$locale}\n\n";
+        $ctx .= "Idioma de saída (idioma que deve ser), pode traduzir incluse a KW: {$locale}\n\n";
 
         $ctx .= "ESTRUTURA E TAMANHO:\n";
         $ctx .= "- Esboço deve ter entre {$cfg['min_sections']} e {$cfg['max_sections']} seções H2\n";
@@ -705,11 +715,12 @@ class PluginsAlpha_Prompts
             'content'      => $plain,
         ]);
 
-        $default = "Você é um especialista em SEO e Copywriting em {$locale}.\n"
+        $default = "Você é um especialista em SEO e Copywriting em {$locale}. Pode traduzir incluse a KW.\n"
             . "- Hoje é: " . SELF::date()
             . "\n Sua tarefa é criar uma meta descrição altamente clicável para o Google.\n"
             . "Título: \"{$articleTitle}\"\n"
-            . "Palavra-chave principal: \"{$keyword}\"\n";
+            . "Palavra-chave principal: \"{$keyword}\"\n"
+            . "A meta deve ser gerado em, pode traduzir incluse a KW: \"{$locale}\"\n";
 
         return $default . "\n\n" . $base . "\n\n" . self::meta_description_json_suffix();
     }
@@ -726,6 +737,7 @@ class PluginsAlpha_Prompts
 
         $default = "Palavra-chave principal: \"{$keyword}\"\n"
             . "Gere um slug de URL para o título: \"{$articleTitle}\"\n"
+            . "A slug deve ser gerada em: \"{$locale}\"\n"
             . "- Hoje é: " . SELF::date() . "\n\n";
 
         return $default . "\n\n" . $base . "\n\n" . self::meta_description_json_suffix();
@@ -806,20 +818,18 @@ class PluginsAlpha_Prompts
     }
 
     public static function build_image_prompt(
-        string $template,
         string $keyword,
         string $title,
         string $locale,
         string $imageProvider = ''
     ): string {
         $provider = strtolower(trim((string)$imageProvider));
-        $tpl = self::get_prompt_for($template, 'image');
+        $tpl = self::get_prompt_for('', 'image');
 
         // base com vars (serve pros 2 casos)
         $base = self::replace_vars($tpl, [
             'keyword'  => $keyword,
             'locale'   => "English",
-            'template' => $template,
             'title'    => $title,
         ]);
 
@@ -932,14 +942,14 @@ class PluginsAlpha_Prompts
     /* =============================
    * STORIES: prompt por post (JSON fixo)
    * ============================= */
-    public static function build_story_prompt_for_post(WP_Post $post, string $raw_html, string $brief = '', string $imageProvider = 'pollinations'): string
+    public static function build_story_prompt_for_post(WP_Post $post, string $raw_html, string $brief = '', string $imageProvider = 'pollinations', string $lang = 'pt_BR'): string
     {
         $tpl = self::get_prompt_for('article', 'story');
 
         $title   = get_the_title($post);
         $content = wp_strip_all_tags($raw_html);
         $content = html_entity_decode($content, ENT_QUOTES, 'UTF-8');
-        $locale  = get_locale() ?: 'pt_BR';
+        $locale  = $lang;
 
         $provider = strtolower(trim((string)$imageProvider));
 
@@ -984,7 +994,7 @@ class PluginsAlpha_Prompts
         $s .= "- Title: {$title}\n";
         $s .= "- Content: {$content}\n";
         $s .= "- Brief: {$brief}\n";
-        $s .= "- Locale: {$locale}\n\n";
+        $s .= "- Locale, pode traduzir incluse a KW: {$locale}\n\n";
         $s .= "TASK:\n";
         $s .= "Convert the blog post into an engaging Web Story following the rules below.\n\n";
 
@@ -1017,7 +1027,7 @@ class PluginsAlpha_Prompts
 
         $prompt = ""
             . "Você é um gerador de Web Stories a partir de conteúdo.\n"
-            . "Idioma: {$locale}\n"
+            . "Todo o conteúdo deve ser gerado em, pode traduzir incluse a KW: {$locale}\n"
             . "Título base: {$title}\n"
             . "Quantidade de páginas: {$slidesCount}\n"
             . "Páginas com CTA (0-indexado): {$cta_pages_str}\n\n"
@@ -1119,7 +1129,7 @@ class PluginsAlpha_Prompts
         <?php
 
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Sem permissão.', 'plugins-alpha'));
+            wp_die(esc_html__('Sem permissão.', 'alpha-suite'));
         }
 
         self::handle_save();
@@ -1195,7 +1205,7 @@ class PluginsAlpha_Prompts
             return strcmp($a, $b);
         });
 
-        settings_errors('plugins-alpha-orion-prompts');
+        settings_errors('alpha-suite-orion-prompts');
         ?>
         <style>
             .pga-card {
@@ -1206,18 +1216,18 @@ class PluginsAlpha_Prompts
             <div class="pga-topbar">
                 <div class="pga-title-row">
                     <div>
-                        <h1 class="pga-h1"><?php esc_html_e('Prompts do Órion', 'plugins-alpha'); ?></h1>
+                        <h1 class="pga-h1"><?php esc_html_e('Prompts do Órion', 'alpha-suite'); ?></h1>
                         <p class="pga-sub">
-                            <?php esc_html_e('Configure o comportamento da IA por modelo e etapa. Campos vazios herdam automaticamente o padrão interno.', 'plugins-alpha'); ?>
+                            <?php esc_html_e('Configure o comportamento da IA por modelo e etapa. Campos vazios herdam automaticamente o padrão interno.', 'alpha-suite'); ?>
                         </p>
                     </div>
                     <div class="pga-import-export">
                         <button type="button" class="pga-btn" id="pga-prompts-export">
-                            <?php esc_html_e('Exportar prompts', 'plugins-alpha'); ?>
+                            <?php esc_html_e('Exportar prompts', 'alpha-suite'); ?>
                         </button>
 
                         <button type="button" class="pga-btn" id="pga-prompts-import">
-                            <?php esc_html_e('Importar prompts', 'plugins-alpha'); ?>
+                            <?php esc_html_e('Importar prompts', 'alpha-suite'); ?>
                         </button>
 
                         <!-- input hidden pra abrir file picker -->
@@ -1250,7 +1260,7 @@ class PluginsAlpha_Prompts
                                 aria-selected="<?php echo $isActive ? 'true' : 'false'; ?>"
                                 data-pga-tab="tpl"
                                 data-tpl="<?php echo esc_attr($tpl_slug); ?>">
-                                <span><?php esc_html_e($label); ?></span>
+                                <span><?php echo esc_html($label); ?></span>
                             </button>
                         <?php endforeach; ?>
 
@@ -1262,7 +1272,7 @@ class PluginsAlpha_Prompts
                             aria-selected="false"
                             data-pga-tab="tpl"
                             data-tpl="global">
-                            <span><?php esc_html_e('Global', 'plugins-alpha'); ?></span>
+                            <span><?php esc_html_e('Global', 'alpha-suite'); ?></span>
                         </button>
                     </div>
 
@@ -1293,7 +1303,7 @@ class PluginsAlpha_Prompts
                                             class="pga-stage-tab <?php echo ($stage_key === $firstStage) ? 'is-active' : ''; ?>"
                                             data-pga-tab="stage"
                                             data-stage="<?php echo esc_attr($stage_key); ?>">
-                                            <?php esc_html_e($stage_label); ?>
+                                            <?php echo  esc_html($stage_label); ?>
                                         </button>
                                     </span>
                                 <?php endforeach; ?>
@@ -1320,7 +1330,7 @@ class PluginsAlpha_Prompts
 
                                     <div class="pga-stage-head">
                                         <!-- <h3>
-                                            <?php esc_html_e($stage_label); ?>
+                                            <?php echo esc_html($stage_label); ?>
                                             <?php if ($stage_key === 'titles'): ?>
                                                 <span class="pga-stage-chip">Google Discover</span>
                                             <?php endif; ?>
@@ -1337,7 +1347,7 @@ class PluginsAlpha_Prompts
                                             class="pga-restore"
                                             data-pga-restore="1">
                                             <span class="dashicons dashicons-update"></span>
-                                            <?php esc_html_e('Restaurar padrão', 'plugins-alpha'); ?>
+                                            <?php esc_html_e('Restaurar padrão', 'alpha-suite'); ?>
                                         </button>
                                     <?php endif; ?>
                                 </div>
@@ -1354,10 +1364,10 @@ class PluginsAlpha_Prompts
 
                         <?php
                         $globalStages = [
-                            'image' => __('Imagem Thumbnail', 'plugins-alpha'),
-                            'post_thumbnail_regen' => __('Regenerar thumbnail', 'plugins-alpha'),
-                            'image_stock'          => __('Imagem (Pexels / Unsplash)', 'plugins-alpha'),
-                            'story'                => __('Web Stories', 'plugins-alpha'),
+                            'image' => __('Imagem Thumbnail', 'alpha-suite'),
+                            'post_thumbnail_regen' => __('Regenerar thumbnail', 'alpha-suite'),
+                            'image_stock'          => __('Imagem (Pexels / Unsplash)', 'alpha-suite'),
+                            'story'                => __('Web Stories', 'alpha-suite'),
                         ];
                         $globalKeys = array_keys($globalStages);
                         $firstGlobal = $globalKeys[0] ?? '';
@@ -1371,7 +1381,7 @@ class PluginsAlpha_Prompts
                                         class="pga-stage-tab <?php echo ($stage_key === $firstGlobal) ? 'is-active' : ''; ?>"
                                         data-pga-tab="stage"
                                         data-stage="<?php echo esc_attr($stage_key); ?>">
-                                        <?php esc_html_e($stage_label); ?>
+                                        <?php echo esc_html($stage_label); ?>
                                     </button>
                                 </span>
                             <?php endforeach; ?>
@@ -1395,14 +1405,14 @@ class PluginsAlpha_Prompts
                                 style="<?php echo ($stage_key === $firstGlobal) ? '' : 'display:none'; ?>">
                                 <div class="pga-card">
                                     <div class="pga-stage-head">
-                                        <!-- <h3><?php esc_html_e($stage_label); ?></h3> -->
+                                        <!-- <h3><?php echo esc_html($stage_label); ?></h3> -->
 
                                         <!-- ✅ nos globais: restaurar sempre -->
                                         <button type="button"
                                             class="pga-restore"
                                             data-pga-restore="1">
                                             <span class="dashicons dashicons-update"></span>
-                                            <?php esc_html_e('Restaurar padrão', 'plugins-alpha'); ?>
+                                            <?php esc_html_e('Restaurar padrão', 'alpha-suite'); ?>
                                         </button>
                                     </div>
 
@@ -1423,21 +1433,21 @@ class PluginsAlpha_Prompts
 
                         <div class="pga-modal__panel" role="dialog" aria-modal="true" aria-labelledby="pga-templates-title">
                             <div class="pga-modal__head">
-                                <h2 id="pga-templates-title"><?php esc_html_e('Modelos de conteúdo', 'plugins-alpha'); ?></h2>
-                                <button type="button" class="pga-btn" data-pga-modal-close><?php esc_html_e('Fechar', 'plugins-alpha'); ?></button>
+                                <h2 id="pga-templates-title"><?php esc_html_e('Modelos de conteúdo', 'alpha-suite'); ?></h2>
+                                <button type="button" class="pga-btn" data-pga-modal-close><?php esc_html_e('Fechar', 'alpha-suite'); ?></button>
                             </div>
 
                             <p class="pga-table-description" style="margin-top:0;">
-                                <?php esc_html_e('Aqui você escolhe quais modelos aparecem no gerador do Órion. O plugin mantém 2 nativos: Artigo e Modelar YouTube.', 'plugins-alpha'); ?>
+                                <?php esc_html_e('Aqui você escolhe quais modelos aparecem no gerador do Órion. O plugin mantém 2 nativos: Artigo e Modelar YouTube.', 'alpha-suite'); ?>
                             </p>
 
                             <table class="pga-table" id="pga-orion-templates-table">
                                 <thead>
                                     <tr>
-                                        <th><?php esc_html_e('Modelo', 'plugins-alpha'); ?></th>
-                                        <th style="width:240px;"><?php esc_html_e('Ativo', 'plugins-alpha'); ?></th>
-                                        <th style="width:180px;"><?php esc_html_e('Padrão', 'plugins-alpha'); ?></th>
-                                        <th style="width:160px;text-align:right;"><?php esc_html_e('Ações', 'plugins-alpha'); ?></th>
+                                        <th><?php esc_html_e('Modelo', 'alpha-suite'); ?></th>
+                                        <th style="width:240px;"><?php esc_html_e('Ativo', 'alpha-suite'); ?></th>
+                                        <th style="width:180px;"><?php esc_html_e('Padrão', 'alpha-suite'); ?></th>
+                                        <th style="width:160px;text-align:right;"><?php esc_html_e('Ações', 'alpha-suite'); ?></th>
                                     </tr>
                                 </thead>
 
@@ -1470,7 +1480,7 @@ class PluginsAlpha_Prompts
                                                             name="pga_orion_templates[<?php echo esc_attr($slug); ?>][is_default]"
                                                             value="1"
                                                             <?php checked((int)$is_default === 1); ?>>
-                                                        <span><?php esc_html_e('Novo projeto', 'plugins-alpha'); ?></span>
+                                                        <span><?php esc_html_e('Novo projeto', 'alpha-suite'); ?></span>
                                                     </label>
 
                                                 <?php endif; ?>
@@ -1484,7 +1494,7 @@ class PluginsAlpha_Prompts
                                                             value="1"
                                                             <?php checked($enabled === 1); ?>
                                                             <?php echo $is_builtin ? 'disabled' : ''; ?>>
-                                                        <strong><?php echo $enabled ? esc_html__('Ativo', 'plugins-alpha') : esc_html__('Inativo', 'plugins-alpha'); ?></strong>
+                                                        <strong><?php echo $enabled ? esc_html__('Ativo', 'alpha-suite') : esc_html__('Inativo', 'alpha-suite'); ?></strong>
                                                     </label>
 
                                                     <?php if ($is_builtin): ?>
@@ -1497,7 +1507,7 @@ class PluginsAlpha_Prompts
 
                                             <td style="text-align:right;">
                                                 <?php if (!$is_builtin): ?>
-                                                    <button type="button" class="pga-btn pga-remove-tpl-row"><?php esc_html_e('Remover', 'plugins-alpha'); ?></button>
+                                                    <button type="button" class="pga-btn pga-remove-tpl-row"><?php esc_html_e('Remover', 'alpha-suite'); ?></button>
                                                 <?php else: ?>
                                                     <span class="pga-mini">—</span>
                                                 <?php endif; ?>
@@ -1509,8 +1519,8 @@ class PluginsAlpha_Prompts
                                 <tfoot>
                                     <tr>
                                         <td colspan="4">
-                                            <button type="button" class="pga-btn pga-btn--primary" id="pga-add-tpl-row">+ <?php esc_html_e('Adicionar modelo personalizado', 'plugins-alpha'); ?></button>
-                                            <span class="pga-mini" style="margin-left:10px;"><?php esc_html_e('Ex.: receitas, review, modelar_url', 'plugins-alpha'); ?></span>
+                                            <button type="button" class="pga-btn pga-btn--primary" id="pga-add-tpl-row">+ <?php esc_html_e('Adicionar modelo personalizado', 'alpha-suite'); ?></button>
+                                            <span class="pga-mini" style="margin-left:10px;"><?php esc_html_e('Ex.: receitas, review, modelar_url', 'alpha-suite'); ?></span>
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -1520,38 +1530,38 @@ class PluginsAlpha_Prompts
 
                     <!-- Loading overlay -->
                     <div class="pga-loading" id="pga-loading" aria-hidden="true">
-                        <div class="pga-loading-card"><?php esc_html_e('Carregando…', 'plugins-alpha'); ?></div>
+                        <div class="pga-loading-card"><?php esc_html_e('Carregando…', 'alpha-suite'); ?></div>
                     </div>
 
                     <!-- ✅ BARRA FIXA (DENTRO DO FORM) -->
                     <div class="pga-bottom-bar">
                         <div class="pga-bottom-left">
                             <button type="submit" class="pga-btn pga-btn--primary">
-                                <?php esc_html_e('Salvar prompts', 'plugins-alpha'); ?>
+                                <?php esc_html_e('Salvar prompts', 'alpha-suite'); ?>
                             </button>
 
                             <button type="button" class="pga-btn" id="pga-open-templates">
-                                <?php esc_html_e('Modelos', 'plugins-alpha'); ?>
+                                <?php esc_html_e('Modelos', 'alpha-suite'); ?>
                             </button>
                             <button type="button" class="pga-btn" id="pga-vars-btn">
-                                <?php esc_html_e('Variáveis Disponíveis', 'plugins-alpha'); ?>
+                                <?php esc_html_e('Variáveis Disponíveis', 'alpha-suite'); ?>
                             </button>
                             <div id="pga-vars-panel" class="pga-vars-panel">
                                 <div class="pga-vars-pop" id="pga-vars-pop" aria-hidden="true">
                                     <div class="pga-vars-pop__body">
                                         <div class="pga-vars-grid">
-                                            <h3><?php esc_html_e('Título', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Título', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{locale}}</code>
                                             <code>{{template}}</code>
 
-                                            <h3><?php esc_html_e('Esboço', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Esboço', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
                                             <code>{{locale}}</code>
                                             <code>{{template}}</code>
 
-                                            <h3><?php esc_html_e('Esboço', 'plugins-alpha'); ?> Youtube</h3>
+                                            <h3><?php esc_html_e('Esboço', 'alpha-suite'); ?> Youtube</h3>
                                             <code>{{articleTitle}}</code>
                                             <code>{{locale}}</code>
                                             <code>{{url}}</code>
@@ -1560,7 +1570,7 @@ class PluginsAlpha_Prompts
                                             <code>{{videoDescription}}</code>
                                             <code>{{tags}}</code>
 
-                                            <h3><?php esc_html_e('Sessão', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Sessão', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
                                             <code>{{locale}}</code>
@@ -1571,35 +1581,35 @@ class PluginsAlpha_Prompts
                                             <code>{{section_children}}</code>
                                             <code>{{sections_count}}</code>
 
-                                            <h3><?php esc_html_e('Descrição', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Descrição', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
                                             <code>{{locale}}</code>
                                             <code>{{content}}</code>
 
-                                            <h3><?php esc_html_e('Slug', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Slug', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
                                             <code>{{locale}}</code>
 
-                                            <h3><?php esc_html_e('Re-geração (image_stock)', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Re-geração (image_stock)', 'alpha-suite'); ?></h3>
                                             <code>{{content}}</code>
                                             <code>{{title}}</code>
                                             <code>{{locale}}</code>
 
-                                            <h3><?php esc_html_e('Imagem', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Imagem', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{title}}</code>
                                             <code>{{template}}</code>
                                             <code>{{locale}}</code>
 
-                                            <h3><?php esc_html_e('Stories', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Stories', 'alpha-suite'); ?></h3>
                                             <code>{{title}}</code>
                                             <code>{{content}}</code>
                                             <code>{{brief}}</code>
                                             <code>{{image_prompt_rule}}</code>
 
-                                            <h3><?php esc_html_e('Keywords', 'plugins-alpha'); ?></h3>
+                                            <h3><?php esc_html_e('Keywords', 'alpha-suite'); ?></h3>
                                             <code>{{locale}}</code>
                                         </div>
                                     </div>
@@ -1992,9 +2002,9 @@ class PluginsAlpha_Prompts
                 )
             ) {
                 add_settings_error(
-                    'plugins-alpha-orion-prompts',
+                    'alpha-suite-orion-prompts',
                     'pga_import_nonce',
-                    __('Nonce inválido no import.', 'plugins-alpha'),
+                    __('Nonce inválido no import.', 'alpha-suite'),
                     'error'
                 );
                 return;
@@ -2002,22 +2012,22 @@ class PluginsAlpha_Prompts
 
             if (empty($_FILES['pga_orion_import_file']['tmp_name'])) {
                 add_settings_error(
-                    'plugins-alpha-orion-prompts',
+                    'alpha-suite-orion-prompts',
                     'pga_import_file',
-                    __('Envie um arquivo JSON para importar.', 'plugins-alpha'),
+                    __('Envie um arquivo JSON para importar.', 'alpha-suite'),
                     'error'
                 );
                 return;
             }
 
-            $raw = file_get_contents($_FILES['pga_orion_import_file']['tmp_name']);
+            $raw = isset($_FILES['pga_orion_import_file']['tmp_name']) ? file_get_contents(sanitize_text_field(wp_unslash($_FILES['pga_orion_import_file']['tmp_name']))) : '';
             $data = json_decode((string) $raw, true);
 
             if (!is_array($data)) {
                 add_settings_error(
-                    'plugins-alpha-orion-prompts',
+                    'alpha-suite-orion-prompts',
                     'pga_import_json',
-                    __('JSON inválido.', 'plugins-alpha'),
+                    __('JSON inválido.', 'alpha-suite'),
                     'error'
                 );
                 return;
@@ -2064,7 +2074,7 @@ class PluginsAlpha_Prompts
         // templates (do modal)
         // ... você já tem $templates e $out prontos
 
-        $templates = (array) ($_POST['pga_orion_templates'] ?? []);
+        $templates = isset($_POST['pga_orion_templates']) ? array_map('sanitize_text_field', (array) wp_unslash($_POST['pga_orion_templates'])) : [];
 
         // ✅ normaliza slugs válidos que ficaram na tabela (inclui nativos)
         $keep = [];
@@ -2142,9 +2152,9 @@ class PluginsAlpha_Prompts
 
 
         add_settings_error(
-            'plugins-alpha-orion-prompts',
+            'alpha-suite-orion-prompts',
             'pga_orion_prompts_updated',
-            __('Prompts salvos com sucesso.', 'plugins-alpha'),
+            __('Prompts salvos com sucesso.', 'alpha-suite'),
             'updated'
         );
     }
@@ -2195,11 +2205,15 @@ class PluginsAlpha_Prompts
         }
 
         // IMPORTANT: o JS envia como "file"
-        if (empty($_FILES['file']) || !isset($_FILES['file']['tmp_name'])) {
+        if (
+            empty($_FILES['file']) ||
+            ! isset($_FILES['file']['tmp_name'])
+        ) {
             wp_send_json_error(['message' => 'Arquivo não recebido (campo "file").'], 400);
         }
 
-        $f = $_FILES['file'];
+        $f = array_map('sanitize_text_field', wp_unslash($_FILES['file']));
+
 
         if (!empty($f['error'])) {
             wp_send_json_error(['message' => 'Erro no upload: ' . (int)$f['error']], 400);
@@ -2271,7 +2285,9 @@ class PluginsAlpha_Prompts
 
         $overwrite = !empty($_POST['overwrite']) && (string)$_POST['overwrite'] === '1';
 
-        $keys_json = isset($_POST['keys']) ? (string) wp_unslash($_POST['keys']) : '[]';
+        $keys_json = isset($_POST['keys'])
+            ? sanitize_text_field(wp_unslash($_POST['keys']))
+            : '[]';
         $keys = json_decode($keys_json, true);
         if (!is_array($keys) || empty($keys)) {
             wp_send_json_error(['message' => 'Nenhum item selecionado.'], 400);
@@ -2525,7 +2541,7 @@ class PluginsAlpha_Prompts
         }
     }
 
-    public static function build_story_prompt_from_post(string $title, string $content, array $config = []): string
+    public static function build_story_prompt_from_post(string $title, string $content): string
     {
         $tpl = self::get_prompt_for('story', 'story');
 
@@ -2698,7 +2714,7 @@ class PluginsAlpha_Prompts
             . "Data atual: " . SELF::date() . "\n"
             . "Frase chave: \"{$keyword}\"\n"
             . "Título da sessão: \"{$heading}\"\n"
-            . "Idioma: {$locale}\n\n"
+            . "A sessão deve ser gerada no idioma, pode traduzir incluse a KW: {$locale}\n\n"
 
             . "REGRAS DE FORMATAÇÃO:\n"
             . "- Use HTML limpo: p, strong, ul, ol, li, a... etc\n"
@@ -2790,6 +2806,7 @@ class PluginsAlpha_Prompts
         $ctx .= "- Gere apenas títulos ";
         $ctx .= "- Hoje é: " . SELF::date();
         $ctx .= "- Gere um título com base no original: ";
+
         if ($videoTitle !== '')   $ctx .= $videoTitle . "\n";
 
         $ctx .= "- Lembre-se de contextualizar com o que está na descrição: ";
@@ -2802,7 +2819,8 @@ class PluginsAlpha_Prompts
         $fixed =
             "\n\n"
             . "Quantidade de títulos a gerar: entre {$min} e {$max}.\n"
-            . "Escreva em {$locale}.\n";
+            . "O título deve ser gerada no idioma, pode traduzir incluse a KW: {$locale}\n\n";
+
 
         return $fixed . $base . $ctx . "\n\n" . self::title_json_suffix();
     }
@@ -2841,7 +2859,7 @@ class PluginsAlpha_Prompts
             . "- Hoje é: " . self::date() . "\n"
             . "Regras técnicas (não discuta, apenas cumpra):\n"
             . "- Gere {$count} keywords NOVAS e DIFERENTES.\n"
-            . "- Gere em {$locale}.\n"
+            . "- Gere em, pode traduzir incluse a KW {$locale}.\n"
             . "- Categoria: {$category}.\n"
             . "- Use o comando como direção (caso tenha): \"{$command}\".\n"
             . "- O JSON deve ser VÁLIDO e em UMA LINHA.\n"
@@ -2865,7 +2883,7 @@ class PluginsAlpha_Prompts
     private static function default_keywords_prompt(): string
     {
 
-        return "Nós somos a Plugins Alpha, vendemos plugins para WordPress, nosso produto foco atualmente "
+        return "Nós somos a Alpha Suite, vendemos plugins para WordPress, nosso produto foco atualmente "
             . "é o Alpha Suite, que contém os módulos Alpha Órion e o Alpha Stories, o Orion é um plugin que "
             . "gera conteúdos com IA e o Stories gera Web Stories do Google com apenas 1 clique. \n"
             . "Siga as especificações abaixo para gerar keywords: ";
@@ -3052,42 +3070,25 @@ class PluginsAlpha_Prompts
     private static function default_outline_rss_prompt(): string
     {
         return
-            "Crie um esboço (outline) completo baseado no conteúdo RSS fornecido.\n\n"
-            . "ANTI-PLÁGIO (OBRIGATÓRIO):\n"
-            . "- NÃO copie estrutura do RSS\n"
-            . "- NÃO copie títulos de seções\n"
-            . "- Crie estrutura ORIGINAL e reorganizada\n"
-            . "- Use RSS apenas para extrair FATOS/TEMAS\n"
-            . "ex.:\n"
-            . "A Netflix anunciou um acordo para adquirir a Warner Bros. Discovery (WBD) num dos maiores negócios da história do entretenimento global\n"
-            . "Plagio, pois copia a mesma estrutura: \"a Netflix surpreendeu o mercado ao anunciar um acordo para adquirir a Warner Bros. Discovery\"\n"
-            . "- Não deve copiar nenhuma estrutura de frase.\n\n"
+            "DIRETRIZES EDITORIAIS:\n"
+            . "- Não copiar estrutura ou frases da fonte.\n"
+            . "- Reorganizar os fatos para criar fluxo lógico diferente.\n"
+            . "- Não incluir opinião ou especulação.\n"
+            . "- Cada bullet deve conter 1 fato verificável.\n"
+            . "- Não repetir informações com palavras diferentes.\n"
+            . "- Pra essa sessão, mais precisamente, vamos gerar no máximo 2 sessões (2 H2), sem h3 ou filhos, mas há uma excessão dessa regra: Se o título falar sobre quantidade de itens, então é sim necessário criar as sessões para desenrolar do conteudo e pode ter o limite máximo de H2 e pode ter h3 também.\n\n"
 
-            . "ESTRUTURA DO ESBOÇO:\n"
-            . "A ideia deste esboço é criar uma estrutura de notica, então, vamos ter no máximo 2 sessões com paragrafos curtos com no máximo 3 frases\n"
-            . "Crie então essa estrutura com uma sessão h2 e nada de h3, a ideia é criar um conteúdo mais fluido e com cara de notícia, nada de estrutura grande e complexa\n"
-            . "A estrutura deve conter elementos focados em dar clareza sobre o conteúdo apresentado\n"
-            . "Lembre-se de sempre contextualizar com dados veridicos retirados do RSS, não invente dados ou fatos\n"
-            . "Para os Bullets, insira ao menos 20, onde cada um tem q ter uma informação precisa, como: \n"
-            . "\"No dia [data em numero se possivel] a [empresa], se reuniu com [quem]...\" \n"
-            . "\"Segundo informações obtidas no site oficial da [empresa]...\" \n"
-            . "Nunca insira informações não concretas, como: no inicio do ano, ouvimos dizer, [empresa] executou/fez [algo]...\n\n"
+            . "PROIBIDO:\n"
+            . "- Bullets genéricos sem dados concretos.\n"
+            . "- Contexto filosófico ou análise ampla.\n"
+            . "- Contexto filosófico ou análise ampla.\n"
+            . "- Repetições estruturais.\n\n"
 
-            . "DIRETRIZES DE PROFUNDIDADE:\n"
-            . "- Cada brief deve ter instruções COMPLETAS e ESPECÍFICAS\n"
-            . "- Não use referências vagas: 'conforme mencionado', 'itens acima'\n"
-            . "- Se mencionar lista/comparação, especifique TODOS os itens\n"
-            . "- Extraia TODOS os fatos relevantes do RSS e distribua nas seções\n"
-            . "- Se houver algum video na página relacionada, insira o embed do video, caso não seja de um provedor próprio, passe o link para a sessão a qual deve ficar o vídeo\n"
-            . "- Reorganize informações para criar fluxo lógico diferente do original\n\n"
-
-            . "REGRAS:\n"
-            . "- Capitalização: só primeira palavra + nomes próprios\n"
-            . "- Cada brief isolado e completo (contexto independente)\n"
-            . "- Quantidade de H2s: conforme necessário para cobrir tema com profundidade\n"
-            . "- Não limite a uma seções se o tema exigir mais\n"
-            . "- Instrua a inserir um embed do youtube quando for encontrado algum video na página, descreva o link do video encontrado no artigo\n";
+            . "Se não houver dados suficientes, produza apenas os fatos encontrados.\n\n"
+            . "Responda SOMENTE com JSON válido.";
     }
+
+
 
     private static function default_section_base_prompt(): string
     {
@@ -3202,6 +3203,8 @@ class PluginsAlpha_Prompts
             . "5. Insira datas e dados verificáveis\n";
     }
 
+
+
     private static function default_section_modelar_youtube_prompt(): string
     {
         return "Você é um Especialista de Conteúdo Sênior (E-E-A-T).\n"
@@ -3264,7 +3267,6 @@ class PluginsAlpha_Prompts
     {
         $s = "- Gere 7 a 10 páginas curtas.\n";
         $s .= "- Linguagem simples e envolvente.\n";
-        $s .= "- No campo \"prompt\": {{image_prompt_rule}}\n";
         $s .= "- Responda somente em JSON.\n";
         return $s;
     }

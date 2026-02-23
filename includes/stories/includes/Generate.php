@@ -35,7 +35,7 @@ class PluginsAlpha_Generate
     $disabled = empty($chk['ok']);
 
     $title = empty($chk['ok'])
-      ? ($chk['message'] ?: __('Ative o módulo Alpha Stories para gerar automaticamente.', 'plugins-alpha'))
+      ? ($chk['message'] ?: __('Ative o módulo Alpha Stories para gerar automaticamente.', 'alpha-suite'))
       : '';
 ?>
 
@@ -83,14 +83,14 @@ class PluginsAlpha_Generate
 
     // Enfileira o JS externo
     wp_enqueue_script(
-      'plugins-alpha-generate',
-      PGA_URL . 'includes/stories/assets/js/plugins-alpha-generate.js', // cria esse arquivo depois
+      'alpha-suite-generate',
+      PGA_URL . 'includes/stories/assets/js/alpha-suite-generate.js', // cria esse arquivo depois
       ['jquery'],
       defined('PLUGINS_ALPHA_VERSION') ? PLUGINS_ALPHA_VERSION : '1.0.0',
       true
     );
     wp_enqueue_script(
-      'plugins-alpha-sweetalert',
+      'alpha-suite-sweetalert',
       PGA_URL . 'assets/vendor/sweetalert2@11.js',
       [],
       defined('PLUGINS_ALPHA_VERSION') ? PLUGINS_ALPHA_VERSION : '1.0.0',
@@ -102,23 +102,23 @@ class PluginsAlpha_Generate
       ? PluginsAlpha_License::check('alpha_stories')
       : ['ok' => true, 'message' => ''];
 
-    wp_localize_script('plugins-alpha-generate', 'PGA_Generate', [
+    wp_localize_script('alpha-suite-generate', 'PGA_Generate', [
       'ajaxUrl'    => admin_url('admin-ajax.php'),
       'nonce'      => wp_create_nonce('alpha_ai_generate_now'),
       'postId'     => get_the_ID(),
       'licenseOk'  => !empty($chk['ok']),
       'licenseMsg' => (string) ($chk['message'] ?? ''),
-      'licenseUrl' => admin_url('admin.php?page=plugins-alpha-dashboard'),
+      'licenseUrl' => admin_url('admin.php?page=alpha-suite-dashboard'),
     ]);
 
     wp_localize_script(
-      'plugins-alpha-generate',
+      'alpha-suite-generate',
       'PGA_Stories',
       [
         'ajaxUrl'    => admin_url('admin-ajax.php'),
         'nonce'      => wp_create_nonce('alpha_ai_generate_now'),
         'sourceId'   => (int) get_the_ID(),
-        'licenseUrl' => admin_url('admin.php?page=plugins-alpha-license'),
+        'licenseUrl' => admin_url('admin.php?page=alpha-suite-license'),
       ]
     );
   }

@@ -22,7 +22,7 @@ class PluginsAlpha_AI
                     // Gemini não existia no legado → vazio por padrão
                     'gemini' => [
                         'key'         => '',
-                        'model_text'  => 'gemini-1.5-pro',
+                        'model_text'  => 'gemini-2.5-flash-lite',
                         'temperature' => 0.6,
                         'max_tokens'  => 6000,
                     ],
@@ -49,6 +49,7 @@ class PluginsAlpha_AI
             'claude'     => 'PluginsAlpha_Claude',
             'mistral'    => 'PluginsAlpha_Mistral',
             'cohere'     => 'PluginsAlpha_Cohere',
+            'manus'      => 'PluginsAlpha_Manus',
         ];
 
 
@@ -293,74 +294,43 @@ class PluginsAlpha_AI
 
     public static function outline(string $prompt, array $args = [])
     {
-        $provider = $args['provider'] ?? self::get_text_provider();
+        // 1) Descobre o provider (args > settings)
+        $provider = isset($args['provider'])
+            ? (string) $args['provider']
+            : self::get_text_provider();
 
+        // 2) Valida credenciais
         $ok = self::ensure_text_provider($provider);
         if (is_wp_error($ok)) {
             return $ok;
         }
 
+    // 3) Resolve a classe do provider (OpenAI / Gemini / etc.)
+        /** 
+         * @var class-string<
+         *    PluginsAlpha_OpenAI |
+         *    PluginsAlpha_Gemini
+         * > $class 
+         */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {
             return $class;
         }
 
-        $schema = [
-            'sections' => 'array',
-        ];
+        if ($provider === 'openai') {
 
-        $opts = [
-            'template'    => 'outline',
-            'temperature' => $args['temperature'] ?? 0.6,
-            'max_tokens'  => $args['max_tokens'] ?? ($provider !== 'claude' ? 8000 : 4096),
-            'provider'    => $provider,
-        ];
-
-        $resp = $class::complete($prompt, $schema, $opts);
-
-        if (is_wp_error($resp)) {
-            return $resp;
-        }
-
-        // 🔥 1️⃣ Caso ideal: já veio estruturado
-        if (is_array($resp) && isset($resp['sections']) && is_array($resp['sections'])) {
-            return $resp['sections'];
-        }
-
-        // 🔥 2️⃣ Caso veio array direto de sections
-        if (is_array($resp) && isset($resp[0]) && is_array($resp[0])) {
-            return $resp;
-        }
-
-        // 🔥 3️⃣ Caso veio string JSON
-        if (is_string($resp)) {
-
-            $decoded = json_decode($resp, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE) {
+            // 4) Chama o método outline() do próprio provedor
+            if (!method_exists($class, 'outline')) {
                 return new WP_Error(
-                    'pga_outline_json_error',
-                    json_last_error_msg(),
-                    ['raw' => $resp]
+                    'pga_outline_not_implemented',
+                    "O provedor '{$provider}' não implementa outline()."
                 );
             }
 
-            if (isset($decoded['sections']) && is_array($decoded['sections'])) {
-                return $decoded['sections'];
-            }
-
-            if (isset($decoded[0]) && is_array($decoded[0])) {
-                return $decoded;
-            }
-        }
-
-        return new WP_Error(
-            'pga_outline_invalid',
-            'Resposta inválida para outline.',
-            ['response' => $resp]
-        );
+            return $class::outline($prompt, $args);
+        } else
+            return $class::complete($prompt, $args);
     }
-
 
     /**
      * Provider padrão para STORIES (pode virar opção separada no futuro)

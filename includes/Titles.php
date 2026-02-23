@@ -4,8 +4,14 @@ if (!defined('ABSPATH')) exit;
 
 class PluginsAlpha_Titles
 {
-    public static function getTitle($template = '', $keyword = '', $locale = 'pt-br', $url = '', $draft_id, $seed = '')
-    {
+    public static function getTitle(
+        int $draft_id,
+        string $template = '',
+        string $keyword = '',
+        string $locale = 'pt-br',
+        string $url = '',
+        $seed = ''
+    ) {
         if ($template === 'modelar_youtube') {
             $yt = PluginsAlpha_Youtube::fetch_video_data($url);
             if (is_wp_error($yt)) return $yt;
@@ -49,9 +55,29 @@ class PluginsAlpha_Titles
         );
 
         if (is_wp_error($titles)) {
-            return PluginsAlpha_FailJob::fail_job($draft_id, $titles, 'titles');
+            return PluginsAlpha_FailJob::fail_job($draft_id, $titles);
         }
 
-        return  $titles;
+        $newTitle = '';
+
+        if (isset($titles['title'])) {
+
+            if (is_string($titles['title'])) {
+                $newTitle = trim($titles['title']);
+            } elseif (is_array($titles['title'])) {
+
+                // Se for array com texto dentro
+                if (isset($titles['title']['text'])) {
+                    $newTitle = trim($titles['title']['text']);
+                }
+
+                // Se for array indexado
+                elseif (isset($titles['title'][0])) {
+                    $newTitle = trim((string)$titles['title'][0]);
+                }
+            }
+        }
+
+        return  $newTitle;
     }
 }

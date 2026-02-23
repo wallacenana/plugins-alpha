@@ -28,55 +28,52 @@ class PluginsAlpha_Perplexity
     {
         $c = self::cfg();
 
-        $model = $c['model'] ?? $c['model_text'];
+        if (empty($c['key'])) {
+            return new WP_Error('pga_no_key', 'Chave Perplexity não configurada.');
+        }
 
+        $model = $c['model_text'] ?? 'llama-3.1-sonar-small-128k-online';
         $isStructured = !empty($schema);
 
-        // 🔒 defaults seguros (Perplexity é mais estável com limites médios)
-        $maxTokens = $args['max_tokens']
-            ?? ($isStructured ? 1500 : 4000);
+        $maxTokens   = $args['max_tokens'] ?? ($isStructured ? 1800 : 4000);
+        $temperature = $args['temperature'] ?? ($isStructured ? 0 : 0.3);
 
-        $temperature = $args['temperature']
-            ?? ($isStructured ? 0.15 : 0.9);
-
-        $topP = $args['top_p']
-            ?? ($isStructured ? 0.7 : 0.95);
-
-        // 🔴 MODO JSON HARD
         $systemPrompt = $isStructured
-            ? "Você deve responder APENAS com JSON válido UTF-8.
-Não use markdown.
-Não use aspas tipográficas.
-Não quebre linhas dentro de strings.
-Não inclua texto fora do JSON.
-Não explique nada."
+            ? "Responda SOMENTE com JSON válido UTF-8.
+Sem markdown.
+Sem explicações.
+Sem texto fora do JSON.
+Não use aspas tipográficas."
             : "Você é um gerador de artigos focado em SEO GEO e E-E-A-T.";
 
         $body = [
             'model' => $model,
             'messages' => [
-                ['role' => 'system', 'content' => trim($systemPrompt)],
-                ['role' => 'user',   'content' => $prompt],
+                [
+                    'role' => 'system',
+                    'content' => $systemPrompt
+                ],
+                [
+                    'role' => 'user',
+                    'content' => $prompt
+                ]
             ],
-            'max_tokens'  => $maxTokens,
             'temperature' => $temperature,
-            'top_p'       => $topP,
+            'max_tokens'  => $maxTokens
         ];
 
-        if ($isStructured) {
-            $body['stop'] = ["\n\n", "\n```"];
-        }
+        $res = wp_remote_post(
+            'https://api.perplexity.ai/chat/completions',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $c['key'],
+                    'Content-Type'  => 'application/json',
+                ],
+                'timeout' => $c['timeout'] ?? 60,
+                'body'    => wp_json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]
+        );
 
-        $argsReq = [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $c['key'],
-                'Content-Type'  => 'application/json',
-            ],
-            'timeout' => $c['timeout'] ?? 60,
-            'body'    => wp_json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-        ];
-
-        $res = wp_remote_post('https://api.perplexity.ai/chat/completions', $argsReq);
         if (is_wp_error($res)) {
             return $res;
         }
@@ -94,24 +91,45 @@ Não explique nada."
 
         $txt = trim((string)$json['choices'][0]['message']['content']);
 
+        // 🔹 MODO TEXTO NORMAL
         if (!$isStructured) {
-            return ['content' => $txt];
+            return $txt;
         }
 
+        /*
+    |--------------------------------------------------------------------------
+    | 🔥 PARSE FORÇADO
+    |--------------------------------------------------------------------------
+    */
+
+        // remove qualquer lixo antes/depois do JSON
         if (preg_match('/\{.*\}/s', $txt, $m)) {
             $txt = $m[0];
         }
 
         $parsed = json_decode($txt, true);
 
-        if (!is_array($parsed)) {
+        if (json_last_error() !== JSON_ERROR_NONE) {
             return new WP_Error(
-                'pga_parse',
-                'Falha ao decodificar JSON do modelo.',
-                ['snippet' => mb_substr($txt, 0, 800)]
+                'pga_json_invalid',
+                'JSON inválido retornado pelo Perplexity.',
+                [
+                    'json_error' => json_last_error_msg(),
+                    'snippet'    => mb_substr($txt, 0, 1000)
+                ]
             );
         }
 
+        // Caso venha {"content":"{...json interno...}"}
+        if (isset($parsed['content']) && is_string($parsed['content'])) {
+            $inner = json_decode($parsed['content'], true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($inner)) {
+                $parsed = $inner;
+            }
+        }
+        unset($schema['use_search']);
+
+        // valida contrato mínimo
         foreach ($schema as $key => $_) {
             if (!array_key_exists($key, $parsed)) {
                 return new WP_Error(

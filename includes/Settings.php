@@ -11,9 +11,12 @@ class PluginsAlpha_Settings
     // registra option + sanitização única
     add_action('admin_init', [self::class, 'register']);
     add_action('admin_enqueue_scripts', function ($hook) {
-      // Ajuste a condição pra bater na sua página.
-      // Ex.: admin.php?page=plugins-alpha-settings
-      if (empty($_GET['page']) || $_GET['page'] !== 'plugins-alpha-settings') return;
+      // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+      $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+
+      if (empty($page) || $page !== 'alpha-suite-settings') {
+        return;
+      }
 
       // ESSENCIAL: carrega o wp.media
       wp_enqueue_media();
@@ -69,7 +72,7 @@ class PluginsAlpha_Settings
 
       $out['apis']['openai'] = [
         'key'         => sanitize_text_field($api['key'] ?? ''),
-        'model_text'  => sanitize_text_field($api['model_text'] ?? 'gpt-4o-mini'),
+        'model_text'  => sanitize_text_field($api['model_text'] ?? 'gpt-4.1-mini'),
         'temperature' => is_numeric($api['temperature'] ?? null) ? (float) $api['temperature'] : 0.6,
         'max_tokens'  => max(1, (int) ($api['max_tokens'] ?? 6000)),
       ];
@@ -128,7 +131,7 @@ class PluginsAlpha_Settings
       $gem = $in['apis']['gemini'] ?? [];
       $out['apis']['gemini'] = [
         'key'        => sanitize_text_field($gem['key'] ?? ''),
-        'model_text' => sanitize_text_field($gem['model_text'] ?? 'gemini-1.5-pro'),
+        'model_text' => sanitize_text_field($gem['model_text'] ?? 'gemini-2.5-flash-lite'),
       ];
 
       /**
@@ -140,6 +143,20 @@ class PluginsAlpha_Settings
         'model_text' => sanitize_text_field($cla['model_text'] ?? 'claude-3-haiku-20240307'),
         'temperature' => is_numeric($cla['temperature'] ?? null) ? (float) $cla['temperature'] : 0.6,
         'max_tokens'  => max(1, (int) ($cla['max_tokens'] ?? 4096)),
+      ];
+
+      /**
+       * Manus – credenciais para textos
+       */
+      $man = $in['apis']['manus'] ?? [];
+      $out['apis']['manus'] = [
+        'key'        => sanitize_text_field($man['key'] ?? ''),
+        'model_text' => sanitize_text_field($man['model_text'] ?? 'manus-chat'),
+        'base_url'   => esc_url_raw($man['base_url'] ?? ''),
+        'temperature' => is_numeric($man['temperature'] ?? null)
+          ? (float) $man['temperature']
+          : 0.6,
+        'max_tokens' => max(1, (int) ($man['max_tokens'] ?? 4096)),
       ];
 
       /**
@@ -174,7 +191,7 @@ class PluginsAlpha_Settings
         'temperature' => is_numeric($coh['temperature'] ?? null) ? (float) $coh['temperature'] : 0.6,
         'max_tokens'  => max(1, (int) ($coh['max_tokens'] ?? 4096)),
       ];
-      
+
 
       /**
        * YouTube API
@@ -196,7 +213,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($gp['text_provider'])
         : 'openai'; // default
 
-      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity'];
+      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity', 'manus'];
       if (!in_array($text_prov, $allowed_text_prov, true)) {
         $text_prov = 'openai';
       }
@@ -206,7 +223,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($gp['images_provider'])
         : 'pollinations'; // default imagem
 
-      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'none'];
+      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'manus', 'none'];
       if (!in_array($img_prov, $allowed_img_prov, true)) {
         $img_prov = 'pollinations';
       }
@@ -225,70 +242,128 @@ class PluginsAlpha_Settings
      * STORIES ==========================
      */
     if ($tab === 'stories') {
+
       $st = $in['stories'] ?? [];
+
       $allowed_styles = ['clean', 'dark-left', 'card', 'split', 'top'];
       $allowed_fonts  = ['system', 'inter', 'poppins', 'merriweather', 'plusjakarta'];
 
-      // provider específico dos stories
-      $text_prov = isset($st['text_provider'])
-        ? sanitize_text_field($st['text_provider'])
-        : 'openai';
+      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity', 'manus'];
+      $allowed_img_prov  = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'manus', 'none'];
 
-      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity'];
+      $allowed_languages = [
+        'pt-BR',
+        'pt-PT',
+        'en-US',
+        'en-GB',
+        'es-ES',
+        'es-MX',
+        'fr-FR',
+        'de-DE',
+        'it-IT',
+        'nl-NL',
+        'ja-JP',
+        'ko-KR',
+        'zh-CN',
+        'zh-TW',
+        'hi-IN',
+        'ar-SA',
+        'ru-RU'
+      ];
+
+      /*
+    |--------------------------------------------------------------------------
+    | Providers
+    |--------------------------------------------------------------------------
+    */
+
+      $text_prov = sanitize_text_field($st['text_provider'] ?? 'openai');
       if (!in_array($text_prov, $allowed_text_prov, true)) {
         $text_prov = 'openai';
       }
 
-      // provider de IMAGEM para stories
-      $img_prov = isset($st['images_provider'])
-        ? sanitize_text_field($st['images_provider'])
-        : 'pollinations';
-
-      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'none'];
+      $img_prov = sanitize_text_field($st['images_provider'] ?? 'pollinations');
       if (!in_array($img_prov, $allowed_img_prov, true)) {
         $img_prov = 'pollinations';
       }
 
+      /*
+    |--------------------------------------------------------------------------
+    | Linguagem (BCP-47)
+    |--------------------------------------------------------------------------
+    */
 
-      // cores com fallback
-      $accent = isset($st['accent_color']) ? trim((string)$st['accent_color']) : '';
+      $lang = sanitize_text_field($st['language'] ?? str_replace('_', '-', get_locale()));
+      $lang = str_replace('_', '-', $lang);
+
+      if (!in_array($lang, $allowed_languages, true)) {
+        $lang = 'pt-BR';
+      }
+
+      /*
+    |--------------------------------------------------------------------------
+    | Cores
+    |--------------------------------------------------------------------------
+    */
+
+      $accent = trim((string)($st['accent_color'] ?? ''));
       $accent = preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $accent) ? $accent : '#ffffff';
 
-      $bg = isset($st['background_color']) ? trim((string)$st['background_color']) : '';
+      $bg = trim((string)($st['background_color'] ?? ''));
       $bg = preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $bg) ? $bg : '#000000';
 
-      $txt = isset($st['text_color']) ? trim((string)$st['text_color']) : '';
+      $txt = trim((string)($st['text_color'] ?? ''));
       $txt = preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $txt) ? $txt : '#ffffff';
 
+      /*
+    |--------------------------------------------------------------------------
+    | Montagem final
+    |--------------------------------------------------------------------------
+    */
+      $ga_manual_id = trim((string)($st['ga_manual_id'] ?? ''));
+
+      if (!preg_match('/^G-[A-Z0-9]{4,}$/i', $ga_manual_id)) {
+        $ga_manual_id = '';
+      }
+
+
       $out['stories'] = [
+
         'publisher_name'    => sanitize_text_field($st['publisher_name'] ?? get_bloginfo('name')),
         'publisher_logo_id' => (int)($st['publisher_logo_id'] ?? 0),
 
-        'default_style'     => in_array(($st['default_style'] ?? 'clean'), $allowed_styles, true) ? $st['default_style'] : 'clean',
-        'default_font'      => in_array(($st['default_font'] ?? 'plusjakarta'), $allowed_fonts, true) ? $st['default_font'] : 'plusjakarta',
+        'default_style'     => in_array(($st['default_style'] ?? 'clean'), $allowed_styles, true)
+          ? $st['default_style']
+          : 'clean',
 
-        // cores
+        'default_font'      => in_array(($st['default_font'] ?? 'plusjakarta'), $allowed_fonts, true)
+          ? $st['default_font']
+          : 'plusjakarta',
+
         'accent_color'      => $accent,
         'background_color'  => $bg,
         'text_color'        => $txt,
 
-        // autoplay/duração padrão para stories
         'autoplay'          => !empty($st['autoplay']) ? 1 : 0,
-        'duration'          => in_array(($st['duration'] ?? '7'), ['5', '7', '10', '12'], true) ? $st['duration'] : '7',
 
-        'ga_mode'           => in_array(($st['ga_mode'] ?? 'auto'), ['auto', 'manual', 'off'], true) ? $st['ga_mode'] : 'auto',
-        'ga_manual_id'      => (function ($id) {
-          $id = trim((string)$id);
-          return preg_match('/^G-[A-Z0-9\-]{4,}$/i', $id) ? $id : '';
-        })($st['ga_manual_id'] ?? ''),
+        'duration'          => in_array(($st['duration'] ?? '7'), ['5', '7', '10', '12'], true)
+          ? $st['duration']
+          : '7',
+        'ga_mode' => in_array(($st['ga_mode'] ?? 'auto'), ['auto', 'manual', 'off'], true)
+          ? $st['ga_mode']
+          : 'auto',
 
-        'ai_brief_default'  => wp_kses_post($st['ai_brief_default'] ?? ''),
+        'ga_manual_id' => trim((string)($st['ga_manual_id'] ?? '')),
 
-        'text_provider'   => $text_prov,
-        'images_provider' => $img_prov,
+
+        'ai_brief_default' => wp_kses_post($st['ai_brief_default'] ?? ''),
+
+        'text_provider'     => $text_prov,
+        'images_provider'   => $img_prov,
+
+        'language'          => $lang,
       ];
     }
-
 
     return $out;
   }
@@ -313,19 +388,19 @@ class PluginsAlpha_Settings
       : 'core';
     // phpcs:enable WordPress.Security.NonceVerification.Recommended
     $tabs = [
-      'core'      => __('Integrações', 'plugins-alpha'),
-      'orion-posts' => __('Órion Posts', 'plugins-alpha'),
-      'stories'   => __('Stories', 'plugins-alpha'),
+      'core'      => __('Integrações', 'alpha-suite'),
+      'orion-posts' => __('Órion Posts', 'alpha-suite'),
+      'stories'   => __('Stories', 'alpha-suite'),
     ];
     $opts = self::get();
 ?>
     <div class="wrap">
-      <h1><?php esc_html_e('Plugins Alpha — Configurações', 'plugins-alpha'); ?></h1>
+      <h1><?php esc_html_e('Alpha Suite — Configurações', 'alpha-suite'); ?></h1>
 
       <h2 class="nav-tab-wrapper" style="margin-top:12px;">
         <?php foreach ($tabs as $slug => $label):
           $cls = $slug === $tab ? ' nav-tab nav-tab-active' : ' nav-tab';
-          $url = admin_url('admin.php?page=plugins-alpha-settings&tab=' . $slug);
+          $url = admin_url('admin.php?page=alpha-suite-settings&tab=' . $slug);
         ?>
           <a class="<?php echo esc_attr($cls); ?>" href="<?php echo esc_url($url); ?>"><?php echo esc_html($label); ?></a>
         <?php endforeach; ?>
@@ -365,6 +440,7 @@ class PluginsAlpha_Settings
     $mis  = $o['apis']['mistral'] ?? [];
     $per  = $o['apis']['perplexity'] ?? [];
     $cla  = $o['apis']['claude'] ?? [];
+    $man  = $o['apis']['manus'] ?? [];
     $uns  = $o['apis']['unsplash'] ?? [];
     $gem  = $o['apis']['gemini'] ?? [];
     $yt   = $o['apis']['youtube'] ?? [];
@@ -379,7 +455,7 @@ class PluginsAlpha_Settings
         <td>
           <p class="description">
             <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
             </a>
           </p>
           <input
@@ -402,12 +478,12 @@ class PluginsAlpha_Settings
             id="pga_openai_model"
             type="text"
             class="regular-text"
-            value="<?php echo esc_attr($apis['model_text'] ?? 'gpt-4o-mini'); ?>">
+            value="<?php echo esc_attr($apis['model_text'] ?? 'gpt-4.1-mini'); ?>">
           <p class="description">
-            <?php esc_html_e('Ex.: gpt-4.1-mini, gpt-4.1, o3-mini, etc.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Ex.: gpt-4.1-mini, gpt-4.1, o3-mini, etc.', 'alpha-suite'); ?>
           </p>
           <a href="https://platform.openai.com/docs/models" target="_blank" rel="noopener noreferrer">
-            <?php esc_html_e('Ver modelos.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Ver modelos.', 'alpha-suite'); ?>
           </a>
         </td>
       </tr>
@@ -421,16 +497,16 @@ class PluginsAlpha_Settings
       </tr>
     </table>
 
-    <h2 class="title"><?php esc_html_e('Gemini', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('Gemini', 'alpha-suite'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row">
-          <label for="pga_gemini_key"><?php esc_html_e('API Key', 'plugins-alpha'); ?></label>
+          <label for="pga_gemini_key"><?php esc_html_e('API Key', 'alpha-suite'); ?></label>
         </th>
         <td>
           <p class="description">
             <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
             </a>
           </p>
           <input
@@ -440,14 +516,14 @@ class PluginsAlpha_Settings
             class="regular-text"
             value="<?php echo esc_attr($gem['key'] ?? ''); ?>">
           <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="gemini">
-            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); 
+            <?php // esc_html_e('Testar conexão', 'alpha-suite'); 
             ?>
           </button> -->
         </td>
       </tr>
       <tr>
         <th scope="row">
-          <label for="pga_gemini_model"><?php esc_html_e('Modelo de texto', 'plugins-alpha'); ?></label>
+          <label for="pga_gemini_model"><?php esc_html_e('Modelo de texto', 'alpha-suite'); ?></label>
         </th>
         <td>
           <input
@@ -457,10 +533,10 @@ class PluginsAlpha_Settings
             class="regular-text"
             value="<?php echo esc_attr($gem['model_text'] ?? 'gemini-2.5-flash-lite'); ?>">
           <p class="description">
-            <?php esc_html_e('Ex. (recomendado): gemini-2.5-flash-lite.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Ex. (recomendado): gemini-2.5-flash-lite.', 'alpha-suite'); ?>
             <br>
             <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Ver modelos.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Ver modelos.', 'alpha-suite'); ?>
             </a>
           </p>
         </td>
@@ -474,7 +550,7 @@ class PluginsAlpha_Settings
         <td>
           <p class="description">
             <a href="https://www.perplexity.ai/settings/api" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
             </a>
           </p>
           <input
@@ -493,7 +569,7 @@ class PluginsAlpha_Settings
             id="pga_perplexity_model"
             type="text"
             class="regular-text"
-            value="<?php echo esc_attr($per['model_text'] ?? 'llama-3.1-sonar-large-128k-online'); ?>">
+            value="<?php echo esc_attr($per['model_text'] ?? 'llama-3.1-sonar-small-128k-online'); ?>">
         </td>
       </tr>
       <tr>
@@ -514,7 +590,7 @@ class PluginsAlpha_Settings
         <td>
           <p class="description">
             <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
             </a>
           </p>
           <input
@@ -546,6 +622,66 @@ class PluginsAlpha_Settings
       </tr>
     </table>
 
+    <h2 class="title">Manus</h2>
+    <table class="form-table" role="presentation">
+      <tr>
+        <th scope="row"><label for="pga_manus_key">API Key</label></th>
+        <td>
+          <p class="description">
+            <a href="http://manus.im/app?show_settings=integrations&app_name=api" target="_blank" rel="noopener noreferrer">
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
+            </a>
+          </p>
+          <input
+            name="pga_settings[apis][manus][key]"
+            id="pga_manus_key"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($man['key'] ?? ''); ?>">
+        </td>
+      </tr>
+
+      <tr>
+        <th scope="row"><label for="pga_manus_model">Modelo</label></th>
+        <td>
+          <input
+            name="pga_settings[apis][manus][model_text]"
+            id="pga_manus_model"
+            type="text"
+            class="regular-text"
+            value="<?php echo esc_attr($man['model_text'] ?? 'manus-large'); ?>">
+        </td>
+      </tr>
+
+      <tr>
+        <th scope="row"><label for="pga_manus_temp">Temperatura</label></th>
+        <td>
+          <input
+            name="pga_settings[apis][manus][temperature]"
+            id="pga_manus_temp"
+            type="number"
+            min="0"
+            max="1"
+            step="0.1"
+            value="<?php echo esc_attr($man['temperature'] ?? 0.6); ?>">
+        </td>
+      </tr>
+
+      <tr>
+        <th scope="row"><label for="pga_manus_maxtok">Max tokens</label></th>
+        <td>
+          <input
+            name="pga_settings[apis][manus][max_tokens]"
+            id="pga_manus_maxtok"
+            type="number"
+            max="8192"
+            class="small-text"
+            value="<?php echo esc_attr($man['max_tokens'] ?? 4096); ?>">
+        </td>
+      </tr>
+    </table>
+
+
     <h2 class="title">Mistral</h2>
     <table class="form-table" role="presentation">
       <tr>
@@ -553,7 +689,7 @@ class PluginsAlpha_Settings
         <td>
           <p class="description">
             <a href="https://console.mistral.ai/api-keys/" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
             </a>
           </p>
           <input
@@ -592,7 +728,7 @@ class PluginsAlpha_Settings
         <td>
           <p class="description">
             <a href="https://dashboard.cohere.com/api-keys" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
             </a>
           </p>
           <input
@@ -625,16 +761,16 @@ class PluginsAlpha_Settings
     </table>
 
 
-    <h2 class="title"><?php esc_html_e('Pexels (banco de imagens)', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('Pexels (banco de imagens)', 'alpha-suite'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row">
-          <label for="pga_pexels_key"><?php esc_html_e('API Key Pexels', 'plugins-alpha'); ?></label>
+          <label for="pga_pexels_key"><?php esc_html_e('API Key Pexels', 'alpha-suite'); ?></label>
         </th>
         <td>
           <p class="description">
             <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
             </a>
           </p>
           <input
@@ -644,23 +780,23 @@ class PluginsAlpha_Settings
             class="regular-text"
             value="<?php echo esc_attr($pex['key'] ?? ''); ?>">
           <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="pexels">
-            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); 
+            <?php // esc_html_e('Testar conexão', 'alpha-suite'); 
             ?>
           </button> -->
         </td>
       </tr>
     </table>
 
-    <h2 class="title"><?php esc_html_e('Unsplash (banco de imagens)', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('Unsplash (banco de imagens)', 'alpha-suite'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row">
-          <label for="pga_unsplash_key"><?php esc_html_e('Access Key Unsplash', 'plugins-alpha'); ?></label>
+          <label for="pga_unsplash_key"><?php esc_html_e('Access Key Unsplash', 'alpha-suite'); ?></label>
         </th>
         <td>
           <p class="description">
             <a href="https://unsplash.com/developers" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
             </a>
           </p>
           <input
@@ -670,23 +806,23 @@ class PluginsAlpha_Settings
             class="regular-text"
             value="<?php echo esc_attr($uns['access_key'] ?? ''); ?>">
           <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="unsplash">
-            <?php // esc_html_e('Testar conexão', 'plugins-alpha'); 
+            <?php // esc_html_e('Testar conexão', 'alpha-suite'); 
             ?>
           </button> -->
         </td>
       </tr>
     </table>
 
-    <h2 class="title"><?php esc_html_e('YouTube API', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('YouTube API', 'alpha-suite'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row">
-          <label for="pga_youtube_key"><?php esc_html_e('API Key do YouTube', 'plugins-alpha'); ?></label>
+          <label for="pga_youtube_key"><?php esc_html_e('API Key do YouTube', 'alpha-suite'); ?></label>
         </th>
         <td>
           <p class="description">
             <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'plugins-alpha'); ?>
+              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
             </a>
           </p>
           <input
@@ -697,7 +833,7 @@ class PluginsAlpha_Settings
             placeholder="AIza..."
             value="<?php echo esc_attr($yt['key'] ?? ''); ?>">
           <!-- <button type="button" class="button button-secondary pga-selftest-btn" data-provider="youtube">
-            <?php //esc_html_e('Testar conexão ', 'plugins-alpha'); 
+            <?php //esc_html_e('Testar conexão ', 'alpha-suite'); 
             ?>
           </button> -->
         </td>
@@ -712,12 +848,12 @@ class PluginsAlpha_Settings
     $gp_text = $o['orion_posts']['text_provider'] ?? 'openai';
     $gp_img  = $o['orion_posts']['images_provider'] ?? 'pollinations';
   ?>
-    <h2 class="title"><?php esc_html_e('Padrões de geração', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('Padrões de geração', 'alpha-suite'); ?></h2>
     <table class="form-table" role="presentation">
 
       <tr>
         <th scope="row">
-          <label for="pga_gp_locale"><?php esc_html_e('Idioma padrão', 'plugins-alpha'); ?></label>
+          <label for="pga_gp_locale"><?php esc_html_e('Idioma padrão', 'alpha-suite'); ?></label>
         </th>
         <td>
           <!-- select de locale existente -->
@@ -727,7 +863,7 @@ class PluginsAlpha_Settings
       <tr>
         <th scope="row">
           <label for="pga_gp_text_provider">
-            <?php esc_html_e('IA para geração de TEXTO', 'plugins-alpha'); ?>
+            <?php esc_html_e('IA para geração de TEXTO', 'alpha-suite'); ?>
           </label>
         </th>
         <td>
@@ -737,13 +873,14 @@ class PluginsAlpha_Settings
             <option value="mistral" <?php selected($gp_text, 'mistral'); ?>>Mistral</option>
             <option value="perplexity" <?php selected($gp_text, 'perplexity'); ?>>Perplexity</option>
             <option value="cohere" <?php selected($gp_text, 'cohere'); ?>>Cohere</option>
+            <option value="manus" <?php selected($gp_text, 'manus'); ?>>Manus</option>
             <option value="gemini" <?php selected($gp_text, 'gemini'); ?>>Gemini</option>
           </select>
 
           <p class="description">
             <?php esc_html_e(
               'Usada para gerar títulos, keywords, outlines, sections e artigos.',
-              'plugins-alpha'
+              'alpha-suite'
             ); ?>
           </p>
         </td>
@@ -752,7 +889,7 @@ class PluginsAlpha_Settings
       <tr>
         <th scope="row">
           <label for="pga_gp_img_provider">
-            <?php esc_html_e('IA / Fonte para IMAGEM', 'plugins-alpha'); ?>
+            <?php esc_html_e('IA / Fonte para IMAGEM', 'alpha-suite'); ?>
           </label>
         </th>
         <td>
@@ -770,14 +907,14 @@ class PluginsAlpha_Settings
               Unsplash
             </option>
             <option value="none" <?php selected($gp_img, 'none'); ?>>
-              <?php esc_html_e('Não gerar imagens automaticamente', 'plugins-alpha'); ?>
+              <?php esc_html_e('Não gerar imagens automaticamente', 'alpha-suite'); ?>
             </option>
           </select>
 
           <p class="description">
             <?php esc_html_e(
               'Usada para thumbnails e imagens geradas automaticamente pelo módulo Órion.',
-              'plugins-alpha'
+              'alpha-suite'
             ); ?>
           </p>
         </td>
@@ -796,12 +933,12 @@ class PluginsAlpha_Settings
     $text_color = $st['text_color'] ?? '#ffffff';
     $images_provider = $st['images_provider'] ?? 'pollinations';
     $text_provider   = $st['text_provider'] ?? 'openai';
-
+    $autoplay = isset($st['autoplay']) ? (int)$st['autoplay'] : 0;
   ?>
-    <h2 class="title"><?php esc_html_e('Publisher', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('Publisher', 'alpha-suite'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
-        <th scope="row"><label for="pga_st_pub_name"><?php esc_html_e('Nome do blog', 'plugins-alpha'); ?></label></th>
+        <th scope="row"><label for="pga_st_pub_name"><?php esc_html_e('Nome do blog', 'alpha-suite'); ?></label></th>
         <td><input name="pga_settings[stories][publisher_name]" id="pga_st_pub_name" type="text" class="regular-text" value="<?php echo esc_attr($st['publisher_name'] ?? get_bloginfo('name')); ?>"></td>
       </tr>
       <tr>
@@ -811,16 +948,16 @@ class PluginsAlpha_Settings
             <img id="pga_st_logo_prev" src="<?php echo esc_url($logo_url ?: ''); ?>" style="max-width:96px;height:auto;<?php echo $logo_url ? '' : 'display:none'; ?>">
           </div>
           <input type="hidden" id="pga_st_logo_id" name="pga_settings[stories][publisher_logo_id]" value="<?php echo (int)$logo_id; ?>">
-          <button type="button" class="button" data-pga-media-target="pga_st_logo_id" data-pga-preview="pga_st_logo_prev"><?php esc_html_e('Selecionar imagem', 'plugins-alpha'); ?></button>
-          <button type="button" class="button" data-pga-media-clear="pga_st_logo_id" style="margin-left:8px;"><?php esc_html_e('Remover', 'plugins-alpha'); ?></button>
+          <button type="button" class="button" data-pga-media-target="pga_st_logo_id" data-pga-preview="pga_st_logo_prev"><?php esc_html_e('Selecionar imagem', 'alpha-suite'); ?></button>
+          <button type="button" class="button" data-pga-media-clear="pga_st_logo_id" style="margin-left:8px;"><?php esc_html_e('Remover', 'alpha-suite'); ?></button>
         </td>
       </tr>
     </table>
 
-    <h2 class="title"><?php esc_html_e('Estilo & Playback (padrão)', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('Estilo & Playback (padrão)', 'alpha-suite'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
-        <th scope="row"><label for="pga_st_style"><?php esc_html_e('Preset de estilo', 'plugins-alpha'); ?></label></th>
+        <th scope="row"><label for="pga_st_style"><?php esc_html_e('Preset de estilo', 'alpha-suite'); ?></label></th>
         <td>
           <select name="pga_settings[stories][default_style]" id="pga_st_style">
             <?php foreach (['clean' => 'Clean', 'dark-left' => 'Dark Left', 'card' => 'Card', 'split' => 'Split', 'top' => 'Image top'] as $v => $lab): ?>
@@ -830,7 +967,7 @@ class PluginsAlpha_Settings
         </td>
       </tr>
       <tr>
-        <th scope="row"><label for="pga_st_font"><?php esc_html_e('Fonte', 'plugins-alpha'); ?></label></th>
+        <th scope="row"><label for="pga_st_font"><?php esc_html_e('Fonte', 'alpha-suite'); ?></label></th>
         <td>
           <select name="pga_settings[stories][default_font]" id="pga_st_font">
             <?php foreach (['system' => 'System UI', 'inter' => 'Inter', 'poppins' => 'Poppins', 'merriweather' => 'Merriweather', 'plusjakarta' => 'Plus Jakarta Sans'] as $v => $lab): ?>
@@ -840,13 +977,13 @@ class PluginsAlpha_Settings
         </td>
       </tr>
       <tr>
-        <th scope="row"><label for="pga_st_accent"><?php esc_html_e('Cor de destaque', 'plugins-alpha'); ?></label></th>
+        <th scope="row"><label for="pga_st_accent"><?php esc_html_e('Cor de destaque', 'alpha-suite'); ?></label></th>
         <td><input name="pga_settings[stories][accent_color]" id="pga_st_accent" type="color" class="regular-text pga-color-field" value="<?php echo esc_attr($st['accent_color'] ?? '#ffffff'); ?>"></td>
       </tr>
       <tr>
         <th scope="row">
           <label for="pga_st_background_color">
-            <?php esc_html_e('Cor de fundo padrão', 'plugins-alpha'); ?>
+            <?php esc_html_e('Cor de fundo padrão', 'alpha-suite'); ?>
           </label>
         </th>
         <td>
@@ -858,7 +995,7 @@ class PluginsAlpha_Settings
             class="regular-text pga-color-field"
             data-default-color="#000000" />
           <p class="description">
-            <?php esc_html_e('Cor de fundo usada por padrão nas Web Stories (caso o post não tenha uma cor própria).', 'plugins-alpha'); ?>
+            <?php esc_html_e('Cor de fundo usada por padrão nas Web Stories (caso o post não tenha uma cor própria).', 'alpha-suite'); ?>
           </p>
         </td>
       </tr>
@@ -866,7 +1003,7 @@ class PluginsAlpha_Settings
       <tr>
         <th scope="row">
           <label for="pga_st_text_color">
-            <?php esc_html_e('Cor do texto padrão', 'plugins-alpha'); ?>
+            <?php esc_html_e('Cor do texto padrão', 'alpha-suite'); ?>
           </label>
         </th>
         <td>
@@ -878,7 +1015,7 @@ class PluginsAlpha_Settings
             class="regular-text pga-color-field"
             data-default-color="#ffffff" />
           <p class="description">
-            <?php esc_html_e('Cor do texto usada por padrão nas Web Stories (caso o post não tenha uma cor própria).', 'plugins-alpha'); ?>
+            <?php esc_html_e('Cor do texto usada por padrão nas Web Stories (caso o post não tenha uma cor própria).', 'alpha-suite'); ?>
           </p>
         </td>
       </tr>
@@ -886,18 +1023,14 @@ class PluginsAlpha_Settings
       <tr>
         <th scope="row">Autoplay</th>
         <td>
-          <?php
-          $st = $opts['stories'] ?? [];
-          $autoplay = isset($st['autoplay']) ? (int)$st['autoplay'] : 1; // default 1
-          ?>
           <label>
             <input type="checkbox"
               name="pga_settings[stories][autoplay]"
               value="1"
               <?php checked($autoplay, 1); ?>>
-            <?php esc_html_e('Ativar autoplay por padrão', 'plugins-alpha'); ?>
+            <?php esc_html_e('Ativar autoplay por padrão', 'alpha-suite'); ?>
           </label>
-          <label for="pga_st_duration"><?php esc_html_e('Tempo por página (s)', 'plugins-alpha'); ?></label>
+          <label for="pga_st_duration"><?php esc_html_e('Tempo por página (s)', 'alpha-suite'); ?></label>
           <select name="pga_settings[stories][duration]" id="pga_st_duration">
             <?php foreach (['5', '7', '10', '12'] as $d): ?>
               <option value="<?php echo esc_attr($d); ?>" <?php selected(($st['duration'] ?? '7'), $d); ?>><?php echo esc_html($d) ?>s</option>
@@ -905,6 +1038,43 @@ class PluginsAlpha_Settings
           </select>
         </td>
       </tr>
+
+      <tr>
+        <th scope="row">
+          <label for="pga_st_language">Idioma padrão</label>
+        </th>
+        <td>
+          <?php $lang = $st['language'] ?? 'pt-BR'; ?>
+          <select name="pga_settings[stories][language]" id="pga_st_language">
+            <?php
+            $languages = [
+              'pt-BR' => 'Português (Brasil)',
+              'pt-PT' => 'Português (Portugal)',
+              'en-US' => 'English (United States)',
+              'en-GB' => 'English (United Kingdom)',
+              'es-ES' => 'Español (España)',
+              'es-MX' => 'Español (México)',
+              'fr-FR' => 'Français (France)',
+              'de-DE' => 'Deutsch (Deutschland)',
+              'it-IT' => 'Italiano',
+              'nl-NL' => 'Nederlands',
+              'ja-JP' => '日本語',
+              'ko-KR' => '한국어',
+              'zh-CN' => '中文 (简体)',
+              'zh-TW' => '中文 (繁體)',
+              'hi-IN' => 'हिन्दी',
+              'ar-SA' => 'العربية',
+              'ru-RU' => 'Русский'
+            ];
+
+            foreach ($languages as $code => $label) {
+              echo '<option value="' . esc_attr($code) . '" ' . selected($lang, $code, false) . '>' . esc_html($label) . '</option>';
+            }
+            ?>
+          </select>
+        </td>
+      </tr>
+
     </table>
 
     <h2 class="title">Analytics</h2>
@@ -913,44 +1083,45 @@ class PluginsAlpha_Settings
         <th scope="row">Modo</th>
         <td>
           <?php $mode = $st['ga_mode'] ?? 'auto'; ?>
-          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="auto" <?php checked($mode, 'auto');   ?>> <?php esc_html_e('Auto', 'plugins-alpha'); ?></label><br>
-          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="manual" <?php checked($mode, 'manual'); ?>> <?php esc_html_e('Manual', 'plugins-alpha'); ?></label><br>
-          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="off" <?php checked($mode, 'off');    ?>> <?php esc_html_e('Desativado', 'plugins-alpha'); ?></label>
+          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="auto" <?php checked($mode, 'auto');   ?>> <?php esc_html_e('Auto', 'alpha-suite'); ?></label><br>
+          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="manual" <?php checked($mode, 'manual'); ?>> <?php esc_html_e('Manual', 'alpha-suite'); ?></label><br>
+          <label><input type="radio" name="pga_settings[stories][ga_mode]" value="off" <?php checked($mode, 'off');    ?>> <?php esc_html_e('Desativado', 'alpha-suite'); ?></label>
         </td>
       </tr>
       <tr>
-        <th scope="row"><label for="pga_ga_manual_id"><?php esc_html_e('GA4 Measurement ID (Manual)', 'plugins-alpha'); ?></label></th>
+        <th scope="row"><label for="pga_ga_manual_id"><?php esc_html_e('GA4 Measurement ID (Manual)', 'alpha-suite'); ?></label></th>
         <td>
           <input name="pga_settings[stories][ga_manual_id]" id="pga_ga_manual_id" type="text" class="regular-text" placeholder="G-XXXXXXXXXX" value="<?php echo esc_attr($st['ga_manual_id'] ?? ''); ?>">
-          <p class="description"><?php esc_html_e('Usado apenas se “Manual” estiver selecionado.', 'plugins-alpha'); ?></p>
+          <p class="description"><?php esc_html_e('Usado apenas se “Manual” estiver selecionado.', 'alpha-suite'); ?></p>
         </td>
       </tr>
     </table>
 
-    <h2 class="title"><?php esc_html_e('Imagens / IA para Stories', 'plugins-alpha'); ?></h2>
+    <h2 class="title"><?php esc_html_e('Imagens / IA para Stories', 'alpha-suite'); ?></h2>
     <table class="form-table" role="presentation">
       <tr>
         <th scope="row">
-          <label for="pga_st_text_provider"><?php esc_html_e('IA para geração de TEXTO dos stories', 'plugins-alpha'); ?></label>
+          <label for="pga_st_text_provider"><?php esc_html_e('IA para geração de TEXTO dos stories', 'alpha-suite'); ?></label>
         </th>
         <td>
           <select id="pga_st_text_provider" name="pga_settings[stories][text_provider]">
             <option value="openai" <?php selected($text_provider, 'openai'); ?>>OpenAI</option>
             <option value="gemini" <?php selected($text_provider, 'gemini'); ?>>Gemini</option>
             <option value="claude" <?php selected($text_provider, 'claude'); ?>>Claude</option>
+            <option value="manus" <?php selected($text_provider, 'manus'); ?>>Manus</option>
             <option value="mistral" <?php selected($text_provider, 'mistral'); ?>>Mistral</option>
             <option value="cohere" <?php selected($text_provider, 'cohere'); ?>>Cohere</option>
             <option value="perplexity" <?php selected($text_provider, 'perplexity'); ?>>Perplexity</option>
           </select>
           <p class="description">
-            <?php esc_html_e('Usada para gerar as páginas de Web Stories (texto).', 'plugins-alpha'); ?>
+            <?php esc_html_e('Usada para gerar as páginas de Web Stories (texto).', 'alpha-suite'); ?>
           </p>
         </td>
       </tr>
 
       <tr>
         <th scope="row">
-          <label for="pga_st_img_provider"><?php esc_html_e('Provedor para IMAGENS dos stories', 'plugins-alpha'); ?></label>
+          <label for="pga_st_img_provider"><?php esc_html_e('Provedor para IMAGENS dos stories', 'alpha-suite'); ?></label>
         </th>
         <td>
           <select id="pga_st_img_provider" name="pga_settings[stories][images_provider]">
@@ -958,7 +1129,7 @@ class PluginsAlpha_Settings
             <option value="openai" <?php selected($images_provider, 'openai'); ?>>OpenAI (DALL·E)</option>
             <option value="pexels" <?php selected($images_provider, 'pexels'); ?>>Pexels</option>
             <option value="unsplash" <?php selected($images_provider, 'unsplash'); ?>>Unsplash</option>
-            <option value="none" <?php selected($images_provider, 'none'); ?>><?php esc_html_e('Não gerar imagens automáticas', 'plugins-alpha'); ?></option>
+            <option value="none" <?php selected($images_provider, 'none'); ?>><?php esc_html_e('Não gerar imagens automáticas', 'alpha-suite'); ?></option>
           </select>
         </td>
       </tr>

@@ -411,10 +411,10 @@
         if (!shell) return;
 
         // título por mode (se quiser)
-        if (mode === 'publish') pgaModalSetTitle(__('Metadados e Publicação', 'plugins-alpha'));
-        else if (mode === 'story') pgaModalSetTitle(__('Informações do Story', 'plugins-alpha'));
-        else if (mode === 'slide') pgaModalSetTitle(__('Editar Slide', 'plugins-alpha'));
-        else if (mode === 'image') pgaModalSetTitle(__('Gerar Imagem do Slide', 'plugins-alpha'));
+        if (mode === 'publish') pgaModalSetTitle(__('Metadados e Publicação', 'alpha-suite'));
+        else if (mode === 'story') pgaModalSetTitle(__('Informações do Story', 'alpha-suite'));
+        else if (mode === 'slide') pgaModalSetTitle(__('Editar Slide', 'alpha-suite'));
+        else if (mode === 'image') pgaModalSetTitle(__('Gerar Imagem do Slide', 'alpha-suite'));
 
         pgaModalShowMode(mode);
 
@@ -517,7 +517,7 @@
         try { data = await r.json(); } catch (e) { /* ignore */ }
 
         if (!r.ok) {
-            const msg = (data && (data.message || data.error)) || __('Falha no REST.', 'plugins-alpha');
+            const msg = (data && (data.message || data.error)) || __('Falha no REST.', 'alpha-suite');
             throw new Error(msg);
         }
 
@@ -606,6 +606,7 @@
             const gen_images = genImage?.checked ? 1 : 0;
 
             const startEl = document.getElementById('start-date');
+            const locale = document.getElementById('pga_ws_locale').value;
             const startData = startEl?.value ? String(startEl.value).trim() : '';
 
             const ids = (typeof window.collectSelectedPosts === 'function')
@@ -613,7 +614,7 @@
                 : [];
 
             if (!Array.isArray(ids) || ids.length === 0) {
-                Swal.fire({ icon: 'warning', title: __('Selecione postagens', 'plugins-alpha') });
+                Swal.fire({ icon: 'warning', title: __('Selecione postagens', 'alpha-suite') });
                 return;
             }
 
@@ -632,6 +633,7 @@
             const payloadBase = {
                 mode: 'single',
                 post_id: 0,
+                locale: locale,
                 publish_start,
                 meta: { title: '', desc: '', slug: '' },
                 genImage: gen_images,
@@ -641,14 +643,14 @@
             const totalJobs = ids.length;
 
             Swal.fire({
-                title: __('Gerando stories…', 'plugins-alpha'),
+                title: __('Gerando stories…', 'alpha-suite'),
                 html: `
                     <div style="height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px">
                     <div id="pga_progbar" style="height:8px;width:0%;background:#3b82f6;transition:width .25s ease"></div>
                     </div>
 
                     <div id="pga_current" style="text-align:center;font-size:12px;color:#6b7280;min-height:16px;">
-                    ${__('Preparando geração…', 'plugins-alpha')}
+                    ${__('Preparando geração…', 'alpha-suite')}
                     </div>
                 `,
                 allowOutsideClick: false,
@@ -669,7 +671,7 @@
                         const d = parseInt(done || 0, 10) || 0;
 
                         if (refs.status) {
-                            refs.status.textContent = sprintf(__('Progresso: %d de %d', 'plugins-alpha'), d, refs.total);
+                            refs.status.textContent = sprintf(__('Progresso: %d de %d', 'alpha-suite'), d, refs.total);
                         }
 
                         if (refs.bar) {
@@ -683,13 +685,13 @@
                     const created = []; // {story_id, post_id}
 
                     try {
-                        update(0, __('Iniciando…', 'plugins-alpha'));
+                        update(0, __('Iniciando…', 'alpha-suite'));
 
                         for (let i = 0; i < ids.length; i++) {
                             const pid = parseInt(ids[i], 10) || 0;
                             if (!pid) continue;
 
-                            update(i, sprintf(__('Gerando %d de %d…', 'plugins-alpha'), i + 1, refs.total));
+                            update(i, sprintf(__('Gerando %d de %d…', 'alpha-suite'), i + 1, refs.total));
 
                             // base = publish_start; agenda 1 por dia e horário aleatório entre 06:00 e 12:00
                             const base = String(publish_start).trim();
@@ -718,13 +720,13 @@
                             const mi = String(dt.getMinutes()).padStart(2, '0');
                             const publish_at = `${yyyy}-${mm}-${dd} ${hh}:${mi}:00`;
 
-                            const itemPayload = { ...payloadBase, post_id: pid, publish_start: publish_at };
+                            const itemPayload = { ...payloadBase, post_id: pid, locale: locale, publish_start: publish_at };
                             const data = await pgaPostJSON('/ws/generate', itemPayload);
 
                             const sid = parseInt((data && (data.story_id || data.id)) || '0', 10) || 0;
                             if (sid) created.push({ story_id: sid, post_id: pid });
 
-                            update(i + 1, sprintf(__('Concluído %d de %d', 'plugins-alpha'), i + 1, refs.total));
+                            update(i + 1, sprintf(__('Concluído %d de %d', 'alpha-suite'), i + 1, refs.total));
                         }
 
                         Swal.close();
@@ -735,25 +737,25 @@
                 ${created.map(it => {
                                 const editUrl = (window.pgaWsEditUrlBase)
                                     ? (window.pgaWsEditUrlBase + String(it.story_id))
-                                    : siteUrl + '/wp-admin/admin.php?page=plugins-alpha-ws-generator&story_id=' + String(it.story_id);
+                                    : siteUrl + '/wp-admin/admin.php?page=alpha-suite-ws-generator&story_id=' + String(it.story_id);
                                 return `<li style="margin:6px 0;">
                                     <a href="${editUrl}" target="_blank" rel="noopener noreferrer"
                                     style="text-decoration:none;font-weight:600;">
-                                    ${sprintf(__('Editar story #%d', 'plugins-alpha'), it.story_id)}
+                                    ${sprintf(__('Editar story #%d', 'alpha-suite'), it.story_id)}
                                     </a>
                                 </li>`;
                             }).join('')}
                             </ul>`
                             : `<div style="margin-top:8px;color:#6b7280;font-size:12px;">
-                                ${__('Nenhum story foi criado.', 'plugins-alpha')}
+                                ${__('Nenhum story foi criado.', 'alpha-suite')}
                             </div>`;
 
                         await Swal.fire({
                             icon: 'success',
-                            title: __('Concluído!', 'plugins-alpha'),
+                            title: __('Concluído!', 'alpha-suite'),
                             html: `
                             <div style="text-align:center;font-size:13px;color:#374151;margin-bottom:6px;">
-                                ${sprintf(__('Foram gerados %d stories.', 'plugins-alpha'), created.length)}
+                                ${sprintf(__('Foram gerados %d stories.', 'alpha-suite'), created.length)}
                             </div>
                             ${itemsHtml}
                             `,
@@ -764,8 +766,8 @@
                         Swal.close();
                         Swal.fire({
                             icon: 'error',
-                            title: __('Erro', 'plugins-alpha'),
-                            text: (e && e.message) ? e.message : __('Falha ao gerar.', 'plugins-alpha')
+                            title: __('Erro', 'alpha-suite'),
+                            text: (e && e.message) ? e.message : __('Falha ao gerar.', 'alpha-suite')
                         });
                     }
                 }
@@ -774,8 +776,8 @@
         } catch (e) {
             Swal.fire({
                 icon: 'error',
-                title: __('Erro', 'plugins-alpha'),
-                text: (e && e.message) ? e.message : __('Falha ao iniciar.', 'plugins-alpha')
+                title: __('Erro', 'alpha-suite'),
+                text: (e && e.message) ? e.message : __('Falha ao iniciar.', 'alpha-suite')
             });
         }
     };
@@ -903,7 +905,7 @@
             // ✅ se era novo (sem story_id) e backend criou -> redireciona pro builder com o ID
             if (!story_id && newId) {
                 const url = new URL(window.location.href);
-                url.searchParams.set('page', 'plugins-alpha-ws-generator');
+                url.searchParams.set('page', 'alpha-suite-ws-generator');
                 url.searchParams.set('story_id', String(newId));
                 window.location.href = url.toString();
                 return res;
@@ -917,7 +919,7 @@
     }
 
     function deleteStoryRedirect(trashUrl) {
-        const back = `${window.location.origin}/alpha/wp-admin/admin.php?page=plugins-alpha-ws-generator`;
+        const back = `${window.location.origin}/alpha/wp-admin/admin.php?page=alpha-suite-ws-generator`;
 
         // se não veio URL, volta pro builder
         if (!trashUrl) {
@@ -1209,11 +1211,22 @@
 
         } catch (e) {
             hideSkeleton();
-            const backUrl = siteUrl + '/wp-admin/admin.php?page=plugins-alpha-ws-generator';
 
-            window.location.href = backUrl;
-            Swal.fire({ icon: 'error', title: 'Erro', text: e?.message || 'Falha ao carregar story.' });
+            const backUrl = siteUrl + '/wp-admin/admin.php?page=alpha-suite-ws-generator';
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro',
+                text: e?.message || 'Falha ao carregar story.',
+                timer: 3000,
+                timerProgressBar: true,
+                showConfirmButton: false,
+                didClose: () => {
+                    window.location.href = backUrl;
+                }
+            });
         }
+
     }
 
     // GET helper (igual seu post helper)

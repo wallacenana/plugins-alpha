@@ -29,8 +29,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       if (!window.PGA_IS_GENERATING && !window.PGA_IS_DIRTY) return;
 
       const msg = window.PGA_IS_GENERATING
-        ? __('O conteúdo ainda está sendo gerado. Sair da página pode interromper a criação. Deseja mesmo sair?', 'plugins-alpha')
-        : __('Existem alterações não salvas. Deseja mesmo sair?', 'plugins-alpha');
+        ? __('O conteúdo ainda está sendo gerado. Sair da página pode interromper a criação. Deseja mesmo sair?', 'alpha-suite')
+        : __('Existem alterações não salvas. Deseja mesmo sair?', 'alpha-suite');
 
       e.preventDefault();
       e.returnValue = msg;
@@ -136,7 +136,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       // init preso no box certo (evita clique cair no primeiro)
       $sel.select2({
         width: '100%',
-        placeholder: __('Selecione posts para link interno', 'plugins-alpha'),
+        placeholder: __('Selecione posts para link interno', 'alpha-suite'),
         allowClear: true,
         dropdownParent: $box.length ? $box : $(document.body)
       });
@@ -164,10 +164,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     if (totalBoxes <= 1) {
       const ok = await pgaConfirm({
         icon: 'warning',
-        title: __('Limpar este grupo?', 'plugins-alpha'),
-        text: __('Este é o único grupo. Em vez de remover, vamos apenas limpar os campos.', 'plugins-alpha'),
-        confirmButtonText: __('Limpar', 'plugins-alpha'),
-        cancelButtonText: __('Cancelar', 'plugins-alpha')
+        title: __('Limpar este grupo?', 'alpha-suite'),
+        text: __('Este é o único grupo. Em vez de remover, vamos apenas limpar os campos.', 'alpha-suite'),
+        confirmButtonText: __('Limpar', 'alpha-suite'),
+        cancelButtonText: __('Cancelar', 'alpha-suite')
       });
 
       if (!ok) return;
@@ -187,10 +187,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // confirmação para remover o grupo
     const ok = await pgaConfirm({
       icon: 'warning',
-      title: __('Remover grupo?', 'plugins-alpha'),
-      text: __('Este grupo de geração será removido (as keywords dentro dele não serão salvas).', 'plugins-alpha'),
-      confirmButtonText: __('Remover', 'plugins-alpha'),
-      cancelButtonText: __('Cancelar', 'plugins-alpha')
+      title: __('Remover grupo?', 'alpha-suite'),
+      text: __('Este grupo de geração será removido (as keywords dentro dele não serão salvas).', 'alpha-suite'),
+      confirmButtonText: __('Remover', 'alpha-suite'),
+      cancelButtonText: __('Cancelar', 'alpha-suite')
     });
 
     if (!ok) return;
@@ -218,10 +218,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   // === Atualiza título de UM box com base nos campos ===
   function pgaUpdateBoxTitle($box) {
     // Modelo
-    const model = ($box.find('.pga_template_key option:selected').text() || '').trim() || __('Gerador', 'plugins-alpha');
+    const model = ($box.find('.pga_template_key option:selected').text() || '').trim() || __('Gerador', 'alpha-suite');
 
     // Categoria (mais robusto pra wp_dropdown_categories)
-    let cat = __('Sem categoria', 'plugins-alpha');
+    let cat = __('Sem categoria', 'alpha-suite');
     const $catSel = $box.find('.pga_category').first();
     if ($catSel.length) {
       const el = $catSel[0];
@@ -239,16 +239,16 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     const perDay = $box.find('.pga_per_day').val() || '0';
 
     // Extensão
-    const lengthLabel = ($box.find('.pga_length option:selected').text() || '').trim() || __('Extensão', 'plugins-alpha');
+    const lengthLabel = ($box.find('.pga_length option:selected').text() || '').trim() || __('Extensão', 'alpha-suite');
 
     // 🔹 título curto (visível)
     const visibleTitle = `<span class="pga-model">${model}</span> <span class="pga-category-colapse">${cat}</span>`;
 
     // 🔹 título completo (tooltip)
-    const postsLabel = sprintf(_n('%s post', '%s posts', Number(total), 'plugins-alpha'), total);
+    const postsLabel = sprintf(_n('%s post', '%s posts', Number(total), 'alpha-suite'), total);
 
     const fullTitle = sprintf(
-      __('%1$s – %2$s – %3$s – %4$s – %5$s/dia – %6$s', 'plugins-alpha'),
+      __('%1$s – %2$s – %3$s – %4$s – %5$s/dia – %6$s', 'alpha-suite'),
       model,
       cat,
       loc,
@@ -398,7 +398,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     $clone.attr('data-gen', nextId);
     $clone.removeClass('pga-collapse--open');
-    $clone.find('.pga-gen-title').text(sprintf(__('Geração %d', 'plugins-alpha'), nextId));
+    $clone.find('.pga-gen-title').text(sprintf(__('Geração %d', 'alpha-suite'), nextId));
 
     // ✅ REMOVE SUJEIRA DO SELECT2 do HTML clonado
     $clone.find('.select2-container').remove();
@@ -506,31 +506,31 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
           const safe = String(text || '').replace(/[<>&]/g, s => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[s]));
           await Swal.fire({
             icon: 'error',
-            title: __('Resposta não-JSON', 'plugins-alpha'),
+            title: __('Resposta não-JSON', 'alpha-suite'),
             html: sprintf(
-              __('<p><b>HTTP</b>: %d</p><pre style="white-space:pre-wrap;max-height:320px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px;">%s</pre>', 'plugins-alpha'),
+              __('<p><b>HTTP</b>: %d</p><pre style="white-space:pre-wrap;max-height:320px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px;">%s</pre>', 'alpha-suite'),
               res.status,
               safe
             )
           });
         } else {
-          alert(sprintf(__('Erro: resposta não-JSON (%d)', 'plugins-alpha'), res.status));
+          alert(sprintf(__('Erro: resposta não-JSON (%d)', 'alpha-suite'), res.status));
         }
       }
 
-      const err = new Error(sprintf(__('Non-JSON %d', 'plugins-alpha'), res.status));
+      const err = new Error(sprintf(__('Non-JSON %d', 'alpha-suite'), res.status));
       err.status = res.status;
       err.rawBody = text;
       throw err;
     }
 
     if (!res.ok) {
-      const msg = (data && (data.message || data.code)) || sprintf(__('HTTP %d', 'plugins-alpha'), res.status);
+      const msg = (data && (data.message || data.code)) || sprintf(__('HTTP %d', 'alpha-suite'), res.status);
       if (!silent) {
         if (window.Swal) {
-          await Swal.fire({ icon: 'error', title: __('Falha na chamada', 'plugins-alpha'), text: String(msg) });
+          await Swal.fire({ icon: 'error', title: __('Falha na chamada', 'alpha-suite'), text: String(msg) });
         } else {
-          alert(sprintf(__('Erro: %s', 'plugins-alpha'), String(msg)));
+          alert(sprintf(__('Erro: %s', 'alpha-suite'), String(msg)));
         }
       }
       return
@@ -582,8 +582,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     if (typeof getQueryParam === 'function' && getQueryParam('settings-updated') === '1') {
       if (window.Swal) {
         await Swal.fire({
-          icon: __('success', 'plugins-alpha'),
-          title: __('Configurações salvas', 'plugins-alpha'),
+          icon: __('success', 'alpha-suite'),
+          title: __('Configurações salvas', 'alpha-suite'),
           timer: 1600,
           showConfirmButton: false
         });
@@ -605,7 +605,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       testBtn.type = 'button';
       testBtn.id = 'pga_test_openai';
       testBtn.className = 'button';
-      testBtn.textContent = __('Testar OpenAI', 'plugins-alpha');
+      testBtn.textContent = __('Testar OpenAI', 'alpha-suite');
       testBtn.style.marginLeft = '8px';
       keyEl.parentNode.insertBefore(testBtn, keyEl.nextSibling);
     }
@@ -624,8 +624,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       if (!key) {
         await Swal.fire({
           icon: 'warning',
-          title: __('Informe a chave', 'plugins-alpha'),
-          text: __('Digite a chave OpenAI antes de testar.', 'plugins-alpha'),
+          title: __('Informe a chave', 'alpha-suite'),
+          text: __('Digite a chave OpenAI antes de testar.', 'alpha-suite'),
           timer: 2200,
           showConfirmButton: false
         });
@@ -638,7 +638,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         await safeCloseSwal();
         Swal.fire({
           icon: 'info',
-          title: __('Testando OpenAI…', 'plugins-alpha'),
+          title: __('Testando OpenAI…', 'alpha-suite'),
           allowOutsideClick: false,
           allowEscapeKey: false,
           showConfirmButton: false,
@@ -668,7 +668,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
         if (!res.ok) {
           const msg = j && (j.message || j.error || j.code) ? (j.message || j.error || j.code) : `HTTP ${res.status}`;
-          await Swal.fire({ icon: 'error', title: __('Erro ao testar', 'plugins-alpha'), text: msg });
+          await Swal.fire({ icon: 'error', title: __('Erro ao testar', 'alpha-suite'), text: msg });
           return;
         }
 
@@ -676,7 +676,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
         await Swal.fire({
           icon: j.ok ? 'success' : 'warning',
-          title: j.ok ? __('Conectado!', 'plugins-alpha') : __('Conexão incompleta', 'plugins-alpha'),
+          title: j.ok ? __('Conectado!', 'alpha-suite') : __('Conexão incompleta', 'alpha-suite'),
           html: sprintf(
             __(
               '<div style="text-align:left">' +
@@ -684,13 +684,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
               '<div><b>%s</b> %s ms</div>' +
               '<div><b>%s</b> <code>%s</code></div>' +
               '</div>',
-              'plugins-alpha'
+              'alpha-suite'
             ),
-            __('Modelo:', 'plugins-alpha'),
+            __('Modelo:', 'alpha-suite'),
             (j.model || payload.model || ''),
-            __('Latência:', 'plugins-alpha'),
+            __('Latência:', 'alpha-suite'),
             (j.latencyMs ?? '?'),
-            __('Retorno:', 'plugins-alpha'),
+            __('Retorno:', 'alpha-suite'),
             safeSample
           ),
           timer: 2600,
@@ -702,8 +702,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         await safeCloseSwal();
         await Swal.fire({
           icon: 'error',
-          title: __('Falha no teste', 'plugins-alpha'),
-          text: err && err.message ? err.message : String(err || __('Erro desconhecido', 'plugins-alpha'))
+          title: __('Falha no teste', 'alpha-suite'),
+          text: err && err.message ? err.message : String(err || __('Erro desconhecido', 'alpha-suite'))
         });
       } finally {
         testBtn.disabled = false;
@@ -838,7 +838,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   }
 
   // Helpers SweetAlert2
-  async function swalLoading(title = __('Processando…', 'plugins-alpha')) {
+  async function swalLoading(title = __('Processando…', 'alpha-suite')) {
     return Swal.fire({
       title,
       allowOutsideClick: false,
@@ -847,14 +847,14 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       didOpen: () => Swal.showLoading()
     });
   }
-  async function swalSuccess(html, title = __('Tudo certo!', 'plugins-alpha')) {
-    return Swal.fire({ icon: 'success', title, html, confirmButtonText: __('Ok', 'plugins-alpha') });
+  async function swalSuccess(html, title = __('Tudo certo!', 'alpha-suite')) {
+    return Swal.fire({ icon: 'success', title, html, confirmButtonText: __('Ok', 'alpha-suite') });
   }
-  async function swalError(html, title = __('Ops…', 'plugins-alpha')) {
-    return Swal.fire({ icon: 'error', title, html, confirmButtonText: __('Entendi', 'plugins-alpha') });
+  async function swalError(html, title = __('Ops…', 'alpha-suite')) {
+    return Swal.fire({ icon: 'error', title, html, confirmButtonText: __('Entendi', 'alpha-suite') });
   }
-  async function swalWarn(html, title = __('Atenção', 'plugins-alpha')) {
-    return Swal.fire({ icon: 'warning', title, html, confirmButtonText: __('Ok', 'plugins-alpha') });
+  async function swalWarn(html, title = __('Atenção', 'alpha-suite')) {
+    return Swal.fire({ icon: 'warning', title, html, confirmButtonText: __('Ok', 'alpha-suite') });
   }
 
   // Helper unificado para confirmações (Swal ou fallback confirm)
@@ -863,8 +863,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       title = '',
       text = '',
       icon = 'warning',
-      confirmButtonText = __('Ok', 'plugins-alpha'),
-      cancelButtonText = __('Cancelar', 'plugins-alpha')
+      confirmButtonText = __('Ok', 'alpha-suite'),
+      cancelButtonText = __('Cancelar', 'alpha-suite')
     } = opts || {};
 
     if (window.Swal) {
@@ -880,7 +880,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     }
 
     // fallback simples
-    return confirm(String((title || text) || __('Confirma?', 'plugins-alpha')));
+    return confirm(String((title || text) || __('Confirma?', 'alpha-suite')));
   }
 
   // Atualiza UI de status/mensagem da licença
@@ -907,13 +907,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     const pid = ($pid.val() || '').trim();
 
     if (!email || !pid) {
-      await swalWarn(__('Preencha <b>e-mail</b> e <b>ID da compra</b> antes de ativar.', 'plugins-alpha'));
+      await swalWarn(__('Preencha <b>e-mail</b> e <b>ID da compra</b> antes de ativar.', 'alpha-suite'));
       return;
     }
 
     try {
       $btn.prop('disabled', true);
-      await swalLoading(__('Ativando licença…', 'plugins-alpha'));
+      await swalLoading(__('Ativando licença…', 'alpha-suite'));
 
       const data = await fetchJSON(`${REST}/license/activate`, {
         method: 'POST',
@@ -929,23 +929,23 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
           <div style="text-align:left">
             <div><b>Status:</b> ${data.license?.status || '-'}</div>
             <div><b>E-mail:</b> ${data.license?.email || '-'}</div>
-            <div><b>${__('Compra:', 'plugins-alpha')}</b> ${data.license?.purchase_id || '-'}</div>
+            <div><b>${__('Compra:', 'alpha-suite')}</b> ${data.license?.purchase_id || '-'}</div>
             ${data.license?.message ? `<div style="margin-top:6px">${data.license.message}</div>` : ''}
           </div>
         `;
-        await swalSuccess(html, __('Licença ativada!', 'plugins-alpha'));
+        await swalSuccess(html, __('Licença ativada!', 'alpha-suite'));
       } else {
         const html = `
           <div style="text-align:left">
             <div><b>Status:</b> ${data.license?.status || 'INACTIVE'}</div>
-            ${data.license?.message ? `<div style="margin-top:6px">${data.license.message}</div>` : `<div style="margin-top:6px">${__('Não foi possível ativar. Verifique os dados.', 'plugins-alpha')}</div>`}
+            ${data.license?.message ? `<div style="margin-top:6px">${data.license.message}</div>` : `<div style="margin-top:6px">${__('Não foi possível ativar. Verifique os dados.', 'alpha-suite')}</div>`}
           </div>
         `;
-        await swalWarn(html, __('Licença não ativa', 'plugins-alpha'));
+        await swalWarn(html, __('Licença não ativa', 'alpha-suite'));
       }
     } catch (err) {
       Swal.close();
-      const fallbackMsg = __('Erro desconhecido.<br><small>Tente novamente em instantes.</small>', 'plugins-alpha');
+      const fallbackMsg = __('Erro desconhecido.<br><small>Tente novamente em instantes.</small>', 'alpha-suite');
       await swalError((err && err.message) ? String(err.message) : fallbackMsg);
     } finally {
 
@@ -1059,10 +1059,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     const ok = await pgaConfirm({
       icon: 'question',
-      title: __('Gerar keywords?', 'plugins-alpha'),
-      text: __('Isso vai substituir o conteúdo do campo por keywords geradas. Tem certeza?', 'plugins-alpha'),
-      confirmButtonText: __('Gerar', 'plugins-alpha'),
-      cancelButtonText: __('Cancelar', 'plugins-alpha')
+      title: __('Gerar keywords?', 'alpha-suite'),
+      text: __('Isso vai substituir o conteúdo do campo por keywords geradas. Tem certeza?', 'alpha-suite'),
+      confirmButtonText: __('Gerar', 'alpha-suite'),
+      cancelButtonText: __('Cancelar', 'alpha-suite')
     });
 
     if (!ok) return;
@@ -1074,8 +1074,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     // ✅ abre o loading ANTES do fetch
     Swal.fire({
-      title: __('Gerando keywords...', 'plugins-alpha'),
-      text: __('Aguarde um instante.', 'plugins-alpha'),
+      title: __('Gerando keywords...', 'alpha-suite'),
+      text: __('Aguarde um instante.', 'alpha-suite'),
       allowOutsideClick: false,
       allowEscapeKey: false,
       didOpen: () => {
@@ -1102,21 +1102,21 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       });
 
       if (!j || !j.ok) {
-        throw new Error((j && j.message) ? j.message : __('Falha ao gerar keywords.', 'plugins-alpha'));
+        throw new Error((j && j.message) ? j.message : __('Falha ao gerar keywords.', 'alpha-suite'));
       }
 
       $ta.val(pgaNormalizeKeywordsText(j.keywords_text || ''));
 
       // fecha loading e mostra sucesso
       Swal.close();
-      await Swal.fire({ icon: 'success', title: __('Pronto', 'plugins-alpha'), text: __('Keywords geradas.', 'plugins-alpha') });
+      await Swal.fire({ icon: 'success', title: __('Pronto', 'alpha-suite'), text: __('Keywords geradas.', 'alpha-suite') });
 
       if (typeof window.PGA_saveGroupsToStorage === 'function') {
         window.PGA_saveGroupsToStorage();
       }
     } catch (err) {
       Swal.close();
-      Swal.fire({ icon: 'error', title: __('Erro', 'plugins-alpha'), text: String(err.message || err) });
+      Swal.fire({ icon: 'error', title: __('Erro', 'alpha-suite'), text: String(err.message || err) });
     } finally {
       $btn.data('loading', 0).prop('disabled', false);
     }
@@ -1158,11 +1158,11 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     if (!btn) return;
 
     const { ajaxurl, nonce } = cfg();
-    if (!ajaxurl || !nonce) { alert(__('Config export ausente (ajaxurl/nonce).', 'plugins-alpha')); return; }
+    if (!ajaxurl || !nonce) { alert(__('Config export ausente (ajaxurl/nonce).', 'alpha-suite')); return; }
 
     try {
       if (window.Swal) {
-        Swal.fire({ title: __('Exportando…', 'plugins-alpha'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: __('Exportando…', 'alpha-suite'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
       }
 
       const j = await fetchJSON(ajaxurl + '?action=pga_orion_prompts_export', {
@@ -1171,7 +1171,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
         body: new URLSearchParams({ _ajax_nonce: nonce })
       });
-      if (!j || !j.success) throw new Error(j?.data?.message || __('Falha no export.', 'plugins-alpha'));
+      if (!j || !j.success) throw new Error(j?.data?.message || __('Falha no export.', 'alpha-suite'));
 
       const blob = new Blob([JSON.stringify(j.data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1213,11 +1213,11 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     if (!file) return;
 
     const { ajaxurl, nonce } = cfg();
-    if (!ajaxurl || !nonce) { alert(__('Config import ausente (ajaxurl/nonce).', 'plugins-alpha')); return; }
+    if (!ajaxurl || !nonce) { alert(__('Config import ausente (ajaxurl/nonce).', 'alpha-suite')); return; }
 
     try {
       if (window.Swal) {
-        Swal.fire({ title: __('Lendo arquivo…', 'plugins-alpha'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: __('Lendo arquivo…', 'alpha-suite'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
       }
 
       // 1) PREPARE
@@ -1227,12 +1227,12 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       fd.append('file', file);
 
       const j = await fetchJSON(ajaxurl, { method: 'POST', credentials: 'same-origin', body: fd });
-      if (!j || !j.success) throw new Error(j?.data?.message || __('Falha ao ler o JSON.', 'plugins-alpha'));
+      if (!j || !j.success) throw new Error(j?.data?.message || __('Falha ao ler o JSON.', 'alpha-suite'));
 
       const token = j.data?.token || '';
       const items = Array.isArray(j.data?.items) ? j.data.items : [];
-      if (!token) throw new Error(__('Token não retornado no prepare.', 'plugins-alpha'));
-      if (!items.length) throw new Error(__('Nada importável encontrado no arquivo.', 'plugins-alpha'));
+      if (!token) throw new Error(__('Token não retornado no prepare.', 'alpha-suite'));
+      if (!items.length) throw new Error(__('Nada importável encontrado no arquivo.', 'alpha-suite'));
 
       // 2) MODAL
       // items: [{key, type:'template|prompt', tpl, stage, hasExisting, size}]
@@ -1259,15 +1259,15 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
         const headerExists = list.some(x => x.hasExisting);
         const headerMeta = headerExists
-          ? `<span style="color:#b45309;margin-left:6px">${__('tem itens existentes', 'plugins-alpha')}</span>`
-          : `<span style="color:#15803d;margin-left:6px">${__('novo', 'plugins-alpha')}</span>`;
+          ? `<span style="color:#b45309;margin-left:6px">${__('tem itens existentes', 'alpha-suite')}</span>`
+          : `<span style="color:#15803d;margin-left:6px">${__('novo', 'alpha-suite')}</span>`;
 
         // lista interna (prompts)
         const inner = list.map((it) => {
           // você pode esconder a linha "template" e só mostrar prompts
           if (it.type === 'template') return '';
 
-          const meta = it.hasExisting ? __('já existe', 'plugins-alpha') : __('novo', 'plugins-alpha');
+          const meta = it.hasExisting ? __('já existe', 'alpha-suite') : __('novo', 'alpha-suite');
           const metaColor = it.hasExisting ? '#b45309' : '#15803d';
           const small = it.size ? ` <span style="color:#666">(${Number(it.size)} chars)</span>` : '';
 
@@ -1297,9 +1297,9 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       </div>
 
       <details style="margin-top:8px">
-        <summary style="cursor:pointer;color:#111">${__('ver itens', 'plugins-alpha')}</summary>
+        <summary style="cursor:pointer;color:#111">${__('ver itens', 'alpha-suite')}</summary>
         <div style="margin-top:8px;max-height:260px;overflow:auto;padding-right:6px">
-          ${inner || `<div style="color:#666">${__('Nenhum prompt encontrado neste modelo.', 'plugins-alpha')}</div>`}
+          ${inner || `<div style="color:#666">${__('Nenhum prompt encontrado neste modelo.', 'alpha-suite')}</div>`}
         </div>
       </details>
     </div>
@@ -1309,7 +1309,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       const modalHtml = `
   <div style="text-align:left">
     <div style="margin-bottom:10px;color:#444;font-size:13px">
-      ${__('Selecione o(s) modelo(s) para importar. Você pode abrir e desmarcar stages específicos.', 'plugins-alpha')}
+      ${__('Selecione o(s) modelo(s) para importar. Você pode abrir e desmarcar stages específicos.', 'alpha-suite')}
     </div>
 
     <div style="max-height:380px;overflow:auto">
@@ -1319,11 +1319,11 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
       <label style="display:flex;gap:8px;align-items:center;font-size:13px">
         <input type="checkbox" id="pga-import-overwrite" />
-        ${__('Sobrescrever itens existentes', 'plugins-alpha')}
+        ${__('Sobrescrever itens existentes', 'alpha-suite')}
       </label>
 
-      <button type="button" class="button" id="pga-import-select-all">${__('Marcar tudo', 'plugins-alpha')}</button>
-      <button type="button" class="button" id="pga-import-select-none">${__('Desmarcar tudo', 'plugins-alpha')}</button>
+      <button type="button" class="button" id="pga-import-select-all">${__('Marcar tudo', 'alpha-suite')}</button>
+      <button type="button" class="button" id="pga-import-select-none">${__('Desmarcar tudo', 'alpha-suite')}</button>
     </div>
   </div>
 `;
@@ -1332,12 +1332,12 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       let res;
       if (window.Swal) {
         res = await Swal.fire({
-          title: __('Importar (seleção)', 'plugins-alpha'),
+          title: __('Importar (seleção)', 'alpha-suite'),
           html: modalHtml,
           width: 760,
           showCancelButton: true,
-          confirmButtonText: __('Importar selecionados', 'plugins-alpha'),
-          cancelButtonText: __('Cancelar', 'plugins-alpha'),
+          confirmButtonText: __('Importar selecionados', 'alpha-suite'),
+          cancelButtonText: __('Cancelar', 'alpha-suite'),
           focusConfirm: false,
           didOpen: () => {
             // marcar/desmarcar geral
@@ -1375,7 +1375,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
             const overwrite = !!document.getElementById('pga-import-overwrite')?.checked;
 
             if (!keys.length) {
-              Swal.showValidationMessage(__('Selecione ao menos 1 item.', 'plugins-alpha'));
+              Swal.showValidationMessage(__('Selecione ao menos 1 item.', 'alpha-suite'));
               return false;
             }
             return { keys, overwrite };
@@ -1389,7 +1389,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
       // 3) APPLY
       if (window.Swal) {
-        Swal.fire({ title: __('Importando…', 'plugins-alpha'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: __('Importando…', 'alpha-suite'), allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
       }
 
       const body = new URLSearchParams();
@@ -1405,23 +1405,23 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
         body
       });
-      if (!j2 || !j2.success) throw new Error(j2?.data?.message || __('Falha ao aplicar import.', 'plugins-alpha'));
+      if (!j2 || !j2.success) throw new Error(j2?.data?.message || __('Falha ao aplicar import.', 'alpha-suite'));
 
       if (window.Swal) {
         Swal.fire({
           icon: 'success',
-          title: __('Importado!', 'plugins-alpha'),
-          text: j2.data?.message || __('Itens aplicados.', 'plugins-alpha'),
+          title: __('Importado!', 'alpha-suite'),
+          text: j2.data?.message || __('Itens aplicados.', 'alpha-suite'),
         }).then(() => {
           window.location.reload();
         });
       } else {
-        alert(j2.data?.message || __('Importado!', 'plugins-alpha'));
+        alert(j2.data?.message || __('Importado!', 'alpha-suite'));
         window.location.reload();
       }
 
     } catch (err) {
-      if (window.Swal) Swal.fire({ icon: 'error', title: __('Erro', 'plugins-alpha'), text: String(err.message || err) });
+      if (window.Swal) Swal.fire({ icon: 'error', title: __('Erro', 'alpha-suite'), text: String(err.message || err) });
       else alert(String(err.message || err));
     } finally {
       try { this.value = ''; } catch (e) { }
@@ -1453,24 +1453,24 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
         body
       });
-      if (!j || !j.success) throw new Error(j?.data?.message || __('Falha ao remover.', 'plugins-alpha'));
+      if (!j || !j.success) throw new Error(j?.data?.message || __('Falha ao remover.', 'alpha-suite'));
       tr.remove();
     };
 
     const ok = await pgaConfirm({
       icon: 'warning',
-      title: __('Remover modelo?', 'plugins-alpha'),
-      text: __('Isso apaga do banco o modelo e TODOS os prompts dele.', 'plugins-alpha'),
-      confirmButtonText: __('Remover de vez', 'plugins-alpha'),
-      cancelButtonText: __('Cancelar', 'plugins-alpha')
+      title: __('Remover modelo?', 'alpha-suite'),
+      text: __('Isso apaga do banco o modelo e TODOS os prompts dele.', 'alpha-suite'),
+      confirmButtonText: __('Remover de vez', 'alpha-suite'),
+      cancelButtonText: __('Cancelar', 'alpha-suite')
     });
     if (!ok) return;
     try {
-      if (window.Swal) Swal.fire({ title: __('Removendo…', 'plugins-alpha'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      if (window.Swal) Swal.fire({ title: __('Removendo…', 'alpha-suite'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
       await go();
-      if (window.Swal) Swal.fire({ icon: 'success', title: __('Removido', 'plugins-alpha'), timer: 900, showConfirmButton: false });
+      if (window.Swal) Swal.fire({ icon: 'success', title: __('Removido', 'alpha-suite'), timer: 900, showConfirmButton: false });
     } catch (err) {
-      if (window.Swal) Swal.fire({ icon: 'error', title: __('Erro', 'plugins-alpha'), text: String(err.message || err) });
+      if (window.Swal) Swal.fire({ icon: 'error', title: __('Erro', 'alpha-suite'), text: String(err.message || err) });
       else alert(String(err.message || err));
     }
   });
@@ -1605,13 +1605,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       if (window.Swal) {
         await Swal.fire({
           icon: 'info',
-          title: __('Importado', 'plugins-alpha'),
+          title: __('Importado', 'alpha-suite'),
           text: sprintf(
             _n(
               '%d linha foi carregada. Clique em "Salvar configurações" para persistir.',
               '%d linhas foram carregadas. Clique em "Salvar configurações" para persistir.',
               neu.length,
-              'plugins-alpha'
+              'alpha-suite'
             ),
             neu.length
           )
@@ -1648,10 +1648,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     if (totalBoxes <= 1) {
       const ok = await pgaConfirm({
         icon: 'warning',
-        title: __('Limpar este gerador?', 'plugins-alpha'),
-        text: __('Este é o único gerador. Vamos apenas limpar os campos.', 'plugins-alpha'),
-        confirmButtonText: __('Limpar', 'plugins-alpha'),
-        cancelButtonText: __('Cancelar', 'plugins-alpha')
+        title: __('Limpar este gerador?', 'alpha-suite'),
+        text: __('Este é o único gerador. Vamos apenas limpar os campos.', 'alpha-suite'),
+        confirmButtonText: __('Limpar', 'alpha-suite'),
+        cancelButtonText: __('Cancelar', 'alpha-suite')
       });
 
       if (!ok) return;
@@ -1670,10 +1670,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     const ok = await pgaConfirm({
       icon: 'warning',
-      title: __('Excluir gerador?', 'plugins-alpha'),
-      text: __('Este gerador será removido.', 'plugins-alpha'),
-      confirmButtonText: __('Excluir', 'plugins-alpha'),
-      cancelButtonText: __('Cancelar', 'plugins-alpha')
+      title: __('Excluir gerador?', 'alpha-suite'),
+      text: __('Este gerador será removido.', 'alpha-suite'),
+      confirmButtonText: __('Excluir', 'alpha-suite'),
+      cancelButtonText: __('Cancelar', 'alpha-suite')
     });
 
     if (!ok) return;
@@ -1708,7 +1708,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     let tabs = loadTabs();
 
     if (!tabs.length) {
-      const first = { id: makeId(), title: __('RSS 1', 'plugins-alpha') };
+      const first = { id: makeId(), title: __('RSS 1', 'alpha-suite') };
       tabs = [first];
       saveTabs(tabs);
     }
@@ -1783,7 +1783,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   function addTabAndGo(name) {
     const tabs = loadTabs();
     const nextNum = tabs.length + 1;
-    const title = String(name || '').trim() || (__('Projeto ', 'plugins-alpha') + nextNum);
+    const title = String(name || '').trim() || (__('Projeto ', 'alpha-suite') + nextNum);
 
     const tab = { id: makeId(), title };
     tabs.push(tab);
@@ -1827,17 +1827,17 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     const idx = tabs.findIndex(t => t.id === tabId);
     if (idx === -1) return;
 
-    const name = tabs[idx].title || __('Projeto', 'plugins-alpha');
+    const name = tabs[idx].title || __('Projeto', 'alpha-suite');
 
     const ok = await pgaConfirm({
-      title: __('Excluir aba?', 'plugins-alpha'),
+      title: __('Excluir aba?', 'alpha-suite'),
       text: sprintf(
-        __('Você tem certeza que deseja excluir <b>%s</b>?<br><br><small>Isso apaga os grupos salvos dessa aba.</small>', 'plugins-alpha'),
+        __('Você tem certeza que deseja excluir <b>%s</b>?<br><br><small>Isso apaga os grupos salvos dessa aba.</small>', 'alpha-suite'),
         escapeHtml(name)
       ),
       icon: 'warning',
-      confirmButtonText: __('Sim, excluir', 'plugins-alpha'),
-      cancelButtonText: __('Cancelar', 'plugins-alpha')
+      confirmButtonText: __('Sim, excluir', 'alpha-suite'),
+      cancelButtonText: __('Cancelar', 'alpha-suite')
     });
 
     if (!ok) return;
@@ -1852,7 +1852,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     // se ficou vazio, recria uma default
     if (!tabs.length) {
-      const first = { id: makeId(), title: __('RSS 1', 'plugins-alpha') };
+      const first = { id: makeId(), title: __('RSS 1', 'alpha-suite') };
       tabs.push(first);
       saveTabs(tabs);
 
@@ -1902,20 +1902,20 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         const res = await Swal.fire({
           html: `
             <div class="pga-modal-content">
-              <h3 style="margin:0">${__('Novo projeto', 'plugins-alpha')}</h3>
+              <h3 style="margin:0">${__('Novo projeto', 'alpha-suite')}</h3>
               <div class="pga-descricao">
-                ${__('Crie um novo projeto para organizar seus geradores de conteúdo.', 'plugins-alpha')}
+                ${__('Crie um novo projeto para organizar seus geradores de conteúdo.', 'alpha-suite')}
               </div>
               <div class="pga-field">
-                <label for="pga_new_project_name">${__('Nome do Projeto', 'plugins-alpha')}</label>
-                <input id="pga_new_project_name" class="swal2-input" placeholder="${__('Ex: Blog de Marketing', 'plugins-alpha')}" style="width:100%;margin:0" />
+                <label for="pga_new_project_name">${__('Nome do Projeto', 'alpha-suite')}</label>
+                <input id="pga_new_project_name" class="swal2-input" placeholder="${__('Ex: Blog de Marketing', 'alpha-suite')}" style="width:100%;margin:0" />
               </div>
             </div>
           `,
           showCancelButton: true,
           focusConfirm: false,
-          cancelButtonText: __('Cancelar', 'plugins-alpha'),
-          confirmButtonText: __('Criar Projeto', 'plugins-alpha'),
+          cancelButtonText: __('Cancelar', 'alpha-suite'),
+          confirmButtonText: __('Criar Projeto', 'alpha-suite'),
           preConfirm: () => {
             const v = document.getElementById('pga_new_project_name')?.value || '';
             return String(v).trim();
@@ -1925,7 +1925,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         if (!res.isConfirmed) return;
         name = res.value || '';
       } else {
-        name = prompt(__('Nome do projeto:', 'plugins-alpha')) || '';
+        name = prompt(__('Nome do projeto:', 'alpha-suite')) || '';
         if (!String(name).trim()) return;
       }
 
@@ -1995,7 +1995,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         }
 
         window.PGA_IS_DIRTY = false;
-        pgaToast('success', __('Salvo', 'plugins-alpha'));
+        pgaToast('success', __('Salvo', 'alpha-suite'));
 
       } catch (err) {
         // âœ… nunca passe objeto Error direto pro Swal title

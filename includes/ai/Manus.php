@@ -1,19 +1,19 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Claude
+class PluginsAlpha_Manus
 {
     // ---- Lê config do plugin ----
     private static function cfg(): array
     {
         $opt = PluginsAlpha_Settings::get();
-        $cl  = $opt['apis']['claude'] ?? [];
+        $ma  = $opt['apis']['manus'] ?? [];
 
         return [
-            'key'         => trim((string)($cl['key'] ?? '')),
-            'model_text'  => (string)($cl['model_text'] ?? 'claude-3-5-sonnet-20240620'),
-            'temperature' => (float) ($cl['temperature'] ?? 0.95),
-            'max_tokens'  => (int)   ($cl['max_tokens'] ?? 4096),
+            'key'         => trim((string)($ma['key'] ?? '')),
+            'model_text'  => (string)($ma['model_text'] ?? 'manus-large'),
+            'temperature' => (float) ($ma['temperature'] ?? 0.6),
+            'max_tokens'  => (int)   ($ma['max_tokens'] ?? 8000),
             'timeout'     => 120,
         ];
     }
@@ -23,15 +23,16 @@ class PluginsAlpha_Claude
         return self::cfg()['key'] !== '';
     }
 
+    // ---- Completar texto ----
     public static function complete(string $prompt, array $schema = [], array $args = [])
     {
         $c = self::cfg();
 
         if (empty($c['key'])) {
-            return new WP_Error('pga_no_key', 'Chave Claude não configurada.');
+            return new WP_Error('pga_no_key', 'Chave Manus não configurada.');
         }
 
-        $model = $c['model_text'] ?? 'claude-3-haiku-20240307';
+        $model = $c['model_text'] ?? 'manus-large';
         $isStructured = !empty($schema);
 
         $maxTokens   = $args['max_tokens'] ?? ($isStructured ? 1800 : 4000);
@@ -47,24 +48,26 @@ Não use aspas tipográficas."
 
         $body = [
             'model' => $model,
-            'max_tokens' => $maxTokens,
-            'temperature' => $temperature,
-            'system' => $systemPrompt,
             'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => $systemPrompt
+                ],
                 [
                     'role' => 'user',
                     'content' => $prompt
                 ]
-            ]
+            ],
+            'temperature' => $temperature,
+            'max_tokens'  => $maxTokens
         ];
 
         $res = wp_remote_post(
-            'https://api.anthropic.com/v1/messages',
+            'https://api.manus.ai/v1/chat/completions',
             [
                 'headers' => [
-                    'Content-Type' => 'application/json',
-                    'x-api-key' => $c['key'],
-                    'anthropic-version' => '2023-06-01'
+                    'Authorization' => 'Bearer ' . $c['key'],
+                    'Content-Type'  => 'application/json',
                 ],
                 'timeout' => $c['timeout'] ?? 60,
                 'body'    => wp_json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -78,26 +81,26 @@ Não use aspas tipográficas."
         $raw  = wp_remote_retrieve_body($res);
         $json = json_decode($raw, true);
 
-        if (!isset($json['content'][0]['text'])) {
+        if (!isset($json['choices'][0]['message']['content'])) {
             return new WP_Error(
-                'pga_claude_invalid',
-                'Resposta inválida do Claude.',
+                'pga_manus_invalid',
+                'Resposta inválida do Manus.',
                 ['raw' => $raw]
             );
         }
 
-        $txt = trim((string)$json['content'][0]['text']);
+        $txt = trim((string)$json['choices'][0]['message']['content']);
 
-        // 🔹 MODO TEXTO
+        // 🔹 MODO TEXTO NORMAL
         if (!$isStructured) {
             return $txt;
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | 🔥 PARSE FORÇADO
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | 🔥 PARSE FORÇADO
+        |--------------------------------------------------------------------------
+        */
 
         // remove qualquer lixo antes/depois do JSON
         if (preg_match('/\{.*\}/s', $txt, $m)) {
@@ -109,7 +112,7 @@ Não use aspas tipográficas."
         if (json_last_error() !== JSON_ERROR_NONE) {
             return new WP_Error(
                 'pga_json_invalid',
-                'JSON inválido retornado pelo Claude.',
+                'JSON inválido retornado pelo Manus.',
                 [
                     'json_error' => json_last_error_msg(),
                     'snippet'    => mb_substr($txt, 0, 1000)
@@ -126,6 +129,7 @@ Não use aspas tipográficas."
         }
 
         unset($schema['use_search']);
+
         // valida contrato mínimo
         foreach ($schema as $key => $_) {
             if (!array_key_exists($key, $parsed)) {

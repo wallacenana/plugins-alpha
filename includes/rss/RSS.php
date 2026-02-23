@@ -6,16 +6,23 @@ class PluginsAlpha_RSS
     public static function render(): void
     {
         $opt = PluginsAlpha_Settings::get();
-        $chk = PluginsAlpha_License::check('ddddddd');
 ?>
         <div class="pga-wrap">
             <?php
-            if (!$chk['ok']) {
-                $url = admin_url('admin.php?page=plugins-alpha-dashboard');
+            $chk = PluginsAlpha_License::check('alpha_orion');
+
+            // 1) Aviso geral: licença/módulo não ativo
+            if (empty($chk['ok'])) {
+                // link para o painel Alpha Suite (ajusta o slug se for diferente)
+                $url = admin_url('admin.php?page=alpha-suite-dashboard');
+
+                $msg = $chk['message'] ?: __('Licença do módulo Alpha Órion inativa. Ative o módulo para continuar gerando e publicando posts.', 'alpha-suite');
 
                 echo '<div class="notice notice-error is-dismissible"><p>'
-                    . esc_html__('Módulo Ainda sem funcionamento.', 'plugins-alpha')
-                    . '</p></div>';
+                    . esc_html($msg)
+                    . ' <a href="' . esc_url($url) . '">'
+                    . esc_html__('Clique aqui para ativar a licença.', 'alpha-suite')
+                    . '</a></p></div>';
             }
 
             $tpls = (array) get_option('pga_orion_templates', []);
@@ -42,13 +49,13 @@ class PluginsAlpha_RSS
                 <div class="pga-header-fixed">
                     <div class="pga-header-col pga-a-center">
                         <div>
-                            <h1><?php esc_html_e('Gerador RSS', 'plugins-alpha'); ?></h1>
-                            <p class="pga-descricao"><?php esc_html_e('Criação de artigos com base em RSS', 'plugins-alpha'); ?></p>
+                            <h1><?php esc_html_e('Gerador RSS', 'alpha-suite'); ?></h1>
+                            <p class="pga-descricao"><?php esc_html_e('Criação de artigos com base em RSS', 'alpha-suite'); ?></p>
                         </div>
                     </div>
                     <div class="pga-header-col pga-a-center ">
                         <?php
-                        $label = esc_html__('Salvar e agendar', 'plugins-alpha');
+                        $label = esc_html__('Salvar e agendar', 'alpha-suite');
 
                         echo $chk['ok']
                             ? '<button type="button" id="pga_save_keywords" class="pga-rss pga_save_box"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -56,13 +63,13 @@ class PluginsAlpha_RSS
                                 <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
                                 <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
                                 <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
-                            </svg> ' . $label . '</button>'
-                            : '<button type="button" id="pga_save_keywords" class="pga-rss"> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            </svg> ' . esc_html($label) . '</button>'
+                            : '<button type="button" id="pga_save_keywords" class="pga-rss" disabled> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save h-4 w-4 mr-2">
                                 <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
                                 <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
                                 <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
-                            </svg>' . $label . '</button>';
+                            </svg>' . esc_html($label) . '</button>';
                         ?>
                     </div>
                 </div>
@@ -77,7 +84,7 @@ class PluginsAlpha_RSS
                                 class="lucide lucide-plus h-4 w-4">
                                 <path d="M5 12h14"></path>
                                 <path d="M12 5v14"></path>
-                            </svg> <?php esc_html_e('Novo projeto', 'plugins-alpha'); ?></button>
+                            </svg> <?php esc_html_e('Novo projeto', 'alpha-suite'); ?></button>
                     </div>
 
                     <style>
@@ -90,13 +97,13 @@ class PluginsAlpha_RSS
                         <div class="pga-gen-box pga-collapse  pga-collapse--open" data-gen="1">
                             <div class="pga-collapse-head">
                                 <button type="button" class="button pga-collapse-toggle">
-                                    <span class="pga-gen-title"><?php esc_html_e('Título', 'plugins-alpha'); ?></span>
+                                    <span class="pga-gen-title"><?php esc_html_e('Título', 'alpha-suite'); ?></span>
                                     <span class="pga-actions-colapse">
                                         <label style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
                                             <span class="pga-switch">
                                                 <input type="checkbox" id="pga_make_faq" class="pga_active" checked>
                                                 <span class="pga-switch-ui" aria-hidden="true"></span>
-                                                <span class="pga-switch-label"><?php esc_html_e('Ativo', 'plugins-alpha'); ?></span>
+                                                <span class="pga-switch-label"><?php esc_html_e('Ativo', 'alpha-suite'); ?></span>
                                             </span>
                                         </label>
                                         <span type="button" class="pga-copy-box" title="Duplicar este grupo" data-tooltip="Duplicar este grupo">
@@ -112,16 +119,16 @@ class PluginsAlpha_RSS
 
                                     <div class="pga-row">
                                         <div class="pga-field">
-                                            <label for="pga_keywords"><?php esc_html_e('URL do RSS', 'plugins-alpha'); ?></label>
+                                            <label for="pga_keywords"><?php esc_html_e('URL do RSS', 'alpha-suite'); ?></label>
                                             <input
                                                 type="url"
                                                 id="pga_keywords"
                                                 class="pga_keywords"
                                                 rows="14"
-                                                placeholder="<?php esc_html_e('Insira sua url', 'plugins-alpha'); ?>" />
+                                                placeholder="<?php esc_html_e('Insira sua url', 'alpha-suite'); ?>" />
                                         </div>
                                         <div class="pga-field">
-                                            <label for="pga_category"><?php esc_html_e('Categoria', 'plugins-alpha'); ?></label>
+                                            <label for="pga_category"><?php esc_html_e('Categoria', 'alpha-suite'); ?></label>
                                             <?php
                                             wp_dropdown_categories([
                                                 'show_option_none'  => '— Sem categoria —',
@@ -140,28 +147,28 @@ class PluginsAlpha_RSS
                                         </div>
 
                                         <div class="pga-field">
-                                            <label for="pga_length"><?php esc_html_e('Extensão', 'plugins-alpha'); ?></label>
+                                            <label for="pga_length"><?php esc_html_e('Extensão', 'alpha-suite'); ?></label>
                                             <select id="pga_length" class="pga_length">
-                                                <option value="short"><?php esc_html_e('Pequeno', 'plugins-alpha'); ?></option>
-                                                <option value="medium"><?php esc_html_e('Médio', 'plugins-alpha'); ?></option>
-                                                <option value="long"><?php esc_html_e('Longo', 'plugins-alpha'); ?></option>
-                                                <option value="extra-long"><?php esc_html_e('Extra Longo', 'plugins-alpha'); ?></option>
+                                                <option value="short"><?php esc_html_e('Pequeno', 'alpha-suite'); ?></option>
+                                                <option value="medium"><?php esc_html_e('Médio', 'alpha-suite'); ?></option>
+                                                <option value="long"><?php esc_html_e('Longo', 'alpha-suite'); ?></option>
+                                                <option value="extra-long"><?php esc_html_e('Extra Longo', 'alpha-suite'); ?></option>
                                             </select>
                                         </div>
                                         <!-- ... dentro da pga-row de campos do grupo ... -->
 
                                         <div class="pga-field">
-                                            <label for="pga_link_mode"><?php esc_html_e('Links internos', 'plugins-alpha'); ?></label>
+                                            <label for="pga_link_mode"><?php esc_html_e('Links internos', 'alpha-suite'); ?></label>
                                             <select id="pga_link_mode" class="pga_link_mode">
-                                                <option value="none"><?php esc_html_e('Sem link interno', 'plugins-alpha'); ?></option>
-                                                <option value="auto"><?php esc_html_e('Automático', 'plugins-alpha'); ?></option>
-                                                <option value="pillar"><?php esc_html_e('Post pilar', 'plugins-alpha'); ?></option>
-                                                <option value="manual"><?php esc_html_e('Manual', 'plugins-alpha'); ?></option>
+                                                <option value="none"><?php esc_html_e('Sem link interno', 'alpha-suite'); ?></option>
+                                                <option value="auto"><?php esc_html_e('Automático', 'alpha-suite'); ?></option>
+                                                <option value="pillar"><?php esc_html_e('Post pilar', 'alpha-suite'); ?></option>
+                                                <option value="manual"><?php esc_html_e('Manual', 'alpha-suite'); ?></option>
                                             </select>
                                         </div>
 
                                         <div class="pga-field pga_link_extra" style="display:none">
-                                            <label><?php esc_html_e('Links por post', 'plugins-alpha'); ?></label>
+                                            <label><?php esc_html_e('Links por post', 'alpha-suite'); ?></label>
                                             <select class="pga_link_max">
                                                 <option value="1">1 link</option>
                                                 <option value="2">2 links</option>
@@ -181,7 +188,7 @@ class PluginsAlpha_RSS
                                             </select>
                                         </div>
                                         <div class="pga-field pga_link_manual_wrapper" style="display:none">
-                                            <label><?php esc_html_e('Posts para linkar (modo manual)', 'plugins-alpha'); ?></label>
+                                            <label><?php esc_html_e('Posts para linkar (modo manual)', 'alpha-suite'); ?></label>
                                             <?php
                                             // últimos posts Orion (ajuste o post_type se for outro)
                                             $orion_posts = get_posts([
@@ -203,21 +210,42 @@ class PluginsAlpha_RSS
                                                         </option>
                                                     <?php endforeach; ?>
                                                 <?php else : ?>
-                                                    <option value="" disabled><?php esc_html_e('Nenhum post Órion publicado ainda.', 'plugins-alpha'); ?></option>
+                                                    <option value="" disabled><?php esc_html_e('Nenhum post Órion publicado ainda.', 'alpha-suite'); ?></option>
                                                 <?php endif; ?>
                                             </select>
                                         </div>
                                         <div class="pga-field">
-                                            <label for="pga_locale"><?php esc_html_e('Idioma', 'plugins-alpha'); ?></label>
+                                            <?php $current = $opt['defaults']['locale'] ?? 'pt_BR'; ?>
+                                            <label for="pga_locale"><?php esc_html_e('Idioma', 'alpha-suite'); ?></label>
                                             <select id="pga_locale" class="pga_locale">
-                                                <option value="pt_BR" <?php selected(($opt['defaults']['locale'] ?? '') === 'pt_BR'); ?>>Português (Brasil)</option>
-                                                <option value="en_US" <?php selected(($opt['defaults']['locale'] ?? '') === 'en_US'); ?>>English (US)</option>
-                                                <option value="es_ES" <?php selected(($opt['defaults']['locale'] ?? '') === 'es_ES'); ?>>Español</option>
-                                                <option value="fr_FR" <?php selected(($opt['defaults']['locale'] ?? '') === 'fr_FR'); ?>>Français</option>
+                                                <option value="pt_BR" <?php selected($current, 'pt_BR'); ?>>🇧🇷 Português (Brasil)</option>
+                                                <option value="pt_PT" <?php selected($current, 'pt_PT'); ?>>🇵🇹 Português (Portugal)</option>
+
+                                                <option value="en_US" <?php selected($current, 'en_US'); ?>>🇺🇸 English (United States)</option>
+                                                <option value="en_GB" <?php selected($current, 'en_GB'); ?>>🇬🇧 English (United Kingdom)</option>
+
+                                                <option value="es_ES" <?php selected($current, 'es_ES'); ?>>🇪🇸 Español (España)</option>
+                                                <option value="es_MX" <?php selected($current, 'es_MX'); ?>>🇲🇽 Español (México)</option>
+
+                                                <option value="fr_FR" <?php selected($current, 'fr_FR'); ?>>🇫🇷 Français (France)</option>
+                                                <option value="de_DE" <?php selected($current, 'de_DE'); ?>>🇩🇪 Deutsch (Deutschland)</option>
+
+                                                <option value="it_IT" <?php selected($current, 'it_IT'); ?>>🇮🇹 Italiano</option>
+                                                <option value="nl_NL" <?php selected($current, 'nl_NL'); ?>>🇳🇱 Nederlands</option>
+
+                                                <option value="ja_JP" <?php selected($current, 'ja_JP'); ?>>🇯🇵 日本語</option>
+                                                <option value="ko_KR" <?php selected($current, 'ko_KR'); ?>>🇰🇷 한국어</option>
+
+                                                <option value="zh_CN" <?php selected($current, 'zh_CN'); ?>>🇨🇳 中文 (简体)</option>
+                                                <option value="zh_TW" <?php selected($current, 'zh_TW'); ?>>🇹🇼 中文 (繁體)</option>
+
+                                                <option value="hi_IN" <?php selected($current, 'hi_IN'); ?>>🇮🇳 हिन्दी</option>
+                                                <option value="ar_SA" <?php selected($current, 'ar_SA'); ?>>🇸🇦 العربية</option>
+                                                <option value="ru_RU" <?php selected($current, 'ru_RU'); ?>>🇷🇺 Русский</option>
                                             </select>
                                         </div>
                                         <div class="pga-field">
-                                            <label><?php esc_html_e('Tags', 'plugins-alpha'); ?></label>
+                                            <label><?php esc_html_e('Tags', 'alpha-suite'); ?></label>
 
                                             <select class="pga_tags pga-select2" multiple="multiple" style="width:100%">
                                                 <?php
@@ -242,7 +270,7 @@ class PluginsAlpha_RSS
                                             </select>
                                         </div>
                                         <div class="pga-field pga_quota_wrap" style="display:none">
-                                            <label for="pga_quota_day"><?php esc_html_e('Tempo de atualização', 'plugins-alpha'); ?></label>
+                                            <label for="pga_quota_day"><?php esc_html_e('Tempo de atualização', 'alpha-suite'); ?></label>
                                             <input class="pga_quota_day" type="number" min="0" step="1" value="1">
                                         </div>
 
@@ -261,12 +289,12 @@ class PluginsAlpha_RSS
                                         </div>
 
                                         <div class="pga-field">
-                                            <label for="rssKeyword"><?php esc_html_e('Palavras para filtro', 'plugins-alpha'); ?></label>
+                                            <label for="rssKeyword"><?php esc_html_e('Palavras para filtro', 'alpha-suite'); ?></label>
                                             <input type="text" id="rssKeyword" placeholder="Ex: politica, economia, futebol" class="rssKeyword">
                                         </div>
                                         <div class="pga-field">
                                             <div class="pga-faq-qty-wrap" style="display:none;align-items:center;gap:8px;">
-                                                <label for="pga_faq_qty"><?php esc_html_e('Perguntas', 'plugins-alpha'); ?></label>
+                                                <label for="pga_faq_qty"><?php esc_html_e('Perguntas', 'alpha-suite'); ?></label>
                                                 <input
                                                     id="pga_faq_qty"
                                                     class="pga_faq_qty"
@@ -282,7 +310,7 @@ class PluginsAlpha_RSS
                                                 <span class="pga-switch">
                                                     <input type="checkbox" id="pga_make_faq" class="pga_make_faq">
                                                     <span class="pga-switch-ui" aria-hidden="true"></span>
-                                                    <span class="pga-switch-label"><?php esc_html_e('Criar FAQ', 'plugins-alpha'); ?></span>
+                                                    <span class="pga-switch-label"><?php esc_html_e('Criar FAQ', 'alpha-suite'); ?></span>
                                                 </span>
                                             </label>
                                         </div>
@@ -291,22 +319,22 @@ class PluginsAlpha_RSS
 
                                 </div>
                                 <div class="pga-generator-footer">
-                                    <button type="button" class="pga_test_box">
+                                    <button type="button" class="pga_test_box" <?php echo empty($chk['ok']) ? 'disabled' : '' ?>>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-zap h-4 w-4 mr-2">
                                             <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
                                             </path>
                                         </svg>
-                                        <?php esc_html_e('Gerar agora', 'plugins-alpha'); ?>
+                                        <?php esc_html_e('Gerar agora', 'alpha-suite'); ?>
                                     </button>
-                                    <button type="button" class="pga_save_box">
+                                    <button type="button" class="pga_save_box" <?php echo empty($chk['ok']) ? 'disabled' : '' ?>>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save h-4 w-4 mr-2">
                                             <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
                                             <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
                                             <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
                                         </svg>
-                                        <?php esc_html_e('Salvar gerador', 'plugins-alpha'); ?>
+                                        <?php esc_html_e('Salvar gerador', 'alpha-suite'); ?>
                                     </button>
                                     <button type="button" class="pga_clear_box">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -317,7 +345,7 @@ class PluginsAlpha_RSS
                                             <line x1="10" x2="10" y1="11" y2="17"></line>
                                             <line x1="14" x2="14" y1="11" y2="17"></line>
                                         </svg>
-                                        <?php esc_html_e('Excluir', 'plugins-alpha'); ?>
+                                        <?php esc_html_e('Excluir', 'alpha-suite'); ?>
                                     </button>
                                 </div>
                             </div>
@@ -330,7 +358,7 @@ class PluginsAlpha_RSS
                                 <path d="M5 12h14"></path>
                                 <path d="M12 5v14"></path>
                             </svg>
-                            <?php esc_html_e('Adicionar gerador', 'plugins-alpha'); ?>
+                            <?php esc_html_e('Adicionar gerador', 'alpha-suite'); ?>
                         </button>
                     </div>
                 </div>

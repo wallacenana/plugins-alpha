@@ -252,7 +252,7 @@ class PluginsAlpha_Images
         if ($code >= 500 && $code < 600) {
             return new \WP_Error(
                 'pga_openai_5xx',
-                __('OpenAI está com instabilidade no momento ao gerar imagens. Tente novamente em instantes.', 'plugins-alpha')
+                __('OpenAI está com instabilidade no momento ao gerar imagens. Tente novamente em instantes.', 'alpha-suite')
             );
         }
 
@@ -260,8 +260,7 @@ class PluginsAlpha_Images
             return new \WP_Error(
                 'pga_openai_http',
                 sprintf(
-                    __('Erro ao gerar imagem na OpenAI (HTTP %d).', 'plugins-alpha'),
-                    (int) $code
+                    __('Erro ao gerar imagem na OpenAI.', 'alpha-suite')
                 )
             );
         }
@@ -271,7 +270,7 @@ class PluginsAlpha_Images
         if (empty($json['data'][0]['url'])) {
             return new \WP_Error(
                 'pga_openai_bad_response',
-                __('Resposta inesperada da API de imagens.', 'plugins-alpha')
+                __('Resposta inesperada da API de imagens.', 'alpha-suite')
             );
         }
 
@@ -292,7 +291,7 @@ class PluginsAlpha_Images
         if (!$img_body) {
             return new \WP_Error(
                 'pga_openai_empty_image',
-                __('Imagem vazia retornada pela OpenAI.', 'plugins-alpha')
+                __('Imagem vazia retornada pela OpenAI.', 'alpha-suite')
             );
         }
 
@@ -321,7 +320,7 @@ class PluginsAlpha_Images
         if ($api === '') {
             return new \WP_Error(
                 'pga_pexels_no_key',
-                __('Chave de API do Pexels não configurada.', 'plugins-alpha')
+                __('Chave de API do Pexels não configurada.', 'alpha-suite')
             );
         }
 
@@ -364,7 +363,7 @@ class PluginsAlpha_Images
         if ($code < 200 || $code >= 300 || !$body) {
             return new \WP_Error(
                 'pga_pexels_http',
-                sprintf(__('Erro ao buscar imagem no Pexels (HTTP %d).', 'plugins-alpha'), (int) $code)
+                sprintf(__('Erro ao buscar imagem no Pexels.', 'alpha-suite'))
             );
         }
 
@@ -374,7 +373,7 @@ class PluginsAlpha_Images
         if (empty($results)) {
             return new \WP_Error(
                 'pga_pexels_empty',
-                __('Nenhuma imagem encontrada no Pexels para este prompt.', 'plugins-alpha')
+                __('Nenhuma imagem encontrada no Pexels para este prompt.', 'alpha-suite')
             );
         }
 
@@ -433,7 +432,7 @@ class PluginsAlpha_Images
         if (!$img_url) {
             return new \WP_Error(
                 'pga_pexels_no_url',
-                __('Não foi possível determinar a URL da imagem do Pexels.', 'plugins-alpha')
+                __('Não foi possível determinar a URL da imagem do Pexels.', 'alpha-suite')
             );
         }
 
@@ -449,7 +448,7 @@ class PluginsAlpha_Images
         if (!$binary) {
             return new \WP_Error(
                 'pga_pexels_empty_image',
-                __('Imagem vazia retornada pelo Pexels.', 'plugins-alpha')
+                __('Imagem vazia retornada pelo Pexels.', 'alpha-suite')
             );
         }
 
@@ -474,7 +473,7 @@ class PluginsAlpha_Images
         if (!class_exists('PluginsAlpha_Settings')) {
             return new \WP_Error(
                 'pga_unsplash_no_cfg',
-                __('Configurações do Unsplash não encontradas.', 'plugins-alpha')
+                __('Configurações do Unsplash não encontradas.', 'alpha-suite')
             );
         }
 
@@ -485,7 +484,7 @@ class PluginsAlpha_Images
         if ($key === '') {
             return new \WP_Error(
                 'pga_unsplash_no_key',
-                __('Access Key do Unsplash não configurada.', 'plugins-alpha')
+                __('Access Key do Unsplash não configurada.', 'alpha-suite')
             );
         }
 
@@ -525,7 +524,7 @@ class PluginsAlpha_Images
         if ($code < 200 || $code >= 300 || !$body) {
             return new \WP_Error(
                 'pga_unsplash_http',
-                sprintf(__('Erro ao buscar imagem no Unsplash (HTTP %d).', 'plugins-alpha'), (int) $code)
+                sprintf(__('Erro ao buscar imagem no Unsplash.', 'alpha-suite'))
             );
         }
 
@@ -535,7 +534,7 @@ class PluginsAlpha_Images
         if (empty($results)) {
             return new \WP_Error(
                 'pga_unsplash_empty',
-                __('Nenhuma imagem encontrada no Unsplash para este prompt.', 'plugins-alpha')
+                __('Nenhuma imagem encontrada no Unsplash para este prompt.', 'alpha-suite')
             );
         }
 
@@ -552,7 +551,7 @@ class PluginsAlpha_Images
         if (!$img_url) {
             return new \WP_Error(
                 'pga_unsplash_no_url',
-                __('Não foi possível determinar a URL da imagem do Unsplash.', 'plugins-alpha')
+                __('Não foi possível determinar a URL da imagem do Unsplash.', 'alpha-suite')
             );
         }
 
@@ -568,7 +567,7 @@ class PluginsAlpha_Images
         if (!$binary) {
             return new \WP_Error(
                 'pga_unsplash_empty_image',
-                __('Imagem vazia retornada pelo Unsplash.', 'plugins-alpha')
+                __('Imagem vazia retornada pelo Unsplash.', 'alpha-suite')
             );
         }
 
@@ -654,7 +653,7 @@ class PluginsAlpha_Images
 
             return new \WP_Error(
                 'pga_pollinations_http',
-                sprintf(__('Falha ao gerar imagem (HTTP %d).', 'plugins-alpha'), (int) $code),
+                sprintf(__('Falha ao gerar imagem.', 'alpha-suite')),
                 [
                     'status'    => $code,
                     'http_code' => $code,
@@ -666,7 +665,7 @@ class PluginsAlpha_Images
         if (!$body) {
             return new \WP_Error(
                 'pga_pollinations_empty',
-                __('Resposta de imagem vazia.', 'plugins-alpha')
+                __('Resposta de imagem vazia.', 'alpha-suite')
             );
         }
 

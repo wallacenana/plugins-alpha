@@ -20,8 +20,8 @@ class PluginsAlpha_Plugin
   public static function assets($hook): void
   {
     // 1) Detecta telas do plugin (menus próprios) usando o hook recebido
-    // Ex.: $hook = 'toplevel_page_plugins-alpha', 'plugins-alpha_page_plugins-alpha-license', etc.
-    $is_plugin_page = (false !== strpos((string) $hook, 'plugins-alpha'));
+    // Ex.: $hook = 'toplevel_page_alpha-suite', 'alpha-suite_page_alpha-suite-license', etc.
+    $is_plugin_page = (false !== strpos((string) $hook, 'alpha-suite'));
 
     if (! $is_plugin_page) {
       return;
@@ -78,9 +78,10 @@ class PluginsAlpha_Plugin
     );
 
     // JS principal
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended
     $page = isset($_GET['page']) ? sanitize_key((string) $_GET['page']) : '';
 
-    if ($page !== 'plugins-alpha-ws-generator' && $page !== 'plugins-alpha-rss') {
+    if ($page !== 'alpha-suite-ws-generator' && $page !== 'alpha-suite-rss') {
       wp_enqueue_script(
         'pga-admin',
         PGA_URL . 'assets/admin.js',
@@ -89,11 +90,10 @@ class PluginsAlpha_Plugin
         true
       );
     }
-    $page = isset($_GET['page']) ? sanitize_key((string) $_GET['page']) : '';
 
     wp_enqueue_media();
 
-    if ($page === 'plugins-alpha-rss') {
+    if ($page === 'alpha-suite-rss') {
       wp_enqueue_script(
         'pga-rss',
         PGA_URL . 'assets/pga-rss.js',
@@ -125,7 +125,7 @@ class PluginsAlpha_Plugin
       ]);
     }
 
-    if ($page === 'plugins-alpha-ws-generator') {
+    if ($page === 'alpha-suite-ws-generator') {
       wp_enqueue_script(
         'pga-ws-builder',
         PGA_URL . 'assets/ws-builder.js',

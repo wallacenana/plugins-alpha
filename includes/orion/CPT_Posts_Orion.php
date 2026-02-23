@@ -52,8 +52,14 @@ class PluginsAlpha_CPT_Posts_Orion
     });
 
     add_action('wp_ajax_pga_regen_thumb', function () {
-      if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'pga_regen_thumb')) {
-        wp_send_json_error('Nonce inválido.');
+      if (
+        ! isset($_POST['_wpnonce']) ||
+        ! wp_verify_nonce(
+          sanitize_text_field(wp_unslash($_POST['_wpnonce'])),
+          'pga_regen_thumb'
+        )
+      ) {
+        wp_send_json_error(esc_html__('Nonce inválido.', 'alpha-suite'));
       }
 
       $post_id = intval($_POST['post_id'] ?? 0);
@@ -70,7 +76,11 @@ class PluginsAlpha_CPT_Posts_Orion
         wp_send_json_error('Sem permissão para editar este post.');
       }
 
-      $raw_prompt = isset($_POST['prompt']) ? trim((string) wp_unslash($_POST['prompt'])) : '';
+      $raw_prompt = '';
+
+      if (isset($_POST['prompt'])) {
+        $raw_prompt = sanitize_text_field(wp_unslash($_POST['prompt']));
+      }
 
       // 🔹 Descobre provider de IMAGEM (Orion settings)
       $imageProvider = 'pollinations';
@@ -313,15 +323,15 @@ class PluginsAlpha_CPT_Posts_Orion
 
     // 1) Aviso geral: licença/módulo não ativo
     if (empty($chk['ok'])) {
-      // link para o painel Plugins Alpha (ajusta o slug se for diferente)
-      $url = admin_url('admin.php?page=plugins-alpha-dashboard');
+      // link para o painel Alpha Suite (ajusta o slug se for diferente)
+      $url = admin_url('admin.php?page=alpha-suite-dashboard');
 
-      $msg = $chk['message'] ?: __('Licença do módulo Alpha Órion inativa. Ative o módulo para continuar gerando e publicando posts.', 'plugins-alpha');
+      $msg = $chk['message'] ?: __('Licença do módulo Alpha Órion inativa. Ative o módulo para continuar gerando e publicando posts.', 'alpha-suite');
 
       echo '<div class="notice notice-error is-dismissible"><p>'
         . esc_html($msg)
         . ' <a href="' . esc_url($url) . '">'
-        . esc_html__('Clique aqui para ativar a licença.', 'plugins-alpha')
+        . esc_html__('Clique aqui para ativar a licença.', 'alpha-suite')
         . '</a></p></div>';
     }
 
@@ -337,7 +347,7 @@ class PluginsAlpha_CPT_Posts_Orion
       $reason = get_post_meta($post_id, '_pga_blocked_publish_reason', true);
       if ($reason) {
         // Mensagem mais amigável independente do código
-        $msg2 = __('Este post não pôde ser publicado porque a licença do módulo Alpha Órion não está ativa ou não inclui este módulo.', 'plugins-alpha');
+        $msg2 = __('Este post não pôde ser publicado porque a licença do módulo Alpha Órion não está ativa ou não inclui este módulo.', 'alpha-suite');
 
         echo '<div class="notice notice-warning is-dismissible"><p>'
           . esc_html($msg2)
@@ -352,18 +362,18 @@ class PluginsAlpha_CPT_Posts_Orion
   public static function register(): void
   {
     $labels = [
-      'name'               => __('Órion Posts', 'plugins-alpha'),
-      'singular_name'      => __('Órion Post', 'plugins-alpha'),
-      'menu_name'          => __('Órion Posts', 'plugins-alpha'),
-      'add_new'            => __('Adicionar novo', 'plugins-alpha'),
-      'add_new_item'       => __('Adicionar novo Órion Post', 'plugins-alpha'),
-      'edit_item'          => __('Editar Órion Post', 'plugins-alpha'),
-      'new_item'           => __('Novo Órion Post', 'plugins-alpha'),
-      'view_item'          => __('Ver Órion Post', 'plugins-alpha'),
-      'search_items'       => __('Buscar Órion Posts', 'plugins-alpha'),
-      'not_found'          => __('Nenhum Órion Post encontrado', 'plugins-alpha'),
-      'not_found_in_trash' => __('Nenhum Órion Post na lixeira', 'plugins-alpha'),
-      'all_items'          => __('Órion Posts', 'plugins-alpha'),
+      'name'               => __('Órion Posts', 'alpha-suite'),
+      'singular_name'      => __('Órion Post', 'alpha-suite'),
+      'menu_name'          => __('Órion Posts', 'alpha-suite'),
+      'add_new'            => __('Adicionar novo', 'alpha-suite'),
+      'add_new_item'       => __('Adicionar novo Órion Post', 'alpha-suite'),
+      'edit_item'          => __('Editar Órion Post', 'alpha-suite'),
+      'new_item'           => __('Novo Órion Post', 'alpha-suite'),
+      'view_item'          => __('Ver Órion Post', 'alpha-suite'),
+      'search_items'       => __('Buscar Órion Posts', 'alpha-suite'),
+      'not_found'          => __('Nenhum Órion Post encontrado', 'alpha-suite'),
+      'not_found_in_trash' => __('Nenhum Órion Post na lixeira', 'alpha-suite'),
+      'all_items'          => __('Órion Posts', 'alpha-suite'),
     ];
 
     $supports = [

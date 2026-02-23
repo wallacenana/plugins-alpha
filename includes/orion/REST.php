@@ -272,7 +272,7 @@ class PluginsAlpha_REST
         if ($key === '') {
             return new WP_Error(
                 'pga_youtube_no_key',
-                'Nenhuma chave da API do YouTube configurada. Vá em Plugins Alpha → Configurações → YouTube API.',
+                'Nenhuma chave da API do YouTube configurada. Vá em Alpha Suite → Configurações → YouTube API.',
                 ['status' => 400]
             );
         }
@@ -355,7 +355,7 @@ class PluginsAlpha_REST
         if (!$post_id || get_post_type($post_id) === null) {
             return new WP_Error(
                 'pga_bad_request',
-                __('post_id inválido.', 'plugins-alpha'),
+                __('post_id inválido.', 'alpha-suite'),
                 ['status' => 400]
             );
         }
@@ -389,7 +389,7 @@ class PluginsAlpha_REST
         if ($keyword === '' || $title === '') {
             return new WP_Error(
                 'pga_img_missing_data',
-                __('Dados insuficientes para gerar imagem.', 'plugins-alpha'),
+                __('Dados insuficientes para gerar imagem.', 'alpha-suite'),
                 ['status' => 400]
             );
         }
@@ -436,7 +436,7 @@ class PluginsAlpha_REST
         if ($img_prompt === '') {
             return new WP_Error(
                 'pga_img_prompt_empty',
-                __('Não foi possível montar o prompt de imagem.', 'plugins-alpha'),
+                __('Não foi possível montar o prompt de imagem.', 'alpha-suite'),
                 ['status' => 500]
             );
         }
@@ -520,7 +520,7 @@ class PluginsAlpha_REST
         if (!$post_id || $section_id === '') {
             return new WP_Error(
                 'pga_bad_request',
-                __('post_id ou section_id ausentes.', 'plugins-alpha'),
+                __('post_id ou section_id ausentes.', 'alpha-suite'),
                 ['status' => 400]
             );
         }
@@ -552,7 +552,7 @@ class PluginsAlpha_REST
         if (!$post_id) {
             return new WP_Error(
                 'pga_bad_request',
-                __('post_id ausente.', 'plugins-alpha'),
+                __('post_id ausente.', 'alpha-suite'),
                 ['status' => 400]
             );
         }

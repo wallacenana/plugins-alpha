@@ -120,7 +120,7 @@ class PluginsAlpha_Remote
       switch ($slug) {
         case 'orion-posts':
           // Tela principal do Órion Posts
-          $it['manage_url'] = admin_url('admin.php?page=plugins-alpha-orion-posts');
+          $it['manage_url'] = admin_url('admin.php?page=alpha-suite-orion-posts');
           break;
 
         case 'alpha-stories':

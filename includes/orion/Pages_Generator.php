@@ -11,12 +11,12 @@ class PluginsAlpha_Pages_Generator
     <div class="pga-wrap">
       <?php
       if (!$chk['ok']) {
-        $url = admin_url('admin.php?page=plugins-alpha-license');
+        $url = admin_url('admin.php?page=alpha-suite-license');
 
         echo '<div class="notice notice-error is-dismissible"><p>'
-          . esc_html__('Módulo não ativado.', 'plugins-alpha')
+          . esc_html__('Módulo não ativado.', 'alpha-suite')
           . ' <a href="' . esc_url($url) . '">'
-          . esc_html__('Clique aqui para ativar', 'plugins-alpha')
+          . esc_html__('Clique aqui para ativar', 'alpha-suite')
           . '</a></p></div>';
       }
 
@@ -44,13 +44,13 @@ class PluginsAlpha_Pages_Generator
         <div class="pga-header-fixed">
           <div class="pga-header-col pga-a-center">
             <div>
-              <h1><?php esc_html_e('Gerador — Alpha Órion', 'plugins-alpha'); ?></h1>
-              <p class="pga-descricao"><?php esc_html_e('Criação e automação de conteúdo com IA', 'plugins-alpha'); ?></p>
+              <h1><?php esc_html_e('Gerador — Alpha Órion', 'alpha-suite'); ?></h1>
+              <p class="pga-descricao"><?php esc_html_e('Criação e automação de conteúdo com IA', 'alpha-suite'); ?></p>
             </div>
           </div>
           <div class="pga-header-col pga-a-center ">
             <button
-              title="<?php esc_html_e('Salvar palavras-chave', 'plugins-alpha'); ?>"
+              title="<?php esc_html_e('Salvar palavras-chave', 'alpha-suite'); ?>"
               type="button"
               class="pga_save_box"
               id="pga_save_keywords">
@@ -76,12 +76,12 @@ class PluginsAlpha_Pages_Generator
               </label>
               <div id="pga_plan_custom_top" class="pga-field" style="display:none;align-items:center;gap:10px;">
                 <label style="display:flex;align-items:center;gap:8px;">
-                  <span><?php echo esc_html__('Total', 'plugins-alpha'); ?></span>
+                  <span><?php echo esc_html__('Total', 'alpha-suite'); ?></span>
                   <input id="pga_plan_total" type="number" min="1" step="1" value="30" style="width:90px;">
                 </label>
 
                 <label style="display:flex;align-items:center;gap:8px;">
-                  <span><?php echo esc_html__('Início', 'plugins-alpha'); ?></span>
+                  <span><?php echo esc_html__('Início', 'alpha-suite'); ?></span>
                   <input
                     id="pga_plan_start"
                     type="date"
@@ -92,11 +92,11 @@ class PluginsAlpha_Pages_Generator
             </div>
 
             <?php
-            $label = esc_html__('Planejar & Gerar', 'plugins-alpha');
+            $label = esc_html__('Planejar & Gerar', 'alpha-suite');
 
             echo $chk['ok']
-              ? '<button type="button" id="pga_plan"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles h-4 w-4 mr-2"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg> ' . $label . '</button>'
-              : '<button type="button" id="pga_plan" disabled> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles h-4 w-4 mr-2"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg>' . $label . '</button>';
+              ? '<button type="button" id="pga_plan"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles h-4 w-4 mr-2"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg> ' . esc_html($label) . '</button>'
+              : '<button type="button" id="pga_plan" disabled> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles h-4 w-4 mr-2"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg>' . esc_html($label) . '</button>';
             ?>
           </div>
         </div>
@@ -111,15 +111,15 @@ class PluginsAlpha_Pages_Generator
                 class="lucide lucide-plus h-4 w-4">
                 <path d="M5 12h14"></path>
                 <path d="M12 5v14"></path>
-              </svg> <?php esc_html_e('Novo projeto', 'plugins-alpha'); ?></button>
+              </svg> <?php esc_html_e('Novo projeto', 'alpha-suite'); ?></button>
           </div>
 
           <!-- Contêiner de grupos -->
           <div id="pga_gen_container">
-            <div class="pga-gen-box pga-collapse" data-gen="1">
+            <div class="pga-gen-box pga-collapse pga-collapse--open" data-gen="1">
               <div class="pga-collapse-head">
                 <button type="button" class="button pga-collapse-toggle">
-                  <span class="pga-gen-title"><?php esc_html_e('Título', 'plugins-alpha'); ?></span>
+                  <span class="pga-gen-title"><?php esc_html_e('Título', 'alpha-suite'); ?></span>
                   <span class="pga-actions-colapse">
                     <label class="pga-switch  pga_custom_wrap" style="display: none;">
                       <input type="checkbox" class="pga_custom_enabled" checked>
@@ -161,18 +161,18 @@ class PluginsAlpha_Pages_Generator
                           </span>
                         </button>
                       </div>
-                      <label for="pga_keywords"><?php esc_html_e('Keywords (1 por linha)', 'plugins-alpha'); ?></label>
+                      <label for="pga_keywords"><?php esc_html_e('Keywords (1 por linha)', 'alpha-suite'); ?></label>
                       <textarea
                         id="pga_keywords"
                         class="pga_keywords"
                         rows="14"
-                        placeholder="<?php esc_html_e('Digite uma keyword por linha...', 'plugins-alpha'); ?>"></textarea>
+                        placeholder="<?php esc_html_e('Digite uma keyword por linha...', 'alpha-suite'); ?>"></textarea>
                     </div>
                   </div>
 
                   <div class="pga-row">
                     <div class="pga-field">
-                      <label for="pga_template_key"><?php esc_html_e('Modelo de Post', 'plugins-alpha'); ?></label>
+                      <label for="pga_template_key"><?php esc_html_e('Modelo de Post', 'alpha-suite'); ?></label>
                       <?php
                       $tpls_enabled = class_exists('PluginsAlpha_Orion_Templates')
                         ? PluginsAlpha_Orion_Templates::get_enabled()
@@ -192,7 +192,7 @@ class PluginsAlpha_Pages_Generator
                     </div>
 
                     <div class="pga-field">
-                      <label for="pga_category"><?php esc_html_e('Categoria', 'plugins-alpha'); ?></label>
+                      <label for="pga_category"><?php esc_html_e('Categoria', 'alpha-suite'); ?></label>
                       <?php
                       wp_dropdown_categories([
                         'show_option_none'  => '— Sem categoria —',
@@ -211,28 +211,28 @@ class PluginsAlpha_Pages_Generator
                     </div>
 
                     <div class="pga-field">
-                      <label for="pga_length"><?php esc_html_e('Extensão', 'plugins-alpha'); ?></label>
+                      <label for="pga_length"><?php esc_html_e('Extensão', 'alpha-suite'); ?></label>
                       <select id="pga_length" class="pga_length">
-                        <option value="short"><?php esc_html_e('Pequeno', 'plugins-alpha'); ?></option>
-                        <option value="medium"><?php esc_html_e('Médio', 'plugins-alpha'); ?></option>
-                        <option value="long"><?php esc_html_e('Longo', 'plugins-alpha'); ?></option>
-                        <option value="extra-long"><?php esc_html_e('Extra Longo', 'plugins-alpha'); ?></option>
+                        <option value="short"><?php esc_html_e('Pequeno', 'alpha-suite'); ?></option>
+                        <option value="medium"><?php esc_html_e('Médio', 'alpha-suite'); ?></option>
+                        <option value="long"><?php esc_html_e('Longo', 'alpha-suite'); ?></option>
+                        <option value="extra-long"><?php esc_html_e('Extra Longo', 'alpha-suite'); ?></option>
                       </select>
                     </div>
                     <!-- ... dentro da pga-row de campos do grupo ... -->
 
                     <div class="pga-field">
-                      <label for="pga_link_mode"><?php esc_html_e('Links internos', 'plugins-alpha'); ?></label>
+                      <label for="pga_link_mode"><?php esc_html_e('Links internos', 'alpha-suite'); ?></label>
                       <select id="pga_link_mode" class="pga_link_mode">
-                        <option value="none"><?php esc_html_e('Sem link interno', 'plugins-alpha'); ?></option>
-                        <option value="auto"><?php esc_html_e('Automático', 'plugins-alpha'); ?></option>
-                        <option value="pillar"><?php esc_html_e('Post pilar', 'plugins-alpha'); ?></option>
-                        <option value="manual"><?php esc_html_e('Manual', 'plugins-alpha'); ?></option>
+                        <option value="none"><?php esc_html_e('Sem link interno', 'alpha-suite'); ?></option>
+                        <option value="auto"><?php esc_html_e('Automático', 'alpha-suite'); ?></option>
+                        <option value="pillar"><?php esc_html_e('Post pilar', 'alpha-suite'); ?></option>
+                        <option value="manual"><?php esc_html_e('Manual', 'alpha-suite'); ?></option>
                       </select>
                     </div>
 
                     <div class="pga-field pga_link_extra" style="display:none">
-                      <label><?php esc_html_e('Links por post', 'plugins-alpha'); ?></label>
+                      <label><?php esc_html_e('Links por post', 'alpha-suite'); ?></label>
                       <select class="pga_link_max">
                         <option value="1">1 link</option>
                         <option value="2">2 links</option>
@@ -252,7 +252,7 @@ class PluginsAlpha_Pages_Generator
                       </select>
                     </div>
                     <div class="pga-field pga_link_manual_wrapper" style="display:none">
-                      <label><?php esc_html_e('Posts para linkar (modo manual)', 'plugins-alpha'); ?></label>
+                      <label><?php esc_html_e('Posts para linkar (modo manual)', 'alpha-suite'); ?></label>
                       <?php
                       // últimos posts Orion (ajuste o post_type se for outro)
                       $orion_posts = get_posts([
@@ -274,21 +274,39 @@ class PluginsAlpha_Pages_Generator
                             </option>
                           <?php endforeach; ?>
                         <?php else : ?>
-                          <option value="" disabled><?php esc_html_e('Nenhum post Órion publicado ainda.', 'plugins-alpha'); ?></option>
+                          <option value="" disabled><?php esc_html_e('Nenhum post Órion publicado ainda.', 'alpha-suite'); ?></option>
                         <?php endif; ?>
                       </select>
                     </div>
                     <div class="pga-field">
-                      <label for="pga_locale"><?php esc_html_e('Idioma', 'plugins-alpha'); ?></label>
+                      <label for="pga_locale"><?php esc_html_e('Idioma', 'alpha-suite'); ?></label>
                       <select id="pga_locale" class="pga_locale">
-                        <option value="pt_BR" <?php selected(($opt['defaults']['locale'] ?? '') === 'pt_BR'); ?>>Português (Brasil)</option>
-                        <option value="en_US" <?php selected(($opt['defaults']['locale'] ?? '') === 'en_US'); ?>>English (US)</option>
-                        <option value="es_ES" <?php selected(($opt['defaults']['locale'] ?? '') === 'es_ES'); ?>>Español</option>
-                        <option value="fr_FR" <?php selected(($opt['defaults']['locale'] ?? '') === 'fr_FR'); ?>>Français</option>
+                        <?php $current = $opt['defaults']['locale'] ?? 'pt_BR'; ?>
+
+                        <option value="pt_BR" <?php selected($current, 'pt_BR'); ?>>Português (Brasil)</option>
+                        <option value="pt_PT" <?php selected($current, 'pt_PT'); ?>>Português (Portugal)</option>
+
+                        <option value="en_US" <?php selected($current, 'en_US'); ?>>English (United States)</option>
+                        <option value="en_GB" <?php selected($current, 'en_GB'); ?>>English (United Kingdom)</option>
+
+                        <option value="es_ES" <?php selected($current, 'es_ES'); ?>>Español (España)</option>
+                        <option value="es_MX" <?php selected($current, 'es_MX'); ?>>Español (México)</option>
+
+                        <option value="fr_FR" <?php selected($current, 'fr_FR'); ?>>Français (France)</option>
+                        <option value="de_DE" <?php selected($current, 'de_DE'); ?>>Deutsch (Deutschland)</option>
+
+                        <option value="it_IT" <?php selected($current, 'it_IT'); ?>>Italiano</option>
+                        <option value="nl_NL" <?php selected($current, 'nl_NL'); ?>>Nederlands</option>
+
+                        <option value="ja_JP" <?php selected($current, 'ja_JP'); ?>>日本語</option>
+                        <option value="ko_KR" <?php selected($current, 'ko_KR'); ?>>한국어</option>
+
+                        <option value="zh_CN" <?php selected($current, 'zh_CN'); ?>>中文 (简体)</option>
+                        <option value="zh_TW" <?php selected($current, 'zh_TW'); ?>>中文 (繁體)</option>
                       </select>
                     </div>
                     <div class="pga-field">
-                      <label><?php esc_html_e('Tags', 'plugins-alpha'); ?></label>
+                      <label><?php esc_html_e('Tags', 'alpha-suite'); ?></label>
 
                       <select class="pga_tags pga-select2" multiple="multiple" style="width:100%">
                         <?php
@@ -319,13 +337,13 @@ class PluginsAlpha_Pages_Generator
                           <span class="pga-switch">
                             <input type="checkbox" id="pga_make_faq" class="pga_make_faq">
                             <span class="pga-switch-ui" aria-hidden="true"></span>
-                            <span class="pga-switch-label"><?php esc_html_e('Criar FAQ', 'plugins-alpha'); ?></span>
+                            <span class="pga-switch-label"><?php esc_html_e('Criar FAQ', 'alpha-suite'); ?></span>
                           </span>
                         </label>
                       </div>
                       <div class="pga-field">
                         <div class="pga-faq-qty-wrap" style="display:none;align-items:center;gap:8px;">
-                          <label for="pga_faq_qty"><?php esc_html_e('Perguntas', 'plugins-alpha'); ?></label>
+                          <label for="pga_faq_qty"><?php esc_html_e('Perguntas', 'alpha-suite'); ?></label>
                           <input
                             id="pga_faq_qty"
                             class="pga_faq_qty"
@@ -340,22 +358,22 @@ class PluginsAlpha_Pages_Generator
 
                     <div class="pga-plan">
                       <div class="pga-field pga-field-total">
-                        <label for="pga_total"><?php esc_html_e('Quantidade total', 'plugins-alpha'); ?></label>
+                        <label for="pga_total"><?php esc_html_e('Quantidade total', 'alpha-suite'); ?></label>
                         <input id="pga_total" class="pga_total" type="number" min="1" step="1" value="6">
                       </div>
 
                       <div class="pga-field pga_quota_wrap" style="display:none">
-                        <label for="pga_quota_day"><?php esc_html_e('Quota (posts/dia)', 'plugins-alpha'); ?></label>
+                        <label for="pga_quota_day"><?php esc_html_e('Quota (posts/dia)', 'alpha-suite'); ?></label>
                         <input class="pga_quota_day" type="number" min="0" step="1" value="1">
                       </div>
 
                       <div class="pga-field">
-                        <label for="pga_per_day"><?php esc_html_e('Posts por dia', 'plugins-alpha'); ?></label>
+                        <label for="pga_per_day"><?php esc_html_e('Posts por dia', 'alpha-suite'); ?></label>
                         <input id="pga_per_day" class="pga_per_day" type="number" min="1" step="1" value="3">
                       </div>
 
                       <div class="pga-field pga-field-program">
-                        <label for="pga_first_delay_hours"><?php esc_html_e('Inicio', 'plugins-alpha'); ?></label>
+                        <label for="pga_first_delay_hours"><?php esc_html_e('Inicio', 'alpha-suite'); ?></label>
 
                         <input
                           id="pga_first_delay_hours"
@@ -375,7 +393,7 @@ class PluginsAlpha_Pages_Generator
                       <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
                       </path>
                     </svg>
-                    <?php esc_html_e('Gerar agora', 'plugins-alpha'); ?>
+                    <?php esc_html_e('Gerar agora', 'alpha-suite'); ?>
                   </button>
                   <button type="button" class="pga_save_box">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -384,7 +402,7 @@ class PluginsAlpha_Pages_Generator
                       <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
                       <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
                     </svg>
-                    <?php esc_html_e('Salvar gerador', 'plugins-alpha'); ?>
+                    <?php esc_html_e('Salvar gerador', 'alpha-suite'); ?>
                   </button>
                   <button type="button" class="pga_generate_keywords">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -396,7 +414,7 @@ class PluginsAlpha_Pages_Generator
                       <path d="M4 17v2"></path>
                       <path d="M5 18H3"></path>
                     </svg>
-                    <?php esc_html_e('Gerar keywords', 'plugins-alpha'); ?>
+                    <?php esc_html_e('Gerar keywords', 'alpha-suite'); ?>
                   </button>
                   <button type="button" class="pga_clear_box">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -407,7 +425,7 @@ class PluginsAlpha_Pages_Generator
                       <line x1="10" x2="10" y1="11" y2="17"></line>
                       <line x1="14" x2="14" y1="11" y2="17"></line>
                     </svg>
-                    <?php esc_html_e('Excluir', 'plugins-alpha'); ?>
+                    <?php esc_html_e('Excluir', 'alpha-suite'); ?>
                   </button>
                 </div>
               </div>
@@ -420,7 +438,7 @@ class PluginsAlpha_Pages_Generator
                 <path d="M5 12h14"></path>
                 <path d="M12 5v14"></path>
               </svg>
-              <?php esc_html_e('Adicionar gerador', 'plugins-alpha'); ?>
+              <?php esc_html_e('Adicionar gerador', 'alpha-suite'); ?>
             </button>
           </div>
         </div>
@@ -470,6 +488,7 @@ class PluginsAlpha_Pages_Generator
 
   public static function create_draft_and_outline(array $args)
   {
+
     // 0) item único (primeira linha) 
     $kwSrc = $args['keyword'] ?? $args['keywords'] ?? '';
     if (is_array($kwSrc)) {
@@ -487,7 +506,7 @@ class PluginsAlpha_Pages_Generator
     $length = $args['length'] ?? 'short';
     $locale = $args['locale'] ?? 'pt_BR';
     $provider = $args['provider'] ?? (class_exists('PluginsAlpha_AI') ? PluginsAlpha_AI::get_text_provider() : '');
-    $jobArgs = ['provider' => $provider, 'template' => $template, 'length' => $length, 'locale' => $locale,];
+    $jobArgs = ['provider' => $provider, 'template' => $template, 'length' => $length, 'locale' => $locale, 'step' => 'outline'];
 
     // 2) publish_time: NÃO calcula, só recebe e repassa (timestamp ou string) 
     $publish_ts = 0;
@@ -527,9 +546,10 @@ class PluginsAlpha_Pages_Generator
     } // 6) cria draft 
     $postarr = ['post_type' => $post_type, 'post_status' => 'draft', 'post_title' => '(Gerando) ' . $keyword, 'post_name' => $slug, 'post_content' => '', 'post_author' => get_current_user_id(),]; // só aplica se vier publish_time (sem “ajustes”) 
     if ($publish_ts > 0) {
-      $postarr['post_date'] = date('Y-m-d H:i:s', $publish_ts);
+      $postarr['post_date']     = wp_date('Y-m-d H:i:s', $publish_ts);
       $postarr['post_date_gmt'] = gmdate('Y-m-d H:i:s', $publish_ts);
     }
+
     $draft_id = wp_insert_post($postarr, true);
     if (is_wp_error($draft_id)) {
       return $draft_id;
@@ -560,15 +580,22 @@ class PluginsAlpha_Pages_Generator
       }
     }
 
-    $titles = PluginsAlpha_Titles::getTitle($template, $keyword, $locale, $url, $draft_id);
+    $chosenTitle = PluginsAlpha_Titles::getTitle(
+      $draft_id,
+      $template,
+      $keyword,
+      $locale,
+      $url
+    );
 
-    $chosenTitle = self::pick_best_title((array)$titles, $keyword);
-    if (!$chosenTitle) {
-      $chosenTitle = ucfirst($keyword);
+    if (is_wp_error($chosenTitle)) {
+      return $chosenTitle; // ou trate o erro aqui
     }
 
-    // atualiza draft title com o título escolhido (importa pro WP/SEO) 
-    wp_update_post(['ID' => $draft_id, 'post_title' => '(Gerando) ' . $chosenTitle,]);
+    wp_update_post([
+      'ID'         => $draft_id,
+      'post_title' => '(Gerando) ' . $chosenTitle,
+    ]);
 
     $promptSlug = PluginsAlpha_Prompts::build_slug_prompt(
       (string)$template,
@@ -660,15 +687,16 @@ class PluginsAlpha_Pages_Generator
         $locale
       );
     } else {
-      // fluxo normal
       $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt($template, $keyword, $chosenTitle, $length, $locale, $url);
     }
 
-    $outline = PluginsAlpha_AI::outline($outlinePrompt, $jobArgs);
+    $outline = PluginsAlpha_AI::complete($outlinePrompt);
 
     if (is_wp_error($outline)) {
-      return PluginsAlpha_FailJob::fail_job($draft_id, $outline, 'outline');
+      return PluginsAlpha_FailJob::fail_job($draft_id, $outline);
     }
+
+    $outline = json_decode($outline, true);
 
     // Se vier { "sections": [...] }, pega só o array interno 
     $sections = $outline['sections'] ?? $outline;
@@ -818,7 +846,6 @@ class PluginsAlpha_Pages_Generator
       ];
     }
 
-
     // --- PROMPT (TUDO ACONTECE AQUI) ---
     $prompt = PluginsAlpha_Prompts::build_section_prompt(
       $template,
@@ -843,10 +870,10 @@ class PluginsAlpha_Pages_Generator
     );
 
     if (is_wp_error($resp)) {
-      return PluginsAlpha_FailJob::fail_job($post_id, $resp, 'section_' . $section_id);
+      return PluginsAlpha_FailJob::fail_job($post_id, $resp);
     }
 
-    $content_html = trim((string)($resp['content'] ?? ''));
+    $content_html = trim((string)($resp ?? ''));
 
     if ($content_html === '') {
       return new WP_Error('pga_section_empty', 'Conteúdo vazio.');
@@ -1203,11 +1230,16 @@ class PluginsAlpha_Pages_Generator
       $base_args = [
         'post_type'      => $post_type,
         'post_status'    => 'publish',
-        'post__not_in'   => [$post_id],
         'posts_per_page' => $maxFinal * 2,
         'orderby'        => 'date',
         'order'          => 'DESC',
       ];
+
+      $posts = get_posts($base_args);
+
+      $posts = array_filter($posts, function ($p) use ($post_id) {
+        return (int) $p->ID !== (int) $post_id;
+      });
 
       if (!empty($cat_ids)) {
         $base_args['category__in'] = $cat_ids;
@@ -1219,6 +1251,7 @@ class PluginsAlpha_Pages_Generator
         // 1) TENTA PRIMEIRO: posts PILAR (Yoast, Rank Math, AIOSEO) da mesma categoria
         $pillar_args = $base_args;
 
+        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
         $pillar_args['meta_query'] = [
           'relation' => 'OR',
 
@@ -1537,7 +1570,7 @@ class PluginsAlpha_Pages_Generator
       foreach ($targets as $t) {
         $linksHtml .= sprintf(
           '<p><strong>%s</strong> <a href="%s">%s</a></p>',
-          esc_html__('Leia também:', 'plugins-alpha'),
+          esc_html__('Leia também:', 'alpha-suite'),
           esc_url(get_permalink($t->ID)),
           esc_html(get_the_title($t->ID))
         );
@@ -1559,7 +1592,7 @@ class PluginsAlpha_Pages_Generator
 
           $out .= sprintf(
             '<p><strong>%s</strong> <a href="%s">%s</a></p>',
-            esc_html__('Leia também:', 'plugins-alpha'),
+            esc_html__('Leia também:', 'alpha-suite'),
             esc_url(get_permalink($t->ID)),
             esc_html(get_the_title($t->ID))
           );
@@ -1572,27 +1605,6 @@ class PluginsAlpha_Pages_Generator
     }
 
     return $out;
-  }
-
-
-  /** Seleciona o melhor título (keyword + número + curto) */
-  /** Escolhe o melhor título (contém keyword, tem número, é curto, evita “guia completo”). */
-  private static function pick_best_title(array $cands, string $kw): string
-  {
-    $cands = array_values(array_filter(array_map('trim', $cands)));
-    if (!$cands) return '';
-    usort($cands, function ($a, $b) use ($kw) {
-      $score = function ($t) use ($kw) {
-        $s = 0;
-        if (stripos($t, $kw) !== false) $s += 2;      // contém keyword
-        if (preg_match('/\b\d+\b/', $t)) $s += 1;    // tem número
-        if (mb_strlen($t) <= 60) $s += 1;           // curto (Discover)
-        if (stripos($t, 'guia completo') !== false) $s -= 2; // evita esse padrão
-        return $s;
-      };
-      return $score($b) <=> $score($a);
-    });
-    return $cands[0];
   }
 
   private static function do_schedule_post(int $post_id, array $args = [])

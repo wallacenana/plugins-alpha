@@ -23,7 +23,7 @@ class PluginsAlpha_Youtube
         if ($key === '') {
             return new WP_Error(
                 'pga_youtube_no_key',
-                'Nenhuma chave da API do YouTube configurada. Vá em Plugins Alpha → Configurações → YouTube API.'
+                'Nenhuma chave da API do YouTube configurada. Vá em Alpha Suite → Configurações → YouTube API.'
             );
         }
 

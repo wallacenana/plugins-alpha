@@ -152,19 +152,6 @@ class PluginsAlpha_REST_Ws_Generator
         return is_array($p) ? $p : [];
     }
 
-    private static function merge_payload(array $base, array $patch): array
-    {
-        // merge recursivo simples (patch sobrescreve base)
-        foreach ($patch as $k => $v) {
-            if (is_array($v) && isset($base[$k]) && is_array($base[$k])) {
-                $base[$k] = self::merge_payload($base[$k], $v);
-            } else {
-                $base[$k] = $v;
-            }
-        }
-        return $base;
-    }
-
     /**
      * Normaliza para sempre retornar o mesmo formato.
      */
@@ -351,7 +338,7 @@ class PluginsAlpha_REST_Ws_Generator
         $tmp = download_url($url, 60);
         if (is_wp_error($tmp)) return $tmp;
 
-        $name = basename(parse_url($url, PHP_URL_PATH) ?: 'image.jpg');
+        $name = basename(wp_parse_url($url, PHP_URL_PATH) ?: 'image.jpg');
         if (!$name) $name = 'image.jpg';
 
         $file_array = [
@@ -362,7 +349,7 @@ class PluginsAlpha_REST_Ws_Generator
         $att_id = media_handle_sideload($file_array, $post_id);
 
         if (is_wp_error($att_id)) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return $att_id;
         }
 
@@ -617,7 +604,7 @@ class PluginsAlpha_REST_Ws_Generator
                     return new \WP_Error('pga_pexels_download', 'Falha ao baixar imagem do Pexels.', ['status' => 500]);
                 }
 
-                $filename = basename(parse_url($pick_url, PHP_URL_PATH) ?: 'pexels.jpg');
+                $filename = basename(wp_parse_url($pick_url, PHP_URL_PATH) ?: 'pexels.jpg');
                 if (!preg_match('/\.(jpg|jpeg|png|webp)$/i', $filename)) {
                     $filename .= '.jpg';
                 }
@@ -631,8 +618,8 @@ class PluginsAlpha_REST_Ws_Generator
 
                 $att_id = media_handle_sideload($file_array, $story_id, $alt);
                 if (is_wp_error($att_id)) {
-                    @unlink($tmp);
-                    return new \WP_Error('pga_pexels_sideload', $att_id->get_error_message(), ['status' => 500]);
+                    wp_delete_file($tmp);
+                    return $att_id;
                 }
 
                 // marca como usada (por story) — evita repetir nos próximos slides
@@ -1033,8 +1020,7 @@ class PluginsAlpha_REST_Ws_Generator
             $poster_id         = absint($settings['poster_id'] ?? 0);
             $accent_color      = self::clean($settings['accent_color'] ?? '');
             $text_color        = self::clean($settings['text_color'] ?? '');
-            $locale            = self::clean($settings['locale'] ?? 'pt_BR');
-            if ($locale === '') $locale = 'pt_BR';
+            $locale            = $p['locale'] ?? 'pt_BR';
 
             $gen_images = !empty($p['gen_images']) || !empty($p['genImage']);
 
@@ -1396,7 +1382,7 @@ class PluginsAlpha_REST_Ws_Generator
         // se veio horário, cria como future
         if ($whenTs > 0) {
             $status = 'future';
-            $post_date     = date('Y-m-d H:i:s', $whenTs);
+            $post_date = wp_date('Y-m-d H:i:s', $whenTs);
             $post_date_gmt = gmdate('Y-m-d H:i:s', $whenTs);
         }
 

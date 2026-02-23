@@ -23,19 +23,19 @@ class PluginsAlpha_Orion_Templates
     {
         return [
             'article' => [
-                'label'      => __('Artigo', 'plugins-alpha'),
+                'label'      => __('Artigo', 'alpha-suite'),
                 'enabled'    => 1,
                 'builtin'    => 1,
                 'is_default' => 1,
             ],
             'modelar_youtube' => [
-                'label'      => __('Modelar YouTube', 'plugins-alpha'),
+                'label'      => __('Modelar YouTube', 'alpha-suite'),
                 'enabled'    => 1,
                 'builtin'    => 1,
                 'is_default' => 1,
             ],
             'rss' => [
-                'label'      => __('Modelar RSS', 'plugins-alpha'),
+                'label'      => __('Modelar RSS', 'alpha-suite'),
                 'enabled'    => 1,
                 'builtin'    => 1,
                 'is_default' => 1,
@@ -99,19 +99,19 @@ class PluginsAlpha_Orion_Templates
     {
         return [
             'article' => [
-                'label'      => __('Artigo', 'plugins-alpha'),
+                'label'      => __('Artigo', 'alpha-suite'),
                 'builtin'    => 1,
                 'enabled'    => 1,
                 'is_default' => 1,
             ],
             'modelar_youtube' => [
-                'label'      => __('Modelar vídeo do YouTube', 'plugins-alpha'),
+                'label'      => __('Modelar vídeo do YouTube', 'alpha-suite'),
                 'builtin'    => 1,
                 'enabled'    => 1,
                 'is_default' => 1,
             ],
             'rss' => [
-                'label'      => __('Modelar RSS', 'plugins-alpha'),
+                'label'      => __('Modelar RSS', 'alpha-suite'),
                 'builtin'    => 1,
                 'enabled'    => 1,
                 'is_default' => 1,
@@ -134,8 +134,8 @@ class PluginsAlpha_Orion_Templates
         }
 
         // garante core
-        if (empty($out['article'])) $out['article'] = ['label' => __('Artigo (padrão)', 'plugins-alpha'), 'enabled' => 1, 'builtin' => 1];
-        if (empty($out['modelar_youtube'])) $out['modelar_youtube'] = ['label' => __('Modelar YouTube', 'plugins-alpha'), 'enabled' => 1, 'builtin' => 1];
+        if (empty($out['article'])) $out['article'] = ['label' => __('Artigo (padrão)', 'alpha-suite'), 'enabled' => 1, 'builtin' => 1];
+        if (empty($out['modelar_youtube'])) $out['modelar_youtube'] = ['label' => __('Modelar YouTube', 'alpha-suite'), 'enabled' => 1, 'builtin' => 1];
 
         return $out;
     }

@@ -14,15 +14,15 @@ class PluginsAlpha_Dashboard
     }
 ?>
     <div class="wrap pa-wrap">
-      <h1 class="pa-title"><?php echo esc_html__('Plugins Alpha — Dashboard', 'plugins-alpha'); ?></h1>
-      <p class="pa-subtitle"><?php echo esc_html__('Gerencie seus geradores e descubra novos módulos.', 'plugins-alpha'); ?></p>
+      <h1 class="pa-title"><?php echo esc_html__('Alpha Suite — Dashboard', 'alpha-suite'); ?></h1>
+      <p class="pa-subtitle"><?php echo esc_html__('Gerencie seus geradores e descubra novos módulos.', 'alpha-suite'); ?></p>
 
       <?php if (empty($items)) : ?>
         <div class="pa-panel">
-          <p><?php echo esc_html__('Nenhum item encontrado no catálogo. Verifique suas configurações ou tente novamente mais tarde.', 'plugins-alpha'); ?></p>
+          <p><?php echo esc_html__('Nenhum item encontrado no catálogo. Verifique suas configurações ou tente novamente mais tarde.', 'alpha-suite'); ?></p>
           <p>
-            <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=plugins-alpha-settings')); ?>">
-              <?php echo esc_html__('Abrir Configurações', 'plugins-alpha'); ?>
+            <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=alpha-suite-settings')); ?>">
+              <?php echo esc_html__('Abrir Configurações', 'alpha-suite'); ?>
             </a>
           </p>
         </div>
@@ -99,21 +99,21 @@ class PluginsAlpha_Dashboard
 
                 if ($manage_url) {
                   $primary_href  = $manage_url;
-                  $primary_label = __('Abrir', 'plugins-alpha');
+                  $primary_label = __('Abrir', 'alpha-suite');
                 } elseif ($admin_url) {
                   $primary_href  = $admin_url;
-                  $primary_label = __('Abrir', 'plugins-alpha');
+                  $primary_label = __('Abrir', 'alpha-suite');
                 } elseif ($slug === 'orion-posts') {
-                  $primary_href  = admin_url('admin.php?page=plugins-alpha-orion-posts');
-                  $primary_label = __('Abrir Gerar Posts', 'plugins-alpha');
+                  $primary_href  = admin_url('admin.php?page=alpha-suite-orion-posts');
+                  $primary_label = __('Abrir Gerar Posts', 'alpha-suite');
                 } elseif ($slug === 'alpha-stories') {
                   // fallback extra, caso alguém use slug antigo sem manage_url
                   $primary_href  = admin_url('edit.php?post_type=alpha_storys');
-                  $primary_label = __('Abrir Web Stories', 'plugins-alpha');
+                  $primary_label = __('Abrir Web Stories', 'alpha-suite');
                 } else {
                   // fallback genérico: dashboard
-                  $primary_href  = admin_url('admin.php?page=plugins-alpha-dashboard');
-                  $primary_label = __('Abrir', 'plugins-alpha');
+                  $primary_href  = admin_url('admin.php?page=alpha-suite-dashboard');
+                  $primary_label = __('Abrir', 'alpha-suite');
                 }
 
                 if ($primary_href) {
@@ -125,21 +125,21 @@ class PluginsAlpha_Dashboard
                 // Comprar / Assinar
                 if ($buy) {
                   echo ' <a class="button" target="_blank" rel="noopener noreferrer" href="' . esc_url($buy) . '">'
-                    . esc_html__('Comprar / Assinar', 'plugins-alpha') .
+                    . esc_html__('Comprar / Assinar', 'alpha-suite') .
                     '</a>';
                 }
 
                 // Documentação (se o remoto mandar)
                 if ($docs_url) {
                   echo ' <a class="button button-secondary" target="_blank" rel="noopener noreferrer" href="' . esc_url($docs_url) . '">'
-                    . esc_html__('Documentação', 'plugins-alpha') .
+                    . esc_html__('Documentação', 'alpha-suite') .
                     '</a>';
                 }
 
                 // Saiba mais (landing / página externa)
                 if ($learn_url) {
                   echo ' <a class="button button-link" target="_blank" rel="noopener noreferrer" href="' . esc_url($learn_url) . '">'
-                    . esc_html__('Saiba mais', 'plugins-alpha') .
+                    . esc_html__('Saiba mais', 'alpha-suite') .
                     '</a>';
                 }
 

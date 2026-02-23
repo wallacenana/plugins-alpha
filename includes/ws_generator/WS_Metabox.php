@@ -14,7 +14,7 @@ class PluginsAlpha_WS_Metabox
         foreach ($screens as $screen) {
             add_meta_box(
                 'pga_ws_metabox',
-                __('Web Story (Generator)', 'plugins-alpha'),
+                __('Web Story (Generator)', 'alpha-suite'),
                 [__CLASS__, 'render'],
                 $screen,
                 'side',
@@ -28,14 +28,14 @@ class PluginsAlpha_WS_Metabox
         if (!current_user_can('edit_post', $post->ID)) return;
 
         // Ajusta aqui se tua página do builder tiver outro slug
-        $url = admin_url('admin.php?page=plugins-alpha-ws-generator&source=' . absint($post->ID));
+        $url = admin_url('admin.php?page=alpha-suite-ws-generator&source=' . absint($post->ID));
 ?>
         <p style="margin:0 0 10px;">
-            <?php esc_html_e('Abrir o WS Generator com este post já selecionado.', 'plugins-alpha'); ?>
+            <?php esc_html_e('Abrir o WS Generator com este post já selecionado.', 'alpha-suite'); ?>
         </p>
 
         <a class="button button-primary" href="<?php echo esc_url($url); ?>" style="width:100%;text-align:center;">
-            <?php esc_html_e('Gerar Web Story', 'plugins-alpha'); ?>
+            <?php esc_html_e('Gerar Web Story', 'alpha-suite'); ?>
         </a>
 <?php
     }

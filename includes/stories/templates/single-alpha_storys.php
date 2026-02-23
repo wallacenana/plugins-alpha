@@ -1,38 +1,4 @@
 <?php
-// Início do buffer com um minificador "AMP-safe"
-// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
-ob_start(function ($html) {
-  $tokens = [];
-  $i = 0;
-
-  // 1) Protege blocos sensíveis antes de minificar
-  $protect = [
-    '/<script type="application\/ld\+json"[^>]*>.*?<\/script>/si',
-    '/<style amp-custom[^>]*>.*?<\/style>/si',
-  ];
-
-  foreach ($protect as $regex) {
-    $html = preg_replace_callback($regex, function ($m) use (&$tokens, &$i) {
-      $key = "%%PGA_TOKEN_{$i}%%";
-      $tokens[$key] = $m[0]; // guarda o bloco inteiro (sem mexer no CSS)
-      $i++;
-      return $key;
-    }, $html);
-  }
-
-  $html = preg_replace('/>\s+</', '><', $html);
-  $html = preg_replace('/\s{2,}/', ' ', $html);
-  $html = trim($html);
-
-  // Restaura os blocos protegidos
-  if ($tokens) {
-    $html = strtr($html, $tokens);
-  }
-  return $html;
-});
-?>
-
-<?php
 if (!defined('ABSPATH')) exit;
 global $post;
 
@@ -43,9 +9,9 @@ $pages      = is_array($pages) ? $pages : [];
 $alpha_storys_publisher   = get_post_meta($post->ID, '_alpha_storys_publisher', true) ?: (alpha_opt('publisher_name') ?: get_bloginfo('name'));
 
 $alpha_logo_id  = (int) get_post_meta($post->ID, '_alpha_storys_logo_id', true);
-$default_logo_id = (int) PluginsAlpha_Helpers::stories_logo_id();
+$plugins_alpha_default_logo_id = (int) PluginsAlpha_Helpers::stories_logo_id();
 
-$effective_logo_id = $alpha_logo_id ?: $default_logo_id;
+$effective_logo_id = $alpha_logo_id ?: $plugins_alpha_default_logo_id;
 
 $alpha_logo_src = $effective_logo_id
   ? (wp_get_attachment_image_url($effective_logo_id, 'thumbnail') ?: '')
@@ -63,10 +29,10 @@ $opt_autoplay = (int) PluginsAlpha_Helpers::alpha_opt('autoplay', 1);
 
 if ($alpha_meta_autoplay === '' || $alpha_meta_autoplay === null) {
   // se o post não tiver meta, usa o global
-  $autoplay = !empty($opt_autoplay);
+  $plugins_alpha_autoplay = !empty($opt_autoplay);
 } else {
   // se tiver meta, respeita o que está salvo no post
-  $autoplay = (bool) $alpha_meta_autoplay;
+  $plugins_alpha_autoplay = (bool) $alpha_meta_autoplay;
 }
 
 // duração: meta > config stories > fallback
@@ -82,8 +48,8 @@ if ($meta_seconds > 0) {
 }
 
 $poster_id  = get_post_thumbnail_id($post->ID); // Poster obrigatório
-$poster     = $poster_id ? wp_get_attachment_image_url($poster_id, 'alpha_storys_poster') : '';
 $poster     = $poster_id ? wp_get_attachment_image_url($poster_id, 'storys_poster') : '';
+
 if (!$poster) {
   foreach ($pages as $p) {
     $p = (array) $p;
@@ -237,6 +203,7 @@ $font_family = $font === 'system'
   } elseif (!empty($alpha_logo_src)) {
     $publisher_logo = ['@type' => 'ImageObject', 'url' => $alpha_logo_src];
   }
+  
   $publisher_data = [
     '@type' => 'Organization',
     'name'  => $alpha_storys_publisher,
@@ -680,7 +647,7 @@ $font_family = $font === 'system'
 
       <amp-story-page
         id="p<?php echo (int)$i; ?>"
-        <?php if ($autoplay): ?>auto-advance-after="<?php echo (int)$dur; ?>s" <?php endif; ?>>
+        <?php if ($plugins_alpha_autoplay): ?>auto-advance-after="<?php echo (int)$dur; ?>s" <?php endif; ?>>
 
         <?php if ($style === 'card'): ?>
           <amp-story-grid-layer template="fill">

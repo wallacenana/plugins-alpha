@@ -3,16 +3,6 @@
 
     const REST = PGA_CFG.rest;
     const NONCE = PGA_CFG.nonce;
-
-    function isValidUrl(url) {
-        try {
-            new URL(url);
-            return true;
-        } catch (e) {
-            return false;
-        }
-    }
-
     async function fetchJSON(url, options = {}) {
         // opções: method, headers, body, silent
         const { silent, method = 'GET', headers = {}, body, ...rest } = options || {};
@@ -30,31 +20,31 @@
                     const safe = String(text || '').replace(/[<>&]/g, s => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[s]));
                     await Swal.fire({
                         icon: 'error',
-                        title: __('Resposta não-JSON', 'plugins-alpha'),
+                        title: __('Resposta não-JSON', 'alpha-suite'),
                         html: sprintf(
-                            __('<p><b>HTTP</b>: %d</p><pre style="white-space:pre-wrap;max-height:320px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px;">%s</pre>', 'plugins-alpha'),
+                            __('<p><b>HTTP</b>: %d</p><pre style="white-space:pre-wrap;max-height:320px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px;">%s</pre>', 'alpha-suite'),
                             res.status,
                             safe
                         )
                     });
                 } else {
-                    alert(sprintf(__('Erro: resposta não-JSON (%d)', 'plugins-alpha'), res.status));
+                    alert(sprintf(__('Erro: resposta não-JSON (%d)', 'alpha-suite'), res.status));
                 }
             }
 
-            const err = new Error(sprintf(__('Non-JSON %d', 'plugins-alpha'), res.status));
+            const err = new Error(sprintf(__('Non-JSON %d', 'alpha-suite'), res.status));
             err.status = res.status;
             err.rawBody = text;
             throw err;
         }
 
         if (!res.ok) {
-            const msg = (data && (data.message || data.code)) || sprintf(__('HTTP %d', 'plugins-alpha'), res.status);
+            const msg = (data && (data.message || data.code)) || sprintf(__('HTTP %d', 'alpha-suite'), res.status);
             if (!silent) {
                 if (window.Swal) {
-                    await Swal.fire({ icon: 'error', title: __('Falha na chamada', 'plugins-alpha'), text: String(msg) });
+                    await Swal.fire({ icon: 'error', title: __('Falha na chamada', 'alpha-suite'), text: String(msg) });
                 } else {
-                    alert(sprintf(__('Erro: %s', 'plugins-alpha'), String(msg)));
+                    alert(sprintf(__('Erro: %s', 'alpha-suite'), String(msg)));
                 }
             }
             return
@@ -62,96 +52,6 @@
 
         return data;
     }
-
-    function getRSSBoxData($box) {
-        return {
-            source_url: $box.find('.pga_keywords').val().trim(),
-            category: $box.find('.pga_category').val(),
-            length: $box.find('.pga_length').val(),
-            per_day: parseInt($box.find('.pga_per_day').val(), 10) || 1,
-            update_interval: parseInt($box.find('.pga_quota_day').val(), 10) || 1,
-            make_faq: $box.find('.pga_make_faq').is(':checked'),
-            faq_qty: parseInt($box.find('.pga_faq_qty').val(), 10) || 0,
-            locale: $box.find('.pga_locale').val(),
-            tags: $box.find('.pga_tags').val() || []
-        };
-    }
-
-    function alertMsg(type, text) {
-        if (window.Swal) {
-            Swal.fire({
-                icon: type,
-                text,
-                confirmButtonText: 'OK'
-            });
-        } else {
-            alert(text);
-        }
-    }
-
-    async function runRSS($box) {
-        const data = getRSSBoxData($box);
-
-        if (!data.source_url) {
-            alertMsg('warning', 'Informe a URL do RSS.');
-            return;
-        }
-
-        if (!isValidUrl(data.source_url)) {
-            alertMsg('error', 'URL inválida.');
-            return;
-        }
-
-        try {
-            BUSY = true;
-
-            Swal.fire({
-                title: 'Processando RSS…',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-                didOpen: () => Swal.showLoading()
-            });
-
-            const res = await fetch(PGA_CFG.rest + '/rss/run', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-WP-Nonce': PGA_CFG.nonce
-                },
-                body: JSON.stringify(data)
-            });
-
-            const json = await res.json();
-            Swal.close();
-
-            if (!res.ok || !json.ok) {
-                throw new Error(json.message || 'Erro ao processar RSS');
-            }
-
-            alertMsg(
-                'success',
-                `RSS processado. ${json.created || 0} posts agendados.`
-            );
-
-        } catch (err) {
-            Swal.close();
-            alertMsg('error', err.message || 'Erro inesperado');
-        } finally {
-            BUSY = false;
-        }
-    }
-
-    // =========================
-    // Bind
-    // =========================
-
-    // $(document).on('click', '#pga_gen_container .pga_generate_box', function () {
-    //     if (BUSY) return;
-
-    //     const $box = $(this).closest('.pga-gen-box');
-    //     runRSS($box);
-    // });
 
     async function fetchJSON(url, options = {}) {
         const res = await fetch(url, options);
@@ -282,7 +182,7 @@
             }
 
             const postId = start.post_id;
-            
+
             // 🏷 TITLE
             updateStatus('Gerando título...');
             await fetchJSON(`${REST}/rss/title`, {
@@ -331,7 +231,7 @@
                 headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
                 body: JSON.stringify({ post_id: postId })
             });
-            
+
             if (box.find('.pga_make_faq').is(':checked')) {
                 updateStatus('Gerando faq...');
                 await fetchJSON(`${REST}/rss/faq`, {
@@ -342,27 +242,51 @@
             }
 
             // 🖼 IMAGE
-            if (item.link) {
-                updateStatus('Extraindo imagem...');
-                await fetchJSON(`${REST}/rss/extract-image`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-                    body: JSON.stringify({
-                        post_id: postId,
-                        url: item.link
-                    })
-                });
-            }
+            updateStatus('Extraindo imagem...');
+            await fetchJSON(`${REST}/rss/extract-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+                body: JSON.stringify({
+                    post_id: postId,
+                    url: item.link
+                })
+            });
 
             // 🧩 FINALIZE
             updateStatus('Finalizando conteúdo...');
-            await fetchJSON(`${REST}/rss/finalize`, {
+
+            const result = await fetchJSON(`${REST}/rss/finalize`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-WP-Nonce': NONCE
+                },
                 body: JSON.stringify({ post_id: postId })
             });
 
-            Swal.fire('Concluído!', 'Post criado com sucesso.', 'success');
+
+            const postTitle = result?.title || 'Ver post';
+            const postUrl = result?.url || '#';
+
+            await Swal.fire({
+                icon: 'success',
+                title: __('Concluído!', 'alpha-suite'),
+                html: `
+                    <div style="text-align:center;font-size:13px;color:#374151;margin-bottom:10px;">
+                        ${__('Post criado com sucesso.', 'alpha-suite')}
+                    </div>
+                    <div style="text-align:center;">
+                        <a href="${postUrl}" target="_blank" 
+                        style="display:inline-block;padding:8px 14px;
+                                background:#0f172a;color:#fff;
+                                border-radius:6px;text-decoration:none;
+                                font-size:13px;">
+                            ${postTitle}
+                        </a>
+                    </div>
+                `,
+                confirmButtonColor: '#0f172a'
+            });
 
         } catch (err) {
             Swal.fire('Erro', err.message, 'error');

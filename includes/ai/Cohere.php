@@ -27,54 +27,52 @@ class PluginsAlpha_Cohere
     {
         $c = self::cfg();
 
-        $model = $c['model'] ?? $c['model_text'];
-
-        $isStructured = !empty($schema);
-
-        // 🔒 defaults seguros
-        $maxTokens = $args['max_tokens']
-            ?? ($isStructured ? 1800 : 5000);
-
-        $temperature = $args['temperature']
-            ?? ($isStructured ? 0.15 : 0.95);
-
-        $topP = $args['top_p']
-            ?? ($isStructured ? 0.7 : 0.95);
-
-        // 🔴 MODO JSON HARD
-        $systemPrompt = $isStructured
-            ? "Você deve responder APENAS com JSON válido UTF-8.
-Não use markdown.
-Não use aspas tipográficas.
-Não quebre linhas dentro de strings.
-Não inclua texto fora do JSON.
-Não explique nada."
-            : "Você é um gerador de artigos focado em SEO GEO e E-E-A-T.";
-
-        // 🔹 Cohere usa chat + preamble
-        $body = [
-            'model'       => $model,
-            'preamble'    => trim($systemPrompt),
-            'message'     => $prompt,
-            'max_tokens'  => $maxTokens,
-            'temperature' => $temperature,
-            'p'           => $topP,
-        ];
-
-        if ($isStructured) {
-            $body['stop_sequences'] = ["\n\n", "\n```"];
+        if (empty($c['key'])) {
+            return new WP_Error('pga_no_key', 'Chave Cohere não configurada.');
         }
 
-        $argsReq = [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $c['key'],
-                'Content-Type'  => 'application/json',
+        $model = $c['model_text'] ?? 'command-r-plus';
+        $isStructured = !empty($schema);
+
+        $maxTokens   = $args['max_tokens'] ?? ($isStructured ? 1800 : 4000);
+        $temperature = $args['temperature'] ?? ($isStructured ? 0 : 0.3);
+
+        $systemPrompt = $isStructured
+            ? "Responda SOMENTE com JSON válido UTF-8.
+Sem markdown.
+Sem explicações.
+Sem texto fora do JSON.
+Não use aspas tipográficas."
+            : "Você é um gerador de artigos focado em SEO GEO e E-E-A-T.";
+
+        $body = [
+            'model' => $model,
+            'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => $systemPrompt
+                ],
+                [
+                    'role' => 'user',
+                    'content' => $prompt
+                ]
             ],
-            'timeout' => $c['timeout'] ?? 60,
-            'body'    => wp_json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'temperature' => $temperature,
+            'max_tokens'  => $maxTokens
         ];
 
-        $res = wp_remote_post('https://api.cohere.com/v1/chat', $argsReq);
+        $res = wp_remote_post(
+            'https://api.cohere.com/v2/chat',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $c['key'],
+                    'Content-Type'  => 'application/json',
+                ],
+                'timeout' => $c['timeout'] ?? 60,
+                'body'    => wp_json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]
+        );
+
         if (is_wp_error($res)) {
             return $res;
         }
@@ -82,7 +80,7 @@ Não explique nada."
         $raw  = wp_remote_retrieve_body($res);
         $json = json_decode($raw, true);
 
-        if (!isset($json['text'])) {
+        if (!isset($json['message']['content'][0]['text'])) {
             return new WP_Error(
                 'pga_cohere_invalid',
                 'Resposta inválida do Cohere.',
@@ -90,26 +88,47 @@ Não explique nada."
             );
         }
 
-        $txt = trim((string)$json['text']);
+        $txt = trim((string)$json['message']['content'][0]['text']);
 
+        // 🔹 MODO TEXTO NORMAL
         if (!$isStructured) {
-            return ['content' => $txt];
+            return $txt;
         }
 
+        /*
+    |--------------------------------------------------------------------------
+    | 🔥 PARSE FORÇADO
+    |--------------------------------------------------------------------------
+    */
+
+        // remove qualquer lixo antes/depois do JSON
         if (preg_match('/\{.*\}/s', $txt, $m)) {
             $txt = $m[0];
         }
 
         $parsed = json_decode($txt, true);
 
-        if (!is_array($parsed)) {
+        if (json_last_error() !== JSON_ERROR_NONE) {
             return new WP_Error(
-                'pga_parse',
-                'Falha ao decodificar JSON do modelo.',
-                ['snippet' => mb_substr($txt, 0, 800)]
+                'pga_json_invalid',
+                'JSON inválido retornado pelo Cohere.',
+                [
+                    'json_error' => json_last_error_msg(),
+                    'snippet'    => mb_substr($txt, 0, 1000)
+                ]
             );
         }
 
+        // Caso venha {"content":"{...json interno...}"}
+        if (isset($parsed['content']) && is_string($parsed['content'])) {
+            $inner = json_decode($parsed['content'], true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($inner)) {
+                $parsed = $inner;
+            }
+        }
+        unset($schema['use_search']);
+
+        // valida contrato mínimo
         foreach ($schema as $key => $_) {
             if (!array_key_exists($key, $parsed)) {
                 return new WP_Error(

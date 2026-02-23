@@ -1,4 +1,7 @@
 <?php
+
+use Soap\Url;
+
 if (!defined('ABSPATH')) exit;
 
 class PluginsAlpha_RESTRSS
@@ -87,17 +90,9 @@ class PluginsAlpha_RESTRSS
             }
         ]);
 
-        register_rest_route('pga/v1', '/rss/extract-image', [
+        register_rest_route($base, '/rss/extract-image', [
             'methods'  => 'POST',
-            'callback' => [__CLASS__, 'extract_image'],
-            'permission_callback' => function () {
-                return current_user_can('edit_posts');
-            }
-        ]);
-
-        register_rest_route('pga/v1', '/rss/run', [
-            'methods'  => 'POST',
-            'callback' => [__CLASS__, 'rest_run_feed'],
+            'callback' => [__CLASS__, 'rest_extract_image'],
             'permission_callback' => function () {
                 return current_user_can('edit_posts');
             }
@@ -108,150 +103,272 @@ class PluginsAlpha_RESTRSS
     {
         global $wpdb;
 
-        $tab_id = sanitize_text_field($req['tab_id']);
+        $tab_id     = sanitize_text_field($req['tab_id']);
         $generators = $req['generators'];
 
         if (!$tab_id || !is_array($generators)) {
             return new WP_Error('invalid_data', 'Dados inválidos');
         }
 
-        // apaga antigos da tab
-        $old = $wpdb->get_results(
-            $wpdb->prepare("SELECT id FROM {$wpdb->prefix}pga_generators WHERE tab_id = %s", $tab_id)
-        );
+        /*
+    |--------------------------------------------------------------------------
+    | 1️⃣ Buscar interval e next_run antigos
+    |--------------------------------------------------------------------------
+    */
+        $old_runtime = [];
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $old = $wpdb->get_results(
+            $wpdb->prepare(
+                "
+        SELECT g.id, r.interval_hours, r.next_run
+        FROM {$wpdb->prefix}pga_generators g
+        LEFT JOIN {$wpdb->prefix}pga_generator_runtime r
+            ON r.generator_id = g.id
+        WHERE g.tab_id = %s
+        ORDER BY g.id ASC
+        ",
+                $tab_id
+            )
+        );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+
+        foreach ($old as $index => $o) {
+            $old_runtime[$index] = [
+                'interval' => intval($o->interval_hours),
+                'next_run' => $o->next_run
+            ];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 2️⃣ Apaga tudo (sua arquitetura atual)
+        |--------------------------------------------------------------------------
+        */
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         foreach ($old as $o) {
             $wpdb->delete("{$wpdb->prefix}pga_generators", ['id' => $o->id]);
             $wpdb->delete("{$wpdb->prefix}pga_generator_config", ['generator_id' => $o->id]);
             $wpdb->delete("{$wpdb->prefix}pga_generator_runtime", ['generator_id' => $o->id]);
         }
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-        foreach ($generators as $g) {
 
-            $active = !empty($g['active']) ? 1 : 0;
-            $start = intval($g['start_hour'] ?? 0);
-            $end   = intval($g['end_hour'] ?? 23);
-            $interval_hours   = intval($g['interval_hours'] ?? 1);
+        /*
+        |--------------------------------------------------------------------------
+        | 3️⃣ Recria com comparação correta
+        |--------------------------------------------------------------------------
+        */
+        foreach ($generators as $index => $g) {
 
+            $active         = !empty($g['active']) ? 1 : 0;
+            $start          = intval($g['start_hour'] ?? 0);
+            $end            = intval($g['end_hour'] ?? 23);
+            $interval_hours = intval($g['interval_hours'] ?? 1);
+
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->insert("{$wpdb->prefix}pga_generators", [
-                'tab_id' => $tab_id,
-                'name' => sanitize_text_field($g['template_key'] ?? 'Gerador'),
-                'active' => $active,
-                'start_hour' => $start,
-                'end_hour' => $end,
+                'tab_id'         => $tab_id,
+                'name'           => sanitize_text_field($g['template_key'] ?? 'Gerador'),
+                'active'         => $active,
+                'start_hour'     => $start,
+                'end_hour'       => $end,
                 'interval_hours' => $interval_hours,
             ]);
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
 
             $gen_id = $wpdb->insert_id;
 
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->insert("{$wpdb->prefix}pga_generator_config", [
                 'generator_id' => $gen_id,
-                'config_json' => wp_json_encode($g),
+                'config_json'  => wp_json_encode($g),
             ]);
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-            $next = date(
-                'Y-m-d H:i:s',
-                current_time('timestamp') + ($interval_hours * HOUR_IN_SECONDS)
-            );
+            $old_interval = $old_runtime[$index]['interval'] ?? null;
+            $old_next_run = $old_runtime[$index]['next_run'] ?? null;
 
+            /*
+            |--------------------------------------------------------------------------
+            | 🔥 SUA LÓGICA CORRETA AQUI
+            |--------------------------------------------------------------------------
+            */
+            if ($old_interval !== null && $old_interval == $interval_hours) {
+
+                // Intervalo não mudou → mantém next_run antigo
+                $next = $old_next_run ?: wp_date(
+                    'Y-m-d H:i:s',
+                    current_time('timestamp') + ($interval_hours * HOUR_IN_SECONDS)
+                );
+            } else {
+
+                // Intervalo mudou → recalcula
+                $next = wp_date(
+                    'Y-m-d H:i:s',
+                    current_time('timestamp') + ($interval_hours * HOUR_IN_SECONDS)
+                );
+            }
+
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->insert("{$wpdb->prefix}pga_generator_runtime", [
-                'generator_id' => $gen_id,
-                'next_run'     => $next,
+                'generator_id'  => $gen_id,
+                'next_run'      => $next,
+                'interval_hours' => $interval_hours,
             ]);
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         }
 
         return ['success' => true];
     }
 
-    public static function rest_run_feed(WP_REST_Request $req)
+    public static function rest_extract_image(WP_REST_Request $request)
     {
-        $url = esc_url_raw($req->get_param('url'));
+        $post_id = (int) $request->get_param('post_id');
+        $url     = (string) $request->get_param('url');
 
-        if (!$url) {
-            return new WP_Error('no_url', 'URL obrigatória', ['status' => 400]);
-        }
-
-        self::process_feed($url);
-
-        return [
-            'ok' => true
-        ];
+        return self::extract_image($post_id, $url);
     }
 
-    public static function extract_image($postId, $url)
+    public static function extract_image($postId, $url = '')
     {
-        if (!$postId || !$url) {
+        if (!$postId) {
             return false;
         }
 
+        // 🔥 Se já tem thumbnail, não faz nada
         if (has_post_thumbnail($postId)) {
             return true;
         }
 
-        $response = wp_remote_get($url, [
-            'timeout' => 10,
-            'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (PluginsAlphaBot)'
-            ]
-        ]);
+        $title   = get_the_title($postId);
 
-        if (is_wp_error($response)) {
-            return false;
+        $image_alt = trim($title ?? 'Imagem ilustrativa');
+
+        $attachmentId = 0;
+
+        /*
+    |--------------------------------------------------------------------------
+    | 1️⃣ Tenta extrair imagem da página
+    |--------------------------------------------------------------------------
+    */
+
+        if (!empty($url)) {
+
+            $response = wp_remote_get($url, [
+                'timeout' => 10,
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0 (PluginsAlphaBot)'
+                ]
+            ]);
+
+            if (!is_wp_error($response)) {
+
+                $html = wp_remote_retrieve_body($response);
+
+                if ($html) {
+
+                    $imageUrl = '';
+
+                    // og:image
+                    if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)/i', $html, $m)) {
+                        $imageUrl = esc_url_raw($m[1]);
+                    }
+
+                    // twitter:image
+                    if (!$imageUrl && preg_match('/<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)/i', $html, $m)) {
+                        $imageUrl = esc_url_raw($m[1]);
+                    }
+
+                    // fallback img
+                    if (!$imageUrl && preg_match('/<img[^>]+src=["\']([^"\']+)/i', $html, $m)) {
+                        $imageUrl = esc_url_raw($m[1]);
+                    }
+
+                    if ($imageUrl) {
+
+                        // normaliza relativa
+                        if (!preg_match('#^https?://#', $imageUrl)) {
+                            $imageUrl = esc_url_raw(
+                                rtrim($url, '/') . '/' . ltrim($imageUrl, '/')
+                            );
+                        }
+
+                        require_once ABSPATH . 'wp-admin/includes/file.php';
+                        require_once ABSPATH . 'wp-admin/includes/media.php';
+                        require_once ABSPATH . 'wp-admin/includes/image.php';
+
+                        $attachmentId = media_sideload_image($imageUrl, $postId, null, 'id');
+                    }
+                }
+            }
         }
 
-        $html = wp_remote_retrieve_body($response);
-        if (!$html) {
-            return false;
-        }
+        /*
+    |--------------------------------------------------------------------------
+    | 2️⃣ Se não conseguiu extrair → gera via IA
+    |--------------------------------------------------------------------------
+    */
 
-        $imageUrl = '';
+        if (!$attachmentId || is_wp_error($attachmentId)) {
+            if (!class_exists('PluginsAlpha_Prompts') || !class_exists('PluginsAlpha_Images')) {
+                return false;
+            }
 
-        // 1️⃣ og:image
-        if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)/i', $html, $m)) {
-            $imageUrl = esc_url_raw($m[1]);
-        }
+            $imageProvider = class_exists('PluginsAlpha_AI')
+                ? PluginsAlpha_AI::get_image_provider()
+                : 'pollinations';
 
-        // 2️⃣ twitter:image
-        if (!$imageUrl && preg_match('/<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)/i', $html, $m)) {
-            $imageUrl = esc_url_raw($m[1]);
-        }
-
-        // 3️⃣ fallback img
-        if (!$imageUrl && preg_match('/<img[^>]+src=["\']([^"\']+)/i', $html, $m)) {
-            $imageUrl = esc_url_raw($m[1]);
-        }
-
-        if (!$imageUrl) {
-            return false;
-        }
-
-        // 🔥 Normaliza URL relativa
-        if (!preg_match('#^https?://#', $imageUrl)) {
-            $imageUrl = esc_url_raw(
-                rtrim($url, '/') . '/' . ltrim($imageUrl, '/')
+            $meta_img_prompt = PluginsAlpha_Prompts::build_image_prompt(
+                $title,
+                $title,
+                '',
+                'rss',
+                $imageProvider
             );
+
+            $img_prompt = $meta_img_prompt;
+
+            if (class_exists('PluginsAlpha_AI')) {
+                $resolved = PluginsAlpha_AI::image_prompt($meta_img_prompt, []);
+                if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
+                    $img_prompt = trim($resolved);
+                }
+            }
+
+            if ($img_prompt) {
+
+                $attachmentId = PluginsAlpha_Images::generate_by_settings(
+                    $img_prompt,
+                    intval($postId),
+                    $image_alt
+                );
+            }
         }
 
-        // 🔥 Valida extensão
-        $ext = strtolower(pathinfo(parse_url($imageUrl, PHP_URL_PATH), PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
-            return false;
+        /*
+    |--------------------------------------------------------------------------
+    | 3️⃣ Finaliza
+    |--------------------------------------------------------------------------
+    */
+
+        if (!is_wp_error($attachmentId) && $attachmentId) {
+
+            set_post_thumbnail($postId, $attachmentId);
+
+            update_post_meta($attachmentId, '_wp_attachment_image_alt', $image_alt);
+            update_post_meta($postId, '_pga_image_alt', $image_alt);
+
+            return $attachmentId;
+        } else {
+            PluginsAlpha_FailJob::fail_job($postId, $respSlug);
         }
 
-        require_once ABSPATH . 'wp-admin/includes/file.php';
-        require_once ABSPATH . 'wp-admin/includes/media.php';
-        require_once ABSPATH . 'wp-admin/includes/image.php';
-
-        $attachmentId = media_sideload_image($imageUrl, $postId, null, 'id');
-
-        if (is_wp_error($attachmentId)) {
-            return false;
-        }
-
-        set_post_thumbnail($postId, $attachmentId);
-
-        return true;
+        return false;
     }
+
 
     public static function start(WP_REST_Request $req)
     {
@@ -265,7 +382,8 @@ class PluginsAlpha_RESTRSS
         $tags        = (array) $req->get_param('tags');
         $link_mode   = sanitize_text_field($req->get_param('link_mode') ?: 'none');
         $link_max    = intval($req->get_param('link_max') ?: 1);
-        $link_manual = (array) $req->get_param('link_manual_ids');
+        $link_manual = (array) $req->get_param('pga_link_max');
+        $link_ids = (array) $req->get_param('link_manual_ids');
         $make_faq    = !empty($req->get_param('make_faq'));
         $faq_qty     = intval($req->get_param('faq_qty') ?: 0);
 
@@ -297,7 +415,7 @@ class PluginsAlpha_RESTRSS
     */
 
         $postId = wp_insert_post([
-            'post_title'  => $title,
+            'post_title'  => "GERANDO " . $title,
             'post_status' => 'draft',
             'post_type'   => 'posts_orion'
         ]);
@@ -328,7 +446,8 @@ class PluginsAlpha_RESTRSS
 
         update_post_meta($postId, '_pga_link_mode', $link_mode);
         update_post_meta($postId, '_pga_link_max', $link_max);
-        update_post_meta($postId, '_pga_link_manual', $link_manual);
+        update_post_meta($postId, '_pga_link_manual', $link_ids);
+        update_post_meta($postId, 'pga_link_max', $link_manual);
 
         update_post_meta($postId, '_pga_make_faq', $make_faq);
         update_post_meta($postId, '_pga_faq_qty', $faq_qty);
@@ -557,6 +676,7 @@ class PluginsAlpha_RESTRSS
         $respSlug = PluginsAlpha_AI::slug($promptSlug);
 
         if (is_wp_error($respSlug)) {
+            return PluginsAlpha_FailJob::fail_job($postId, $respSlug);
             return $respSlug;
         }
 
@@ -689,19 +809,28 @@ class PluginsAlpha_RESTRSS
         $locale = get_post_meta($postId, '_pga_outline_locale', true) ?: 'pt_BR';
         $url    = $context['link'] ?? '';
 
-        $res = PluginsAlpha_Titles::getTitle('rss', '', $locale, $url, $context, $seed, $postId);
+        $newTitle = PluginsAlpha_Titles::getTitle(
+            $postId,
+            'rss',
+            '',
+            $locale,
+            $url,
+            $seed
+        );
 
-        $newTitle = trim((string)($res['title'] ?? ''));
+        if (is_wp_error($newTitle)) {
+            return $newTitle; // ESSENCIAL
+        }
 
-        if (!$newTitle) {
+        if (!is_string($newTitle) || trim($newTitle) === '') {
             return new WP_Error('empty_title', 'Título retornado vazio.');
         }
 
-        // Atualiza post
         wp_update_post([
             'ID' => $postId,
             'post_title' => $newTitle,
         ]);
+
 
         update_post_meta($postId, '_pga_chosen_title', $newTitle);
         update_post_meta($postId, '_pga_job_status', 'title_done');
@@ -743,6 +872,7 @@ class PluginsAlpha_RESTRSS
         $respMeta = PluginsAlpha_AI::meta_description($promptMeta);
 
         if (is_wp_error($respMeta)) {
+            return PluginsAlpha_FailJob::fail_job($postId, $respMeta);
             return $respMeta;
         }
 
@@ -861,16 +991,19 @@ class PluginsAlpha_RESTRSS
             $sourceContent
         );
 
-        $outline = PluginsAlpha_AI::outline($prompt, []);
+        $outline = PluginsAlpha_AI::outline($prompt, [
+            'use_search' => true
+        ]);
 
         if (is_wp_error($outline)) {
+            return PluginsAlpha_FailJob::fail_job($postId, $outline);
             return $outline;
         }
 
         $sections = self::normalize_outline($outline);
 
         if (!is_array($sections)) {
-            return new WP_Error('pga_outline_invalid', 'Outline inválido.');
+            return new WP_Error('pga_outline_invalid', 'Outline inválido "outline".');
         }
 
         // Normalização igual Orion
@@ -916,14 +1049,12 @@ class PluginsAlpha_RESTRSS
 
         if ($linkMode !== 'none') {
 
-            $maxLinks = intval(get_post_meta($postId, '_pga_link_max', true) ?: 1);
+            $maxLinks = intval(get_post_meta($postId, 'pga_link_max', true) ?: 1);
 
             $internalLinks = [];
-            error_log("modo do link: " . $linkMode);
-
             if ($linkMode === 'manual') {
 
-                $manualIds = get_post_meta($postId, '_pga_link_manual_ids', true) ?: [];
+                $manualIds = get_post_meta($postId, '_pga_link_manual', true) ?: [];
 
                 foreach ((array)$manualIds as $pid) {
                     $p = get_post(intval($pid));
@@ -959,12 +1090,23 @@ class PluginsAlpha_RESTRSS
                 $totalSections = count($normalized);
                 $totalLinks    = count($internalLinks);
 
+                // 🔥 Se não tem seção, aborta distribuição
+                if ($totalSections === 0) {
+
+                    $normalized[] = [
+                        'id' => 1,
+                        'level' => 'h2',
+                        'heading' => 'Conteúdo',
+                        'paragraph' => '',
+                        '_internal_links' => []
+                    ];
+
+                    $totalSections = 1;
+                }
+
                 for ($i = 0; $i < $totalLinks; $i++) {
 
-                    $pos = max(
-                        0,
-                        floor(($totalSections - 1) - ($i * ($totalSections / $totalLinks)))
-                    );
+                    $pos = $i % $totalSections;
 
                     $normalized[$pos]['_internal_links'][] = $internalLinks[$i];
                 }
@@ -1064,7 +1206,7 @@ class PluginsAlpha_RESTRSS
         }
 
         if (!is_array($sections) || empty($sections)) {
-            return new WP_Error('pga_outline_invalid', 'Outline inválido.');
+            return new WP_Error('pga_outline_invalid', 'Outline inválido "section".');
         }
 
         $section = null;
@@ -1099,18 +1241,17 @@ class PluginsAlpha_RESTRSS
         $sectionsCount = count($sections);
 
         /*
-    |--------------------------------------------------------------------------
-    | 🔗 LINK INTERNO INJETADO NO PROMPT
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | 🔗 LINK INTERNO INJETADO NO PROMPT
+        |--------------------------------------------------------------------------
+        */
 
         $internalLinks = $section['_internal_links'] ?? [];
 
         $linkInstruction = '';
 
         if (!empty($internalLinks)) {
-
-            $linkInstruction .= "LINK INTERNO OBRIGATÓRIO:\n";
+            $linkInstruction .= "OBRIGATÓRIO INSERIR OS SEGUINTES LINKS INTERNOS:\n";
 
             foreach ($internalLinks as $link) {
 
@@ -1118,24 +1259,28 @@ class PluginsAlpha_RESTRSS
                 $href   = esc_url($link['url']);
 
                 $linkInstruction .=
-                    "- Insira EXATAMENTE UMA VEZ o seguinte HTML:\n"
-                    . "<a href=\"{$href}\" target=\"_blank\">{$anchor}</a>\n"
-                    . "- Não altere o texto da âncora\n"
+                    "No lugar de \"{$anchor}\" resuma para algum termo referente ao título:\n"
+                    . "- Use nesse formato HTML:\n"
+                    . "<a href=\"{$href}\">'termo'</a>\n"
                     . "- Não altere a URL\n"
-                    . "- Não repita o link\n\n";
+                    . "- Insira o link de maneira fluida, se encaixando no texto, nada de \"clique para saber mais\", \"acesse o link\"... "
+                    . "ou seja, zero CTA em texto, apenas o texto fluído\n"
+                    . "- Ex: \"Quando Jorge Kimberland <a href target>inventou a invenção x</a>, todos se alegraram.\"\n"
+                    . "- Use cada link apenas uma vez\n\n";
             }
 
             $linkInstruction .=
                 "REGRA:\n"
-                . "- O link deve ser inserido de forma natural no fluxo do texto\n"
-                . "- Nunca coloque o link isolado em parágrafo único\n\n";
+                . "- Distribua os links naturalmente ao longo do texto\n"
+                . "- Nunca coloque todos os links no mesmo parágrafo\n"
+                . "- Não crie seção apenas para link\n\n";
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | 🧠 PROMPT BASE
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | 🧠 PROMPT BASE
+        |--------------------------------------------------------------------------
+        */
 
         $prompt = PluginsAlpha_Prompts::build_section_rss_prompt(
             $title,
@@ -1156,23 +1301,23 @@ class PluginsAlpha_RESTRSS
             [],
             [
                 'max_tokens'  => 2000,
-                'temperature' => 0.7,
-                'presence_penalty' => 0.7,
-                'frequency_penalty' => 0.7,
+                'temperature' => 0.6,
+                'template'    => 'section',
             ]
         );
 
         if (is_wp_error($resp)) {
+            return PluginsAlpha_FailJob::fail_job($postId, $resp);
             return $resp;
         }
 
-        $content = trim((string)($resp['content'] ?? ''));
+        $content_html = trim((string)($resp ?? ''));
 
-        if ($content === '') {
+        if ($content_html === '') {
             return new WP_Error('pga_section_empty', 'Conteúdo vazio.');
         }
 
-        update_post_meta($postId, $metaKey, $content);
+        update_post_meta($postId, $metaKey, $content_html);
 
         return [
             'post_id'    => $postId,
@@ -1209,7 +1354,9 @@ class PluginsAlpha_RESTRSS
             return new WP_Error('pga_invalid_post', 'Post inválido.');
         }
 
-        $sectionsJson = get_post_meta($postId, '_pga_outline_sections', true);
+        $sectionsJson      = get_post_meta($postId, '_pga_outline_sections', true);
+        $metaDescription   = get_post_meta($postId, '_pga_meta_description', true);
+        $meta_title        = get_post_meta($postId, '_pga_chosen_title', true);
 
         if (!$sectionsJson) {
             return new WP_Error('pga_no_outline', 'Outline não encontrado.');
@@ -1218,7 +1365,7 @@ class PluginsAlpha_RESTRSS
         $sections = json_decode($sectionsJson, true);
 
         if (!is_array($sections)) {
-            return new WP_Error('pga_outline_invalid', 'Outline inválido.');
+            return new WP_Error('pga_outline_invalid', 'Outline inválido "finalize".');
         }
 
         $contentParts = [];
@@ -1264,15 +1411,32 @@ class PluginsAlpha_RESTRSS
             }
         }
 
+        // Atualiza conteúdo
         wp_update_post([
             'ID'           => $postId,
             'post_content' => $content,
         ]);
 
+        // 🔥 PUBLICA O POST
+        wp_update_post([
+            'ID'          => $postId,
+            'post_status' => 'publish',
+        ]);
+
         update_post_meta($postId, '_pga_job_status', 'finalized');
+
+        if (class_exists('PluginsAlpha_SEO')) {
+            PluginsAlpha_SEO::apply_meta($postId, [
+                'title'         => $meta_title,
+                'description'   => $metaDescription,
+                'focus_keyword' => '',
+            ]);
+        }
 
         return [
             'post_id' => $postId,
+            'title'   => get_the_title($postId),
+            'url'     => get_permalink($postId),
         ];
     }
 
@@ -1290,12 +1454,13 @@ class PluginsAlpha_RESTRSS
             return $result;
         }
 
-        return [
+        return rest_ensure_response([
             'ok'      => true,
-            'post_id' => $postId,
-        ];
+            'post_id' => $result['post_id'],
+            'title'   => $result['title'],
+            'url'     => $result['url'],
+        ]);
     }
-
 
     public static function get_rss(WP_REST_Request $req)
     {
@@ -1453,7 +1618,7 @@ class PluginsAlpha_RESTRSS
         return false;
     }
 
-    public static function process_feed($rssUrl)
+    public static function process_feed($rssUrl, $generator_id = 0)
     {
         $items = self::fetch_feed_items($rssUrl, 3);
 
@@ -1470,14 +1635,8 @@ class PluginsAlpha_RESTRSS
             self::generate_title($postId);
             self::generate_slug($postId);
             self::generate_meta($postId);
-
             $outline = self::generate_outline($postId);
-
-            if (is_wp_error($outline)) {
-                return;
-            }
-
-            $sections = $outline['sections'] ?? [];
+            $sections = self::normalize_outline($outline);
 
             foreach ($sections as $sec) {
                 if (!empty($sec['id'])) {
@@ -1485,7 +1644,14 @@ class PluginsAlpha_RESTRSS
                 }
             }
 
-            self::finalize($postId);
+            $result = self::finalize($postId);
+
+            if (is_wp_error($result)) {
+                return;
+            }
+
+            // 🔥 Aqui sim marca como done
+            self::mark_as_done($generator_id, $item['hash'], $postId);
 
             if (!empty($item['link'])) {
                 self::extract_image($postId, $item['link']);
@@ -1494,6 +1660,30 @@ class PluginsAlpha_RESTRSS
             break; // 👈 recomendável: 1 post por cron
         }
     }
+
+    public static function mark_as_done($generator_id, $hash, $postId)
+    {
+        global $wpdb;
+
+        if (!$generator_id || !$hash) {
+            return;
+        }
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $wpdb->insert(
+            "{$wpdb->prefix}pga_generator_items",
+            [
+                'generator_id' => $generator_id,
+                'keyword'      => $hash,
+                'status'       => 'done',
+                'post_id'      => $postId,
+                'created_at'   => current_time('mysql'),
+                'generated_at' => current_time('mysql'),
+            ]
+        );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+    }
+
 
     public static function fetch_feed_items($rssUrl, $limit = 5)
     {
@@ -1561,13 +1751,11 @@ class PluginsAlpha_RESTRSS
         return $items;
     }
 
-    public static function create_base_post(array $item, $manual = false)
+    public static function create_base_post(array $item)
     {
-        $status = $manual ? 'future' : 'draft';
-
         $postId = wp_insert_post([
             'post_title'  => $item['title'],
-            'post_status' => $status,
+            'post_status' => 'draft',
             'post_type'   => 'posts_orion'
         ]);
 
@@ -1601,21 +1789,5 @@ class PluginsAlpha_RESTRSS
         ]);
 
         return $q->have_posts();
-    }
-
-    public static function create_post(WP_REST_Request $req)
-    {
-        $title = sanitize_text_field($req->get_param('title'));
-        $hash  = sanitize_text_field($req->get_param('hash'));
-
-        $postId = wp_insert_post([
-            'post_title'   => $title,
-            'post_status'  => 'draft',
-            'post_type'    => 'post'
-        ]);
-
-        update_post_meta($postId, '_pga_news_hash', $hash);
-
-        return ['post_id' => $postId];
     }
 }

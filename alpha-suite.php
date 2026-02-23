@@ -1,12 +1,12 @@
 <?php
 
 /**
- * Plugin Name: Alpha Suite
+ * Plugin Name: Alpha Suite Alpha
  * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Alpha Órion, Alpha Stories e muito mais.
- * Version: 3.1.7
+ * Version: 3.2.2
  * Author: Wallace Tavares
  * Author URI: https://pluginsalpha.com/
- * Text Domain: plugins-alpha
+ * Text Domain: alpha-suite
  * Domain Path: /languages
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -17,7 +17,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('PLUGINS_ALPHA_VERSION', '3.1.7');
+define('PLUGINS_ALPHA_VERSION', '3.2.2');
 
 // Constantes
 define('PGA_FILE', __FILE__);
@@ -27,7 +27,7 @@ define('PGA_URL',  plugin_dir_url(__FILE__));
 // === Constantes de diretórios (ajuste aqui se mudar) ===
 if (!defined('PGA_INC_DIR'))        define('PGA_INC_DIR',        rtrim(PGA_PATH, '/\\') . '/includes');
 if (!defined('PGA_INC_POSTS_DIR'))  define('PGA_INC_POSTS_DIR',  PGA_INC_DIR . '/orion');
-if (!defined('PGA_INC_STORYS_DIR')) define('PGA_INC_STORYS_DIR', PGA_INC_DIR . '/stories'); // "stories" mesmo
+if (!defined('PGA_INC_STORYS_DIR')) define('PGA_INC_STORYS_DIR', PGA_INC_DIR . '/stories'); 
 
 
 // Versão de asset por filemtime (cache-bust)
@@ -131,10 +131,6 @@ add_action('plugins_loaded', function () {
   // Outros módulos
   if (class_exists('PluginsAlpha_License')) {
     PluginsAlpha_License::init();
-  }
-
-  if (class_exists('PluginsAlpha_Updater')) {
-    PluginsAlpha_Updater::init(PGA_FILE);
   }
 
   if (class_exists('PluginsAlpha_WS_CPT')) {
@@ -259,6 +255,7 @@ function pga_create_tables()
         next_run DATETIME NULL,
         last_run DATETIME NULL,
         lock_until DATETIME NULL,
+        interval_hours INT DEFAULT 1,
         last_status VARCHAR(50) DEFAULT NULL,
         PRIMARY KEY (generator_id)
     ) $charset;");
@@ -266,14 +263,14 @@ function pga_create_tables()
 
 // Link “Dashboard” na tela de Plugins
 add_filter('plugin_action_links_' . plugin_basename(PGA_FILE), function ($links) {
-  $links[] = '<a href="' . esc_url(admin_url('admin.php?page=plugins-alpha-dashboard')) . '">' . esc_html__('Dashboard', 'plugins-alpha') . '</a>';
+  $links[] = '<a href="' . esc_url(admin_url('admin.php?page=alpha-suite-dashboard')) . '">' . esc_html__('Dashboard', 'alpha-suite') . '</a>';
   return $links;
 });
 
 // Ajuste do ícone no menu (20x20)
 add_action('admin_head', function () {
   echo '<style>
-    #adminmenu .toplevel_page_plugins-alpha-dashboard .wp-menu-image img{
+    #adminmenu .toplevel_page_alpha-suite-dashboard .wp-menu-image img{
       width:16px;height:16px;object-fit:contain;opacity:1;
     }
   </style>';

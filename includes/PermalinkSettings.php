@@ -13,16 +13,16 @@ class PluginsAlpha_PermalinkSettings
   {
     add_settings_section(
       'plugins_alpha_permalinks_section',
-      __('Plugins Alpha', 'plugins-alpha'),
+      __('Alpha Suite', 'alpha-suite'),
       function () {
-        echo '<p>Defina as bases (slugs) personalizadas para os tipos de conteúdo do Plugins Alpha.</p>';
+        echo '<p>Defina as bases (slugs) personalizadas para os tipos de conteúdo do Alpha Suite.</p>';
       },
       'permalink'
     );
 
     add_settings_field(
       'pga_story_base',
-      __('Base do Alpha Stories', 'plugins-alpha'),
+      __('Base do Alpha Stories', 'alpha-suite'),
       [self::class, 'render_story_field'],
       'permalink',
       'plugins_alpha_permalinks_section'

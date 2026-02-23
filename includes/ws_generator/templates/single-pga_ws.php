@@ -130,7 +130,7 @@ $canonical = get_permalink($post_id);
 // Top bar edit link (admin)
 $edit_url = '';
 if (is_user_logged_in() && current_user_can('edit_post', $post_id)) {
-    $edit_url = admin_url('admin.php?page=plugins-alpha-ws-generator&story_id=' . $post_id);
+    $edit_url = admin_url('admin.php?page=alpha-suite-ws-generator&story_id=' . $post_id);
 }
 // AMP requires full HTML
 ?>
@@ -221,18 +221,18 @@ if (is_user_logged_in() && current_user_can('edit_post', $post_id)) {
 
     <style amp-custom>
         :root {
-            --pga-accent: <?php echo esc_html($accent); ?>;
-            --pga-text: <?php echo esc_html($textc); ?>;
-            --pga-bg: <?php echo esc_html($bg_color); ?>;
+            --pga-accent: <?php echo esc_html($accent ?: '#ff0000'); ?>;
+            --pga-text: <?php echo esc_html($textc ?: '#ffffff'); ?>;
+            --pga-bg: <?php echo esc_html($bg_color ?: '#000000'); ?>;
+
         }
 
         body {
-            font-family: <?php echo $font_family_css; ?>;
+            font-family: <?php echo esc_attr($font_family_css); ?>;
             background: var(--pga-bg);
             margin: 0;
             padding: 0;
         }
-
 
         /* =========================================================
    TEMPLATE-1
@@ -435,8 +435,7 @@ if (is_user_logged_in() && current_user_can('edit_post', $post_id)) {
         }
 
         .theme-dark .pga-ws-frame-content,
-        .theme-soft .pga-ws-frame-content
-         {
+        .theme-soft .pga-ws-frame-content {
             transform: translateX(-50%);
             left: 50%;
             width: 90%;
@@ -477,7 +476,7 @@ if (is_user_logged_in() && current_user_can('edit_post', $post_id)) {
             font-weight: 700;
             letter-spacing: -0.03em;
             text-transform: none;
-            color: <? echo $textc ?>;
+            color: <?php echo esc_html($textc); ?>;
         }
 
         .theme-news .pga-ws-frame-text {
@@ -821,7 +820,7 @@ if (is_user_logged_in() && current_user_can('edit_post', $post_id)) {
             $page_id = 'p' . ($i + 1);
             $autoAttr = pga_ws_page_auto_advance_attr((int)$i, (int)$autoplay_on, (int)$page_duration);
         ?>
-            <amp-story-page id="<?php echo esc_attr($page_id); ?>" <?php echo $autoAttr; ?> class="pga-ws-story-frame">
+            <amp-story-page id="<?php echo esc_attr($page_id); ?>" <?php echo esc_attr($autoAttr); ?> class="pga-ws-story-frame">
                 <amp-story-grid-layer template="fill">
                     <?php if ($img_url): ?>
                         <amp-img
@@ -837,32 +836,32 @@ if (is_user_logged_in() && current_user_can('edit_post', $post_id)) {
                     <?php endif; ?>
                 </amp-story-grid-layer>
 
-                <amp-story-grid-layer template="vertical" class="pga-wrap <?php echo $tpl; ?>">
+                <amp-story-grid-layer template="vertical" class="pga-wrap <?php echo esc_attr($tpl); ?>">
                     <div class="pga-overlay-fundo"></div>
-                    <?php if ($logo_url): ?>
-                        <div class="pga-logo" aria-hidden="true">
-                            <amp-img src="<?php echo esc_url($logo_url); ?>" width="44" height="44" layout="fixed" alt="Logo"></amp-img>
-                        </div>
-                    <?php endif; ?>
+                    <div class="pga-logo" aria-hidden="true">
+                        <amp-img src="<?php echo esc_url($logo_url); ?>" width="44" height="44" layout="fixed" alt="Logo"></amp-img>
+                    </div>
 
                     <div class="pga-ws-frame-content">
                         <?php if ($heading !== ''): ?>
-                            <h2 class="pga-ws-frame-title" <?php echo pga_ws_animate_attrs((int)$i, 'title'); ?>>
-                                <?php echo pga_ws_esc($heading); ?>
+                            <h2 class="pga-ws-frame-title" <?php echo wp_kses_post(pga_ws_animate_attrs((int) $i, 'title')); ?>>
+                                <?php echo esc_html($heading); ?>
                             </h2>
                         <?php endif; ?>
                         <div class="pga-ws-frame-divider" aria-hidden="true"></div>
 
                         <?php if ($body !== ''): ?>
-                            <p class="pga-ws-frame-text" <?php echo pga_ws_animate_attrs((int)$i, 'body'); ?>>
-                                <?php echo nl2br(pga_ws_esc($body)); ?>
+                            <p class="pga-ws-frame-text" <?php echo wp_kses_post(pga_ws_animate_attrs((int) $i, 'body')); ?>>
+                                <?php echo wp_kses_post(nl2br(esc_html($body))); ?>
                             </p>
                         <?php endif; ?>
 
                         <?php if ($cta_t !== '' && $cta_u !== ''): ?>
-                            <a class="pga-ws-cta" href="<?php echo esc_url($cta_u); ?>" target="_blank" rel="noopener"
-                                <?php echo pga_ws_animate_attrs((int)$i, 'cta'); ?>>
-                                <?php echo pga_ws_esc($cta_t); ?>
+                            <a class="pga-ws-cta"
+                                href="<?php echo esc_url($cta_u); ?>"
+                                target="_blank"
+                                rel="noopener" <?php echo wp_kses_post(pga_ws_animate_attrs((int) $i, 'cta')); ?>>
+                                <?php echo esc_html($cta_t); ?>
                             </a>
                         <?php endif; ?>
                     </div>

@@ -284,17 +284,21 @@ class PluginsAlpha_Helpers
     if (class_exists('PluginsAlpha_Settings')) {
       $opts    = PluginsAlpha_Settings::get();
       $stories = $opts['stories'] ?? [];
-      if (!empty($stories['images_provider'])) {
-        $imageProvider = (string) $stories['images_provider'];
-      }
     }
+
+    if (!empty($stories['images_provider'])) {
+      $imageProvider = (string) $stories['images_provider'];
+    }
+
+    $lang = (string) $stories['language'];
 
     // 1) Monta o prompt via central de prompts, passando o provider
     $prompt = PluginsAlpha_Prompts::build_story_prompt_for_post(
       $post,
       $raw_html,
       $brief,
-      $imageProvider
+      $imageProvider,
+      $lang
     );
 
     $result = PluginsAlpha_AI::generate_story_pages($prompt, []);

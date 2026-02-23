@@ -32,11 +32,11 @@ class PluginsAlpha_License
     public static function menu(): void
     {
         add_submenu_page(
-            'plugins-alpha-dashboard',
-            __('Licença', 'plugins-alpha'),
-            __('Licença', 'plugins-alpha'),
+            'alpha-suite-dashboard',
+            __('Licença', 'alpha-suite'),
+            __('Licença', 'alpha-suite'),
             'manage_options',
-            'plugins-alpha-license',
+            'alpha-suite-license',
             [self::class, 'render_page']
         );
     }
@@ -287,7 +287,7 @@ class PluginsAlpha_License
             'site_name'      => get_bloginfo('name'),
             'wp_version'     => get_bloginfo('version'),
             'php_version'    => PHP_VERSION,
-            'plugin'         => 'plugins-alpha',
+            'plugin'         => 'alpha-suite',
             'plugin_version' => '1.0.1',
             // dica: você pode mandar um flag pro server não "consumir slot" no cron,
             // se você implementar isso depois:
@@ -418,7 +418,7 @@ class PluginsAlpha_License
     public static function render_page(): void
     {
         if (! current_user_can('manage_options')) {
-            wp_die(esc_html__('Sem permissão.', 'plugins-alpha'));
+            wp_die(esc_html__('Sem permissão.', 'alpha-suite'));
         }
 
 
@@ -428,14 +428,14 @@ class PluginsAlpha_License
         $view = self::view_data($lic);
 
         $status_label = self::is_active()
-            ? __('Ativa', 'plugins-alpha')
-            : __('Inativa', 'plugins-alpha');
+            ? __('Ativa', 'alpha-suite')
+            : __('Inativa', 'alpha-suite');
 
         $status_class = self::is_active()
             ? 'pga-badge-active'
             : 'pga-badge-inactive';
 
-        // 3) Avisos via GET (já sanitizados)
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended
         $error = isset($_GET['error'])
             ? sanitize_text_field(wp_unslash($_GET['error']))
             : '';
@@ -443,6 +443,7 @@ class PluginsAlpha_License
         $updated = isset($_GET['updated'])
             ? sanitize_text_field(wp_unslash($_GET['updated']))
             : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
         if ($error) {
             echo '<div class="notice notice-error is-dismissible"><p>' .
@@ -452,18 +453,18 @@ class PluginsAlpha_License
 
         if ($updated) {
             echo '<div class="notice notice-success is-dismissible"><p>' .
-                esc_html__('Licença atualizada com sucesso.', 'plugins-alpha') .
+                esc_html__('Licença atualizada com sucesso.', 'alpha-suite') .
                 '</p></div>';
         }
 
         // === daqui pra baixo fica o teu HTML da tela de licença ===
 ?>
         <div class="wrap">
-            <h1 class="wp-heading-inline"><?php esc_html_e('Licença — Plugins Alpha', 'plugins-alpha'); ?></h1>
+            <h1 class="wp-heading-inline"><?php esc_html_e('Licença — Alpha Suite', 'alpha-suite'); ?></h1>
 
             <p style="margin-top:8px; color:#555;">
                 <?php printf(
-                    esc_html('Este site: %s (domínio usado para ativação)', 'plugins-alpha'),
+                    esc_html('Este site: %s (domínio usado para ativação)', 'alpha-suite'),
                     '<code>' . esc_html($domain) . '</code>'
                 ); ?>
             </p>
@@ -473,7 +474,7 @@ class PluginsAlpha_License
                 <!-- STATUS -->
                 <div style="flex:1; min-width:260px;">
                     <div style="background:#fff;border:1px solid #ccd0d4;border-radius:8px;padding:16px;">
-                        <h2 style="margin-top:0;"><?php esc_html_e('Status da licença', 'plugins-alpha'); ?></h2>
+                        <h2 style="margin-top:0;"><?php esc_html_e('Status da licença', 'alpha-suite'); ?></h2>
 
                         <p>
                             <span class="<?php echo esc_attr($status_class); ?>" style="display:inline-block;padding:2px 8px;border-radius:999px;font-weight:600;font-size:12px;
@@ -486,18 +487,18 @@ class PluginsAlpha_License
 
                         <table class="form-table">
                             <tr>
-                                <th><?php esc_html_e('E-mail', 'plugins-alpha'); ?></th>
+                                <th><?php esc_html_e('E-mail', 'alpha-suite'); ?></th>
                                 <td><code><?php echo esc_html($lic['email'] ?: '—'); ?></code></td>
                             </tr>
                             <tr>
-                                <th><?php esc_html_e('Domínios usados', 'plugins-alpha'); ?></th>
+                                <th><?php esc_html_e('Domínios usados', 'alpha-suite'); ?></th>
                                 <td><code><?php echo esc_html($view['domains_text']); ?></code></td>
                             </tr>
                         </table>
 
 
                         <?php if (!empty($lic['modules'])): ?>
-                            <h3><?php esc_html_e('Módulos liberados para essa licença', 'plugins-alpha'); ?></h3>
+                            <h3><?php esc_html_e('Módulos liberados para essa licença', 'alpha-suite'); ?></h3>
                             <ul style="list-style:disc;margin-left:20px;">
                                 <?php
                                 $labels = self::module_labels();
@@ -520,8 +521,8 @@ class PluginsAlpha_License
                     <div style="background:#fff;border:1px solid #ccd0d4;border-radius:8px;padding:16px;">
                         <h2 style="margin-top:0;">
                             <?php echo self::is_active()
-                                ? esc_html__('Reativar / trocar licença', 'plugins-alpha')
-                                : esc_html__('Ativar licença', 'plugins-alpha'); ?>
+                                ? esc_html__('Reativar / trocar licença', 'alpha-suite')
+                                : esc_html__('Ativar licença', 'alpha-suite'); ?>
                         </h2>
 
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -530,7 +531,7 @@ class PluginsAlpha_License
 
                             <table class="form-table">
                                 <tr>
-                                    <th><label for="pga_email"><?php esc_html_e('E-mail da compra', 'plugins-alpha'); ?></label></th>
+                                    <th><label for="pga_email"><?php esc_html_e('E-mail da compra', 'alpha-suite'); ?></label></th>
                                     <td>
                                         <input type="email"
                                             name="email"
@@ -540,13 +541,13 @@ class PluginsAlpha_License
                                             value="<?php echo esc_attr($lic['email'] ?? ''); ?>"
                                             required>
                                         <p class="description">
-                                            <?php esc_html_e('O mesmo e-mail usado na compra (Hotmart / Stripe).', 'plugins-alpha'); ?>
+                                            <?php esc_html_e('O mesmo e-mail usado na compra (Hotmart / Stripe).', 'alpha-suite'); ?>
                                         </p>
                                     </td>
                                 </tr>
 
                                 <tr>
-                                    <th><label for="pga_purchase_orion"><?php esc_html_e('1º ID da compra', 'plugins-alpha'); ?></label></th>
+                                    <th><label for="pga_purchase_orion"><?php esc_html_e('1º ID da compra', 'alpha-suite'); ?></label></th>
                                     <td>
                                         <input type="text"
                                             name="purchase_id_orion"
@@ -554,13 +555,13 @@ class PluginsAlpha_License
                                             class="regular-text"
                                             value="<?php echo esc_attr($lic['purchase_id_orion'] ?? ''); ?>">
                                         <p class="description">
-                                            <?php esc_html_e('Informe o ID da compra para o módulo Alpha Órion (deixe em branco se não tiver).', 'plugins-alpha'); ?>
+                                            <?php esc_html_e('Informe o ID da compra para o módulo Alpha Órion (deixe em branco se não tiver).', 'alpha-suite'); ?>
                                         </p>
                                     </td>
                                 </tr>
 
                                 <tr>
-                                    <th><label for="pga_purchase_stories"><?php esc_html_e('2º ID da compra', 'plugins-alpha'); ?></label></th>
+                                    <th><label for="pga_purchase_stories"><?php esc_html_e('2º ID da compra', 'alpha-suite'); ?></label></th>
                                     <td>
                                         <input type="text"
                                             name="purchase_id_stories"
@@ -568,13 +569,13 @@ class PluginsAlpha_License
                                             class="regular-text"
                                             value="<?php echo esc_attr($lic['purchase_id_stories'] ?? ''); ?>">
                                         <p class="description">
-                                            <?php esc_html_e('Informe o ID da compra para o módulo Alpha Stories (deixe em branco se não tiver).', 'plugins-alpha'); ?>
+                                            <?php esc_html_e('Informe o ID da compra para o módulo Alpha Stories (deixe em branco se não tiver).', 'alpha-suite'); ?>
                                         </p>
                                     </td>
                                 </tr>
 
                                 <!-- <tr>
-                                    <th><label for="pga_license_key"><?php esc_html_e('Chave de licença (opcional)', 'plugins-alpha'); ?></label></th>
+                                    <th><label for="pga_license_key"><?php esc_html_e('Chave de licença (opcional)', 'alpha-suite'); ?></label></th>
                                     <td>
                                         <input type="text"
                                             name="license_key"
@@ -582,7 +583,7 @@ class PluginsAlpha_License
                                             class="regular-text"
                                             value="<?php echo esc_attr($lic['license_key'] ?? ''); ?>">
                                         <p class="description">
-                                            <?php esc_html_e('Se o painel Plugins Alpha gerar uma chave própria, use aqui. Caso contrário, pode deixar em branco.', 'plugins-alpha'); ?>
+                                            <?php esc_html_e('Se o painel Alpha Suite gerar uma chave própria, use aqui. Caso contrário, pode deixar em branco.', 'alpha-suite'); ?>
                                         </p>
                                     </td>
                                 </tr> -->
@@ -590,23 +591,23 @@ class PluginsAlpha_License
 
                             <?php submit_button(
                                 self::is_active()
-                                    ? esc_html__('Revalidar licenças neste domínio', 'plugins-alpha')
-                                    : esc_html__('Ativar licenças neste domínio', 'plugins-alpha'),
+                                    ? esc_html__('Revalidar licenças neste domínio', 'alpha-suite')
+                                    : esc_html__('Ativar licenças neste domínio', 'alpha-suite'),
                                 'primary'
                             ); ?>
                         </form>
 
                         <?php if (!empty($lic['status']) && $lic['status'] !== 'inactive'): ?>
                             <hr>
-                            <h3><?php esc_html_e('Desativar neste site', 'plugins-alpha'); ?></h3>
-                            <p><?php esc_html_e('Isso libera o slot deste domínio no painel do Plugins Alpha, permitindo ativar em outro site (se o plano permitir).', 'plugins-alpha'); ?></p>
+                            <h3><?php esc_html_e('Desativar neste site', 'alpha-suite'); ?></h3>
+                            <p><?php esc_html_e('Isso libera o slot deste domínio no painel do Alpha Suite, permitindo ativar em outro site (se o plano permitir).', 'alpha-suite'); ?></p>
 
                             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
-                                onsubmit="return confirm('<?php echo esc_js(__('Desativar a licença neste site?', 'plugins-alpha')); ?>');">
+                                onsubmit="return confirm('<?php echo esc_js(__('Desativar a licença neste site?', 'alpha-suite')); ?>');">
                                 <?php wp_nonce_field('pga_deactivate_license'); ?>
                                 <input type="hidden" name="action" value="pga_deactivate_license">
                                 <?php submit_button(
-                                    esc_html__('Desativar neste site', 'plugins-alpha'),
+                                    esc_html__('Desativar neste site', 'alpha-suite'),
                                     'secondary'
                                 ); ?>
                             </form>
@@ -639,7 +640,7 @@ class PluginsAlpha_License
             return [
                 'ok'      => false,
                 'code'    => 'licenca_inativa',
-                'message' => __('Licença inativa. Ative ou revalide a licença no painel Plugins Alpha.', 'plugins-alpha'),
+                'message' => __('Licença inativa. Ative ou revalide a licença no painel Alpha Suite.', 'alpha-suite'),
             ];
         }
 
@@ -650,7 +651,7 @@ class PluginsAlpha_License
                 return [
                     'ok'      => false,
                     'code'    => 'licenca_expirada',
-                    'message' => __('Licença expirada. Renove ou atualize sua assinatura.', 'plugins-alpha'),
+                    'message' => __('Licença expirada. Renove ou atualize sua assinatura.', 'alpha-suite'),
                 ];
             }
         }
@@ -662,7 +663,7 @@ class PluginsAlpha_License
                 return [
                     'ok'      => false,
                     'code'    => 'modulo_indisponivel',
-                    'message' => __('Este módulo não está disponível no seu plano.', 'plugins-alpha'),
+                    'message' => __('Este módulo não está disponível no seu plano.', 'alpha-suite'),
                 ];
             }
         }
@@ -725,8 +726,8 @@ class PluginsAlpha_License
     public static function module_labels(): array
     {
         return [
-            'alpha_stories'   => __('Alpha Stories', 'plugins-alpha'),
-            'alpha_orion' => __('Alpha Órion', 'plugins-alpha'),
+            'alpha_stories'   => __('Alpha Stories', 'alpha-suite'),
+            'alpha_orion' => __('Alpha Órion', 'alpha-suite'),
         ];
     }
 
@@ -754,7 +755,7 @@ class PluginsAlpha_License
         })));
 
         if (!$email || empty($purchase_ids)) {
-            self::redirect_with_error(__('Informe o e-mail e pelo menos um ID de compra (Órion ou Stories).', 'plugins-alpha'));
+            self::redirect_with_error(__('Informe o e-mail e pelo menos um ID de compra (Órion ou Stories).', 'alpha-suite'));
         }
 
         $domain = self::current_domain();
@@ -768,7 +769,7 @@ class PluginsAlpha_License
             'site_name'      => get_bloginfo('name'),
             'wp_version'     => get_bloginfo('version'),
             'php_version'    => PHP_VERSION,
-            'plugin'         => 'plugins-alpha',
+            'plugin'         => 'alpha-suite',
             'plugin_version' => '1.0.1',
         ];
 
@@ -782,7 +783,7 @@ class PluginsAlpha_License
         // 1) Resposta sem ok => erro
         if (!is_array($res) || empty($res['ok'])) {
             // tenta extrair msg dos padrões do WP REST: { code, message, data:{...} }
-            $msg = (string)($res['message'] ?? __('Falha ao ativar licença.', 'plugins-alpha'));
+            $msg = (string)($res['message'] ?? __('Falha ao ativar licença.', 'alpha-suite'));
 
             // se tiver results detalhado (seu caso), pega a 1a msg
             if (!empty($res['data']['results'][0]['message'])) {
@@ -819,14 +820,14 @@ class PluginsAlpha_License
             update_option(self::OPTION_KEY, $opt);
 
             wp_safe_redirect(add_query_arg(
-                ['page' => 'plugins-alpha-license', 'updated' => 1],
+                ['page' => 'alpha-suite-license', 'updated' => 1],
                 admin_url('admin.php')
             ));
             exit;
         }
 
         // 3) Se ok=true mas não veio licenses[] => considera erro de formato (pra não dar “sucesso fake”)
-        self::redirect_with_error(__('Resposta inesperada do servidor de licenças.', 'plugins-alpha'));
+        self::redirect_with_error(__('Resposta inesperada do servidor de licenças.', 'alpha-suite'));
     }
 
     public static function handle_deactivate(): void
@@ -857,7 +858,7 @@ class PluginsAlpha_License
         delete_option(self::OPTION_KEY);
 
         wp_safe_redirect(add_query_arg(
-            ['page' => 'plugins-alpha-license', 'updated' => 1],
+            ['page' => 'alpha-suite-license', 'updated' => 1],
             admin_url('admin.php')
         ));
         exit;
@@ -886,8 +887,7 @@ class PluginsAlpha_License
             return new \WP_Error(
                 'pga_license_http',
                 sprintf(
-                    __('Erro ao conectar ao servidor de licença: %s', 'plugins-alpha'),
-                    $response->get_error_message()
+                    __('Erro ao conectar ao servidor de licença', 'alpha-suite')
                 ),
                 ['transport' => true]
             );
@@ -908,7 +908,7 @@ class PluginsAlpha_License
 
         // sem JSON => resposta inválida
         $snippet = mb_substr($raw, 0, 300);
-        $msg = __('Resposta inválida do servidor de licença.', 'plugins-alpha') . ' (HTTP ' . $code . ')';
+        $msg = __('Resposta inválida do servidor de licença.', 'alpha-suite') . ' (HTTP ' . $code . ')';
 
         return new \WP_Error(
             'pga_license_bad_response',
@@ -923,7 +923,7 @@ class PluginsAlpha_License
     {
         $location = add_query_arg(
             [
-                'page'  => 'plugins-alpha-license',
+                'page'  => 'alpha-suite-license',
                 'error' => rawurlencode($msg),
             ],
             admin_url('admin.php')

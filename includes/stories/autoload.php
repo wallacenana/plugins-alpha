@@ -84,7 +84,7 @@ add_action('update_option_pga_story_base', function ($old, $new) {
 
 function alpha_storys_get_base_slug(): string
 {
-  // valor salvo na tela de Links Permanentes (Plugins Alpha / Stories)
+  // valor salvo na tela de Links Permanentes (Alpha Suite / Stories)
   $base = trim((string) get_option('pga_story_base', ''), '/');
 
   // se estiver vazio, usamos um padrão seguro
@@ -243,14 +243,14 @@ add_action('admin_notices', function () {
 
   // 1) Aviso geral de licença/módulo não ativo
   if (empty($chk['ok'])) {
-    $url = admin_url('admin.php?page=plugins-alpha-license');
+    $url = admin_url('admin.php?page=alpha-suite-license');
 
-    $msg = $chk['message'] ?: __('Licença do módulo Alpha Stories inativa. Ative o módulo para continuar criando e publicando stories.', 'plugins-alpha');
+    $msg = $chk['message'] ?: __('Licença do módulo Alpha Stories inativa. Ative o módulo para continuar criando e publicando stories.', 'alpha-suite');
 
     echo '<div class="notice notice-error is-dismissible"><p>'
       . esc_html($msg)
       . ' <a href="' . esc_url($url) . '">'
-      . esc_html__('Clique aqui para ativar a licença.', 'plugins-alpha')
+      . esc_html__('Clique aqui para ativar a licença.', 'alpha-suite')
       . '</a></p></div>';
   }
 
@@ -271,7 +271,7 @@ add_action('admin_notices', function () {
       if ($reason) {
         $msg2 = esc_html__(
           'Este story não pôde ser publicado porque a licença do módulo Alpha Stories não está ativa ou não inclui este módulo.',
-          'plugins-alpha'
+          'alpha-suite'
         );
 
         printf(
