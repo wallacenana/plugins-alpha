@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_CRON
+class AlphaSuite_CRON
 {
     // =========================
     // DISPATCHER (cron principal)
@@ -89,7 +89,7 @@ class PluginsAlpha_CRON
         }
 
         // 🔥 Chama o pipeline único
-        PluginsAlpha_RESTRSS::process_feed($feedUrl, $generator_id);
+        AlphaSuite_RESTRSS::process_feed($feedUrl, $generator_id);
 
         // 🔥 Atualiza runtime como executado
         self::update_runtime($generator_id, 'executed');

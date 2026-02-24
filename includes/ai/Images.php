@@ -6,7 +6,7 @@ if (! defined('ABSPATH')) {
 /**
  * Central de geração de imagens (OpenAI / Pollinations) para posts e stories.
  */
-class PluginsAlpha_Images
+class AlphaSuite_Images
 {
     /**
      * Gera uma imagem usando o provider configurado (thumb por padrão).
@@ -35,8 +35,8 @@ class PluginsAlpha_Images
         }
 
         // Carrega settings globais se não veio override
-        if (empty($imgSettings) && class_exists('PluginsAlpha_Settings')) {
-            $opts = PluginsAlpha_Settings::get();
+        if (empty($imgSettings) && class_exists('AlphaSuite_Settings')) {
+            $opts = AlphaSuite_Settings::get();
 
             // base: provedor global de imagens (Geral › Imagens)
             $globalImg = (isset($opts['apis']['images']) && is_array($opts['apis']['images']))
@@ -193,7 +193,7 @@ class PluginsAlpha_Images
             return 0;
         }
 
-        $opts = class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [];
+        $opts = class_exists('AlphaSuite_Settings') ? AlphaSuite_Settings::get() : [];
         $api  = $opts['apis']['openai'] ?? [];
         $key  = trim((string) ($api['key'] ?? ''));
 
@@ -470,14 +470,14 @@ class PluginsAlpha_Images
             return 0;
         }
 
-        if (!class_exists('PluginsAlpha_Settings')) {
+        if (!class_exists('AlphaSuite_Settings')) {
             return new \WP_Error(
                 'pga_unsplash_no_cfg',
                 __('Configurações do Unsplash não encontradas.', 'alpha-suite')
             );
         }
 
-        $opts = PluginsAlpha_Settings::get();
+        $opts = AlphaSuite_Settings::get();
         $api  = $opts['apis']['unsplash'] ?? [];
         $key  = trim((string) ($api['access_key'] ?? ''));
 

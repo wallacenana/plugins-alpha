@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) exit;
  * - Geração do esboço (texto + prompts) via IA
  * - Geração de IMAGENS Pollinations, 1 slide por vez
  */
-class PluginsAlpha_StoriesRest
+class AlphaSuite_StoriesRest
 {
     const NS = 'pga/v1';
 
@@ -76,7 +76,7 @@ class PluginsAlpha_StoriesRest
         }
 
         // aqui usamos o helper que você já tem
-        $result = PluginsAlpha_Helpers::alpha_ai_generate_for_post($post_id);
+        $result = AlphaSuite_Helpers::alpha_ai_generate_for_post($post_id);
 
         if (is_wp_error($result)) {
             return $result;
@@ -135,8 +135,8 @@ class PluginsAlpha_StoriesRest
                 update_post_meta($post_id, '_alpha_storys_pages', $pages);
 
                 // re-renderiza blocos com as imagens
-                if (class_exists('PluginsAlpha_Helpers')) {
-                    $blocks = PluginsAlpha_Helpers::alpha_render_storys_pages_to_blocks($pages);
+                if (class_exists('AlphaSuite_Helpers')) {
+                    $blocks = AlphaSuite_Helpers::alpha_render_storys_pages_to_blocks($pages);
                     wp_update_post([
                         'ID'           => $post_id,
                         'post_content' => $blocks,
@@ -162,7 +162,7 @@ class PluginsAlpha_StoriesRest
 
         $alt = !empty($page['heading']) ? $page['heading'] : $prompt;
         // Usa o sistema global (decide OpenAI/Pollinations etc.)
-        $att_id = PluginsAlpha_Images::generate_story_by_settings(
+        $att_id = AlphaSuite_Images::generate_story_by_settings(
             $prompt,
             $post_id,
             $alt
@@ -188,8 +188,8 @@ class PluginsAlpha_StoriesRest
         update_post_meta($post_id, '_alpha_storys_pages', $pages);
 
         // RE-RENDERIZA o post_content com os blocos incluindo a imagem
-        if (class_exists('PluginsAlpha_Helpers')) {
-            $blocks = PluginsAlpha_Helpers::alpha_render_storys_pages_to_blocks($pages);
+        if (class_exists('AlphaSuite_Helpers')) {
+            $blocks = AlphaSuite_Helpers::alpha_render_storys_pages_to_blocks($pages);
             wp_update_post([
                 'ID'           => $post_id,
                 'post_content' => $blocks,

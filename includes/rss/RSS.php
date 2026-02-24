@@ -1,15 +1,15 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_RSS
+class AlphaSuite_RSS
 {
     public static function render(): void
     {
-        $opt = PluginsAlpha_Settings::get();
+        $opt = AlphaSuite_Settings::get();
 ?>
         <div class="pga-wrap">
             <?php
-            $chk = PluginsAlpha_License::check('alpha_orion');
+            $chk = AlphaSuite_License::check('alpha_orion');
 
             // 1) Aviso geral: licença/módulo não ativo
             if (empty($chk['ok'])) {

@@ -4,7 +4,7 @@ use Soap\Url;
 
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_RESTRSS
+class AlphaSuite_RESTRSS
 {
     public static function register_routes()
     {
@@ -260,7 +260,7 @@ class PluginsAlpha_RESTRSS
             $response = wp_remote_get($url, [
                 'timeout' => 10,
                 'headers' => [
-                    'User-Agent' => 'Mozilla/5.0 (PluginsAlphaBot)'
+                    'User-Agent' => 'Mozilla/5.0 (AlphaSuiteBot)'
                 ]
             ]);
 
@@ -313,15 +313,15 @@ class PluginsAlpha_RESTRSS
     */
 
         if (!$attachmentId || is_wp_error($attachmentId)) {
-            if (!class_exists('PluginsAlpha_Prompts') || !class_exists('PluginsAlpha_Images')) {
+            if (!class_exists('AlphaSuite_Prompts') || !class_exists('AlphaSuite_Images')) {
                 return false;
             }
 
-            $imageProvider = class_exists('PluginsAlpha_AI')
-                ? PluginsAlpha_AI::get_image_provider()
+            $imageProvider = class_exists('AlphaSuite_AI')
+                ? AlphaSuite_AI::get_image_provider()
                 : 'pollinations';
 
-            $meta_img_prompt = PluginsAlpha_Prompts::build_image_prompt(
+            $meta_img_prompt = AlphaSuite_Prompts::build_image_prompt(
                 $title,
                 $title,
                 '',
@@ -331,8 +331,8 @@ class PluginsAlpha_RESTRSS
 
             $img_prompt = $meta_img_prompt;
 
-            if (class_exists('PluginsAlpha_AI')) {
-                $resolved = PluginsAlpha_AI::image_prompt($meta_img_prompt, []);
+            if (class_exists('AlphaSuite_AI')) {
+                $resolved = AlphaSuite_AI::image_prompt($meta_img_prompt, []);
                 if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
                     $img_prompt = trim($resolved);
                 }
@@ -340,7 +340,7 @@ class PluginsAlpha_RESTRSS
 
             if ($img_prompt) {
 
-                $attachmentId = PluginsAlpha_Images::generate_by_settings(
+                $attachmentId = AlphaSuite_Images::generate_by_settings(
                     $img_prompt,
                     intval($postId),
                     $image_alt
@@ -363,7 +363,7 @@ class PluginsAlpha_RESTRSS
 
             return $attachmentId;
         } else {
-            PluginsAlpha_FailJob::fail_job($postId, $respSlug);
+            AlphaSuite_FailJob::fail_job($postId, $respSlug);
         }
 
         return false;
@@ -392,17 +392,22 @@ class PluginsAlpha_RESTRSS
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | 1️⃣ Verifica duplicidade
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | 1️⃣ Verifica duplicidade
+        |--------------------------------------------------------------------------
+        */
 
+        // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
         $exists = new WP_Query([
-            'post_type'  => 'posts_orion',
-            'meta_key'   => '_pga_news_hash',
-            'meta_value' => $hash,
-            'fields'     => 'ids'
+            'post_type'              => 'posts_orion',
+            'meta_key'               => '_pga_news_hash',
+            'meta_value'             => $hash,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
         ]);
+        // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 
         if ($exists->have_posts()) {
             return ['duplicate' => true];
@@ -506,7 +511,7 @@ class PluginsAlpha_RESTRSS
         $context = get_post_meta($postId, '_pga_rss_context', true) ?: [];
 
         // gera FAQ via IA
-        $faq = PluginsAlpha_AI::faq([
+        $faq = AlphaSuite_AI::faq([
             'keyword' => $keyword,
             'qty'     => $qty,
             'locale'  => $locale,
@@ -532,7 +537,7 @@ class PluginsAlpha_RESTRSS
         $response = wp_remote_get($url, [
             'timeout' => 15,
             'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (PluginsAlphaBot)'
+                'User-Agent' => 'Mozilla/5.0 (AlphaSuiteBot)'
             ]
         ]);
 
@@ -666,17 +671,17 @@ class PluginsAlpha_RESTRSS
         }
 
         // 🔥 MESMO PADRÃO DO ORION
-        $promptSlug = PluginsAlpha_Prompts::build_slug_prompt(
+        $promptSlug = AlphaSuite_Prompts::build_slug_prompt(
             (string)$template,
             (string)$keyword,
             (string)$chosenTitle,
             (string)$locale
         );
 
-        $respSlug = PluginsAlpha_AI::slug($promptSlug);
+        $respSlug = AlphaSuite_AI::slug($promptSlug);
 
         if (is_wp_error($respSlug)) {
-            return PluginsAlpha_FailJob::fail_job($postId, $respSlug);
+            return AlphaSuite_FailJob::fail_job($postId, $respSlug);
             return $respSlug;
         }
 
@@ -809,7 +814,7 @@ class PluginsAlpha_RESTRSS
         $locale = get_post_meta($postId, '_pga_outline_locale', true) ?: 'pt_BR';
         $url    = $context['link'] ?? '';
 
-        $newTitle = PluginsAlpha_Titles::getTitle(
+        $newTitle = AlphaSuite_Titles::getTitle(
             $postId,
             'rss',
             '',
@@ -862,17 +867,17 @@ class PluginsAlpha_RESTRSS
         }
 
         // 🔥 Monta prompt igual ao Orion
-        $promptMeta = PluginsAlpha_Prompts::build_meta_description_prompt(
+        $promptMeta = AlphaSuite_Prompts::build_meta_description_prompt(
             (string)$category,
             (string)$title,
             (string)$locale,
             ''
         );
 
-        $respMeta = PluginsAlpha_AI::meta_description($promptMeta);
+        $respMeta = AlphaSuite_AI::meta_description($promptMeta);
 
         if (is_wp_error($respMeta)) {
-            return PluginsAlpha_FailJob::fail_job($postId, $respMeta);
+            return AlphaSuite_FailJob::fail_job($postId, $respMeta);
             return $respMeta;
         }
 
@@ -981,7 +986,7 @@ class PluginsAlpha_RESTRSS
         $url     = $context['link'] ?? '';
         $font     = $context['source'] ?? '';
 
-        $prompt = PluginsAlpha_Prompts::build_outline_rss_prompt(
+        $prompt = AlphaSuite_Prompts::build_outline_rss_prompt(
             $title,
             $seed,
             $length,
@@ -991,12 +996,12 @@ class PluginsAlpha_RESTRSS
             $sourceContent
         );
 
-        $outline = PluginsAlpha_AI::outline($prompt, [
+        $outline = AlphaSuite_AI::outline($prompt, [
             'use_search' => true
         ]);
 
         if (is_wp_error($outline)) {
-            return PluginsAlpha_FailJob::fail_job($postId, $outline);
+            return AlphaSuite_FailJob::fail_job($postId, $outline);
             return $outline;
         }
 
@@ -1282,7 +1287,7 @@ class PluginsAlpha_RESTRSS
         |--------------------------------------------------------------------------
         */
 
-        $prompt = PluginsAlpha_Prompts::build_section_rss_prompt(
+        $prompt = AlphaSuite_Prompts::build_section_rss_prompt(
             $title,
             $section,
             $length,
@@ -1296,7 +1301,7 @@ class PluginsAlpha_RESTRSS
         // 🔥 adiciona instrução de link ao final
         $prompt .= "\n\n" . $linkInstruction;
 
-        $resp = PluginsAlpha_AI::complete(
+        $resp = AlphaSuite_AI::complete(
             $prompt,
             [],
             [
@@ -1307,7 +1312,7 @@ class PluginsAlpha_RESTRSS
         );
 
         if (is_wp_error($resp)) {
-            return PluginsAlpha_FailJob::fail_job($postId, $resp);
+            return AlphaSuite_FailJob::fail_job($postId, $resp);
             return $resp;
         }
 
@@ -1403,7 +1408,7 @@ class PluginsAlpha_RESTRSS
                 : $faq_json;
 
             if (is_array($faq)) {
-                $faq_block = PluginsAlpha_FAQ::render_faq_block($faq, $content);
+                $faq_block = AlphaSuite_FAQ::render_faq_block($faq, $content);
 
                 if ($faq_block !== '') {
                     $content .= "\n\n" . $faq_block;
@@ -1425,8 +1430,8 @@ class PluginsAlpha_RESTRSS
 
         update_post_meta($postId, '_pga_job_status', 'finalized');
 
-        if (class_exists('PluginsAlpha_SEO')) {
-            PluginsAlpha_SEO::apply_meta($postId, [
+        if (class_exists('AlphaSuite_SEO')) {
+            AlphaSuite_SEO::apply_meta($postId, [
                 'title'         => $meta_title,
                 'description'   => $metaDescription,
                 'focus_keyword' => '',
@@ -1517,7 +1522,7 @@ class PluginsAlpha_RESTRSS
         $response = wp_remote_get($rssUrl, [
             'timeout' => 15,
             'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (PluginsAlphaRSS)'
+                'User-Agent' => 'Mozilla/5.0 (AlphaSuiteRSS)'
             ]
         ]);
 
@@ -1690,7 +1695,7 @@ class PluginsAlpha_RESTRSS
         $response = wp_remote_get($rssUrl, [
             'timeout' => 15,
             'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (PluginsAlphaRSS)'
+                'User-Agent' => 'Mozilla/5.0 (AlphaSuiteRSS)'
             ]
         ]);
 
@@ -1781,12 +1786,17 @@ class PluginsAlpha_RESTRSS
 
     private static function already_exists($hash)
     {
+        // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
         $q = new WP_Query([
-            'post_type'  => 'posts_orion',
-            'meta_key'   => '_pga_news_hash',
-            'meta_value' => $hash,
-            'fields'     => 'ids'
+            'post_type'              => 'posts_orion',
+            'meta_key'               => '_pga_news_hash',
+            'meta_value'             => $hash,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
         ]);
+        // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 
         return $q->have_posts();
     }

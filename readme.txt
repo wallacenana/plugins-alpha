@@ -1,19 +1,19 @@
-=== Plugins Alpha ===
+=== Alpha Suite ===
 Contributors: wallacetavares
-Donate link: https://wallacetavares.com/
+Donate link: https://pluginsalpha.com/
 Tags: ia, gpt, conteudo automatico, posts gpt, web stories
 Requires at least: 5.8
-Tested up to: 6.8
-Stable tag: 1.0.1
+Tested up to: 6.9
+Stable tag: 3.2.5
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Tudo o que você precisa para criar conteúdos no WordPress com apenas 1 clique — Posts GPT, Web Stories, automações e integração com IA.
+All-in-one AI content creation suite for WordPress — generate posts, Web Stories, automation workflows, and smart publishing tools in one click.
 
 == Description ==
 
-Plugins Alpha é a suíte definitiva para criadores de conteúdo, profissionais de marketing e donos de sites WordPress que desejam criar conteúdos de forma rápida, inteligente e otimizada.
+Alpha Suite is the ultimate suite for content creators, marketers, and WordPress website owners who want to create content quickly, intelligently, and in an optimized way.
 
 Funcionalidades:
 
@@ -26,9 +26,9 @@ Funcionalidades:
 
 == Installation ==
 
-1. Envie o plugin para a pasta `/wp-content/plugins/plugins-alpha/`
+1. Envie o plugin para a pasta `/wp-content/plugins/alpha-suite/`
 2. Ative pelo menu “Plugins”
-3. Acesse “Plugins Alpha” para ajustar suas configurações e ativar sua licença
+3. Acesse “Alpha Suite” para ajustar suas configurações e ativar sua licença
 
 == Frequently Asked Questions ==
 

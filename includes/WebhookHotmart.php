@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) exit;
  * - Mapeia status e salva licença local
  * - Idempotente via transaction_code (quando enviado)
  */
-class PluginsAlpha_WebhookHotmart {
+class AlphaSuite_WebhookHotmart {
 
     const ROUTE = 'pga/v1/hotmart';
 
@@ -21,7 +21,7 @@ class PluginsAlpha_WebhookHotmart {
 
     public static function handle(WP_REST_Request $req){
         // 1) valida origem (token fixo configurado nas opções)
-        $lic   = PluginsAlpha_License::get();
+        $lic   = AlphaSuite_License::get();
         $tok   = trim((string)($lic['webhook_token'] ?? ''));
         $htTok = trim((string)$req->get_header('X-HOTMART-HOTTOK'));
         if (!$tok || !$htTok || !hash_equals($tok, $htTok)) {
@@ -42,10 +42,10 @@ class PluginsAlpha_WebhookHotmart {
         $lastEvent          = trim((string)($data['event'] ?? $data['event_type'] ?? ''));
 
         // 4) mapeia status para nossa licença local
-        $mapped = PluginsAlpha_License::map_hotmart_status($purchaseStatus, $subscriptionStatus);
+        $mapped = AlphaSuite_License::map_hotmart_status($purchaseStatus, $subscriptionStatus);
 
         // 5) persiste
-        PluginsAlpha_License::set([
+        AlphaSuite_License::set([
             'buyer_email' => $buyerEmail ?: ($lic['buyer_email'] ?? ''),
             'product_id'  => $productId ?: ($lic['product_id'] ?? ''),
             'status'      => $mapped,

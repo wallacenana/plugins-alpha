@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_REST
+class AlphaSuite_REST
 {
 
     /**
@@ -259,14 +259,14 @@ class PluginsAlpha_REST
 
     private static function ensure_youtube_key()
     {
-        if (!class_exists('PluginsAlpha_Settings')) {
+        if (!class_exists('AlphaSuite_Settings')) {
             return new WP_Error(
                 'pga_youtube_no_settings',
-                'PluginsAlpha_Settings não encontrado para ler a chave do YouTube.'
+                'AlphaSuite_Settings não encontrado para ler a chave do YouTube.'
             );
         }
 
-        $opt = PluginsAlpha_Settings::get();
+        $opt = AlphaSuite_Settings::get();
         $key = trim($opt['apis']['youtube']['key'] ?? '');
 
         if ($key === '') {
@@ -399,17 +399,17 @@ class PluginsAlpha_REST
             $imageProvider = (string) $params['image_provider'];
         } else {
             // pega do Orion/settings
-            $imageProvider = class_exists('PluginsAlpha_AI')
-                ? PluginsAlpha_AI::get_image_provider()
+            $imageProvider = class_exists('AlphaSuite_AI')
+                ? AlphaSuite_AI::get_image_provider()
                 : 'pollinations';
         }
 
         // 1) META-PROMPT vindo do Prompts.php (AGORA COM PROVIDER)
-        if (!class_exists('PluginsAlpha_Prompts')) {
+        if (!class_exists('AlphaSuite_Prompts')) {
             return new WP_Error('pga_prompts_missing', 'Classe de prompts não encontrada.', ['status' => 500]);
         }
 
-        $meta_img_prompt = PluginsAlpha_Prompts::build_image_prompt(
+        $meta_img_prompt = AlphaSuite_Prompts::build_image_prompt(
             $keyword,
             $title,
             $locale,
@@ -420,8 +420,8 @@ class PluginsAlpha_REST
         $img_prompt = '';
 
         // 2) IA de TEXTO refina o meta-prompt em prompt final de imagem
-        if ($meta_img_prompt !== '' && class_exists('PluginsAlpha_AI')) {
-            $resolved = PluginsAlpha_AI::image_prompt($meta_img_prompt, []);
+        if ($meta_img_prompt !== '' && class_exists('AlphaSuite_AI')) {
+            $resolved = AlphaSuite_AI::image_prompt($meta_img_prompt, []);
 
             if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
                 $img_prompt = trim($resolved);
@@ -441,12 +441,12 @@ class PluginsAlpha_REST
             );
         }
 
-        if (!class_exists('PluginsAlpha_Images')) {
+        if (!class_exists('AlphaSuite_Images')) {
             return new WP_Error('pga_images_missing', 'Classe de imagens não encontrada.', ['status' => 500]);
         }
 
         // 3) Gera thumb usando o PROVIDER DE IMAGEM configurado
-        $thumb_id = PluginsAlpha_Images::generate_by_settings(
+        $thumb_id = AlphaSuite_Images::generate_by_settings(
             $img_prompt,
             $post_id,
             $image_alt
@@ -492,7 +492,7 @@ class PluginsAlpha_REST
         }
 
         // Gera rascunho + outline
-        $res = PluginsAlpha_Pages_Generator::create_draft_and_outline($params);
+        $res = AlphaSuite_Pages_Generator::create_draft_and_outline($params);
 
         if (is_wp_error($res)) {
             return $res;
@@ -525,7 +525,7 @@ class PluginsAlpha_REST
             );
         }
 
-        $res = PluginsAlpha_Pages_Generator::generate_section_content($post_id, $section_id);
+        $res = AlphaSuite_Pages_Generator::generate_section_content($post_id, $section_id);
         if (is_wp_error($res)) {
             return $res;
         }
@@ -567,7 +567,7 @@ class PluginsAlpha_REST
         $generate_image = !$skip_images;
 
         // 1) Finaliza via Generator
-        $res = PluginsAlpha_Pages_Generator::finalize_from_sections(
+        $res = AlphaSuite_Pages_Generator::finalize_from_sections(
             $post_id,
             [
                 'internal_links' => $internal_opts,
@@ -598,15 +598,15 @@ class PluginsAlpha_REST
         $pid   = sanitize_text_field($p['purchase_id'] ?? '');
         if (!$email || !$pid) return new WP_Error('pga_lic', 'Informe e-mail e ID da compra.', ['status' => 400]);
 
-        $lic = PluginsAlpha_License::get_state($email, $pid);
-        return ['ok' => PluginsAlpha_License::is_active($lic), 'license' => $lic];
+        $lic = AlphaSuite_License::get_state($email, $pid);
+        return ['ok' => AlphaSuite_License::is_active($lic), 'license' => $lic];
     }
 
     public static function status_licence()
     {
-        $lic = PluginsAlpha_License::get_state();
+        $lic = AlphaSuite_License::get_state();
         return [
-            'ok'      => PluginsAlpha_License::is_active(),
+            'ok'      => AlphaSuite_License::is_active(),
             'license' => $lic,
         ];
     }
@@ -645,7 +645,7 @@ class PluginsAlpha_REST
         $existing_list = array_values(array_filter(array_map('trim', explode("\n", $existing))));
         $existing_list = array_slice($existing_list, 0, 200);
 
-        $prompt = PluginsAlpha_Prompts::build_keywords_prompt(
+        $prompt = AlphaSuite_Prompts::build_keywords_prompt(
             $template,
             $command,
             $locale,
@@ -654,7 +654,7 @@ class PluginsAlpha_REST
             $existing_list
         );
 
-        $resp = PluginsAlpha_AI::complete($prompt, [], [
+        $resp = AlphaSuite_AI::complete($prompt, [], [
             'temperature' => 0.3,
             'top_p' => 1,
             'presence_penalty' => 0.2,
@@ -704,7 +704,7 @@ class PluginsAlpha_REST
         $locale  = sanitize_text_field($req['locale'] ?? 'pt_BR');
 
         // gera FAQ via IA
-        $faq = PluginsAlpha_AI::faq([
+        $faq = AlphaSuite_AI::faq([
             'keyword' => $keyword,
             'qty'     => $qty,
             'locale'  => $locale,
@@ -984,8 +984,8 @@ class PluginsAlpha_REST
     {
         $provider = 'openai';
 
-        if (class_exists('PluginsAlpha_Settings')) {
-            $opts   = PluginsAlpha_Settings::get();
+        if (class_exists('AlphaSuite_Settings')) {
+            $opts   = AlphaSuite_Settings::get();
             $bucket = $opts[$format] ?? [];
 
             if (!empty($bucket['text_provider'])) {
@@ -1005,11 +1005,11 @@ class PluginsAlpha_REST
             return new WP_Error('forbidden', 'Sem permissão.', ['status' => 403]);
         }
 
-        if (!class_exists('PluginsAlpha_Settings')) {
+        if (!class_exists('AlphaSuite_Settings')) {
             return new WP_Error('config_missing', 'Configurações não encontradas.');
         }
 
-        $opts = PluginsAlpha_Settings::get();
+        $opts = AlphaSuite_Settings::get();
 
         $errors = [];
 

@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Helpers
+class AlphaSuite_Helpers
 {
   public static function alpha_storys_options()
   {
@@ -19,9 +19,9 @@ class PluginsAlpha_Helpers
   {
 
     // 1) PRIORIDADE: settings do Alpha GPT Posts (agp_settings[apis][openai][key])
-    if (class_exists('PluginsAlpha_Settings')) {
+    if (class_exists('AlphaSuite_Settings')) {
 
-      $opt = PluginsAlpha_Settings::get();
+      $opt = AlphaSuite_Settings::get();
 
       if (!empty($opt['apis']['openai']['key'])) {
         $k = trim((string)$opt['apis']['openai']['key']);
@@ -276,13 +276,14 @@ class PluginsAlpha_Helpers
       return new \WP_Error('alpha_ai_post', 'Post inválido.');
     }
 
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
     $raw_html = apply_filters('the_content', $post->post_content);
     $brief    = self::alpha_ai_get_default_brief();
 
     // Descobre provider de IMAGEM configurado para Stories
     $imageProvider = 'pollinations';
-    if (class_exists('PluginsAlpha_Settings')) {
-      $opts    = PluginsAlpha_Settings::get();
+    if (class_exists('AlphaSuite_Settings')) {
+      $opts    = AlphaSuite_Settings::get();
       $stories = $opts['stories'] ?? [];
     }
 
@@ -293,7 +294,7 @@ class PluginsAlpha_Helpers
     $lang = (string) $stories['language'];
 
     // 1) Monta o prompt via central de prompts, passando o provider
-    $prompt = PluginsAlpha_Prompts::build_story_prompt_for_post(
+    $prompt = AlphaSuite_Prompts::build_story_prompt_for_post(
       $post,
       $raw_html,
       $brief,
@@ -301,7 +302,7 @@ class PluginsAlpha_Helpers
       $lang
     );
 
-    $result = PluginsAlpha_AI::generate_story_pages($prompt, []);
+    $result = AlphaSuite_AI::generate_story_pages($prompt, []);
 
     if (is_wp_error($result)) {
       return $result;

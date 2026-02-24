@@ -9,71 +9,71 @@ $pages      = is_array($pages) ? $pages : [];
 $alpha_storys_publisher   = get_post_meta($post->ID, '_alpha_storys_publisher', true) ?: (alpha_opt('publisher_name') ?: get_bloginfo('name'));
 
 $alpha_logo_id  = (int) get_post_meta($post->ID, '_alpha_storys_logo_id', true);
-$plugins_alpha_default_logo_id = (int) PluginsAlpha_Helpers::stories_logo_id();
+$alpha_suite_default_logo_id = (int) AlphaSuite_Helpers::stories_logo_id();
 
-$effective_logo_id = $alpha_logo_id ?: $plugins_alpha_default_logo_id;
+$alpha_suite_effective_logo_id = $alpha_logo_id ?: $alpha_suite_default_logo_id;
 
-$alpha_logo_src = $effective_logo_id
-  ? (wp_get_attachment_image_url($effective_logo_id, 'thumbnail') ?: '')
-  : (PluginsAlpha_Helpers::stories_logo_url() ?: '');
+$alpha_logo_src = $alpha_suite_effective_logo_id
+  ? (wp_get_attachment_image_url($alpha_suite_effective_logo_id, 'thumbnail') ?: '')
+  : (AlphaSuite_Helpers::stories_logo_url() ?: '');
 
 
-$alpha_ga_id      = PluginsAlpha_Helpers::alpha_get_ga4_id();
+$alpha_ga_id      = AlphaSuite_Helpers::alpha_get_ga4_id();
 $alpha_ga_enable  = !empty($alpha_ga_id);
 
 // Playback: meta do post > default das configurações > fallback hardcoded
 $alpha_meta_autoplay = get_post_meta($post->ID, '_alpha_storys_autoplay', true);
 
 // default global das configs de stories (1 = ligado)
-$opt_autoplay = (int) PluginsAlpha_Helpers::alpha_opt('autoplay', 1);
+$alpha_suite_opt_autoplay = (int) AlphaSuite_Helpers::alpha_opt('autoplay', 1);
 
 if ($alpha_meta_autoplay === '' || $alpha_meta_autoplay === null) {
   // se o post não tiver meta, usa o global
-  $plugins_alpha_autoplay = !empty($opt_autoplay);
+  $alpha_suite_autoplay = !empty($alpha_suite_opt_autoplay);
 } else {
   // se tiver meta, respeita o que está salvo no post
-  $plugins_alpha_autoplay = (bool) $alpha_meta_autoplay;
+  $alpha_suite_autoplay = (bool) $alpha_meta_autoplay;
 }
 
 // duração: meta > config stories > fallback
-$meta_seconds = (int) get_post_meta($post->ID, '_alpha_storys_duration', true);
-$opt_seconds  = (int) PluginsAlpha_Helpers::alpha_opt('duration', 7);
+$alpha_suite_meta_seconds = (int) get_post_meta($post->ID, '_alpha_storys_duration', true);
+$alpha_suite_opt_seconds  = (int) AlphaSuite_Helpers::alpha_opt('duration', 7);
 
-if ($meta_seconds > 0) {
-  $seconds = $meta_seconds;
-} elseif ($opt_seconds > 0) {
-  $seconds = $opt_seconds;
+if ($alpha_suite_meta_seconds > 0) {
+  $alpha_suite_seconds = $alpha_suite_meta_seconds;
+} elseif ($alpha_suite_opt_seconds > 0) {
+  $alpha_suite_seconds = $alpha_suite_opt_seconds;
 } else {
-  $seconds = 7;
+  $alpha_suite_seconds = 7;
 }
 
-$poster_id  = get_post_thumbnail_id($post->ID); // Poster obrigatório
-$poster     = $poster_id ? wp_get_attachment_image_url($poster_id, 'storys_poster') : '';
+$alpha_suite_poster_id  = get_post_thumbnail_id($post->ID); // Poster obrigatório
+$alpha_suite_poster     = $alpha_suite_poster_id ? wp_get_attachment_image_url($alpha_suite_poster_id, 'storys_poster') : '';
 
-if (!$poster) {
-  foreach ($pages as $p) {
-    $p = (array) $p;
+if (!$alpha_suite_poster) {
+  foreach ($pages as $alpha_suite_p) {
+    $alpha_suite_p = (array) $alpha_suite_p;
 
-    $img_id = !empty($p['image_id']) ? (int) $p['image_id'] : 0;
-    $url    = '';
+    $alpha_suite_img_id = !empty($alpha_suite_p['image_id']) ? (int) $alpha_suite_p['image_id'] : 0;
+    $alpha_suite_url    = '';
 
-    if ($img_id) {
+    if ($alpha_suite_img_id) {
       // usa o size especial de poster (3:4)
-      $url = wp_get_attachment_image_url($img_id, 'alpha_storys_poster');
-    } elseif (!empty($p['image'])) {
+      $alpha_suite_url = wp_get_attachment_image_url($alpha_suite_img_id, 'alpha_storys_poster');
+    } elseif (!empty($alpha_suite_p['image'])) {
       // legado: usa URL antiga
-      $url = esc_url($p['image']);
+      $alpha_suite_url = esc_url($alpha_suite_p['image']);
     }
 
-    if ($url) {
-      $poster = $url;
+    if ($alpha_suite_url) {
+      $alpha_suite_poster = $alpha_suite_url;
       break;
     }
   }
 }
 
-if (!$poster) {
-  $poster = get_stylesheet_directory_uri() . '/assets/story-poster-fallback.jpg';
+if (!$alpha_suite_poster) {
+  $alpha_suite_poster = get_stylesheet_directory_uri() . '/assets/story-poster-fallback.jpg';
 }
 
 // Ao menos 1 página
@@ -89,36 +89,36 @@ if (count($pages) === 0) {
 
 // cores e estilo: meta do post > configs stories > fallback
 
-$style = get_post_meta($post->ID, '_alpha_storys_style', true);
-if (!$style) {
-  $style = PluginsAlpha_Helpers::alpha_opt('default_style', 'clean');
+$alpha_suite_style = get_post_meta($post->ID, '_alpha_storys_style', true);
+if (!$alpha_suite_style) {
+  $alpha_suite_style = AlphaSuite_Helpers::alpha_opt('default_style', 'clean');
 }
 
-$font = get_post_meta($post->ID, '_alpha_storys_font', true);
-if (!$font) {
-  $font = PluginsAlpha_Helpers::alpha_opt('default_font', 'inter');
+$alpha_suite_font = get_post_meta($post->ID, '_alpha_storys_font', true);
+if (!$alpha_suite_font) {
+  $alpha_suite_font = AlphaSuite_Helpers::alpha_opt('default_font', 'inter');
 }
 
-$bg_color = (string) get_post_meta($post->ID, '_alpha_storys_background_color', true);
-if ($bg_color === '') {
-  $bg_color = (string) PluginsAlpha_Helpers::stories_opt('background_color', '#000000');
+$alpha_suite_bg_color = (string) get_post_meta($post->ID, '_alpha_storys_background_color', true);
+if ($alpha_suite_bg_color === '') {
+  $alpha_suite_bg_color = (string) AlphaSuite_Helpers::stories_opt('background_color', '#000000');
 }
 
-$txt_color = (string) get_post_meta($post->ID, '_alpha_storys_text_color', true);
-if ($txt_color === '') {
-  $txt_color = (string) PluginsAlpha_Helpers::stories_opt('text_color', '#ffffff');
+$alpha_suite_txt_color = (string) get_post_meta($post->ID, '_alpha_storys_text_color', true);
+if ($alpha_suite_txt_color === '') {
+  $alpha_suite_txt_color = (string) AlphaSuite_Helpers::stories_opt('text_color', '#ffffff');
 }
 
-$accent = (string) get_post_meta($post->ID, '_alpha_storys_accent_color', true);
-if ($accent === '') {
-  $accent = (string) PluginsAlpha_Helpers::stories_opt('accent_color', '#ffffff');
+$alpha_suite_accent = (string) get_post_meta($post->ID, '_alpha_storys_accent_color', true);
+if ($alpha_suite_accent === '') {
+  $alpha_suite_accent = (string) AlphaSuite_Helpers::stories_opt('accent_color', '#ffffff');
 }
 
 
 // Mapeia Google Fonts
-function alpha_font_href($font)
+function alpha_font_href($alpha_suite_font)
 {
-  switch ($font) {
+  switch ($alpha_suite_font) {
     case 'inter':
       return 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap';
     case 'poppins':
@@ -131,16 +131,16 @@ function alpha_font_href($font)
       return '';
   }
 }
-$font_href = alpha_font_href($font);
+$alpha_suite_font_href = alpha_font_href($alpha_suite_font);
 
 // Classe do estilo
-$style_class = 'style-' . preg_replace('/[^a-z0-9\-]/i', '', $style);
+$alpha_suite_style_class = 'style-' . preg_replace('/[^a-z0-9\-]/i', '', $alpha_suite_style);
 // Família CSS
-$font_family = $font === 'system'
+$alpha_suite_font_family = $alpha_suite_font === 'system'
   ? "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,'Helvetica Neue',Arial,'Noto Sans',sans-serif"
-  : ($font === 'merriweather'
+  : ($alpha_suite_font === 'merriweather'
     ? "'Merriweather',serif"
-    : ($font === 'poppins' ? "'Poppins',sans-serif" : "'Inter',sans-serif"));
+    : ($alpha_suite_font === 'poppins' ? "'Poppins',sans-serif" : "'Inter',sans-serif"));
 ?>
 <!doctype html>
 <html amp lang="<?php echo esc_attr(get_bloginfo('language')); ?>">
@@ -151,89 +151,89 @@ $font_family = $font === 'system'
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <?php
   // ===== JSON-LD para Web Stories (Article + AmpStory) =====
-  $permalink     = get_permalink($post);
-  $headline      = get_the_title($post);
-  $description   = has_excerpt($post)
+  $alpha_suite_permalink     = get_permalink($post);
+  $alpha_suite_headline      = get_the_title($post);
+  $alpha_suite_description   = has_excerpt($post)
     ? wp_strip_all_tags(get_the_excerpt($post))
     : wp_trim_words(wp_strip_all_tags(get_post_field('post_content', $post)), 35, '…');
-  $datePublished = get_post_time('c', true, $post);
-  $dateModified  = get_post_modified_time('c', true, $post);
+  $alpha_suite_datePublished = get_post_time('c', true, $post);
+  $alpha_suite_dateModified  = get_post_modified_time('c', true, $post);
 
   // Imagens (poster + primeiras imagens das páginas)
-  $images = [];
-  if (!empty($poster_id)) {
-    if ($src = wp_get_attachment_image_src($poster_id, 'full')) {
-      $images[] = [
+  $alpha_suite_images = [];
+  if (!empty($alpha_suite_poster_id)) {
+    if ($alpha_suite_src = wp_get_attachment_image_src($alpha_suite_poster_id, 'full')) {
+      $alpha_suite_images[] = [
         '@type'  => 'ImageObject',
-        'url'    => $src[0],
-        'width'  => (int) $src[1],
-        'height' => (int) $src[2],
+        'url'    => $alpha_suite_src[0],
+        'width'  => (int) $alpha_suite_src[1],
+        'height' => (int) $alpha_suite_src[2],
       ];
     }
-  } elseif (!empty($poster)) {
-    $images[] = $poster; // fallback simples
+  } elseif (!empty($alpha_suite_poster)) {
+    $alpha_suite_images[] = $alpha_suite_poster; // fallback simples
   }
 
   if (!empty($pages) && is_array($pages)) {
-    foreach ($pages as $p) {
-      if (!empty($p['image'])) {
-        $images[] = ['@type' => 'ImageObject', 'url' => esc_url($p['image'])];
+    foreach ($pages as $alpha_suite_p) {
+      if (!empty($alpha_suite_p['image'])) {
+        $alpha_suite_images[] = ['@type' => 'ImageObject', 'url' => esc_url($alpha_suite_p['image'])];
       }
     }
   }
   // Remove duplicadas mantendo estrutura
-  $images = array_values(array_unique($images, SORT_REGULAR));
+  $alpha_suite_images = array_values(array_unique($alpha_suite_images, SORT_REGULAR));
 
   // Autor
-  $author = [
+  $alpha_suite_author = [
     '@type' => 'Person',
     'name'  => get_the_author_meta('display_name', $post->post_author),
     'url'   => get_author_posts_url($post->post_author),
   ];
 
   // Publisher + logo
-  $publisher_logo = null;
-  if (!empty($alpha_logo_id) && ($lsrc = wp_get_attachment_image_src($alpha_logo_id, 'full'))) {
-    $publisher_logo = [
+  $alpha_suite_publisher_logo = null;
+  if (!empty($alpha_logo_id) && ($alpha_suite_lsrc = wp_get_attachment_image_src($alpha_logo_id, 'full'))) {
+    $alpha_suite_publisher_logo = [
       '@type'  => 'ImageObject',
-      'url'    => $lsrc[0],
-      'width'  => (int) $lsrc[1],
-      'height' => (int) $lsrc[2],
+      'url'    => $alpha_suite_lsrc[0],
+      'width'  => (int) $alpha_suite_lsrc[1],
+      'height' => (int) $alpha_suite_lsrc[2],
     ];
   } elseif (!empty($alpha_logo_src)) {
-    $publisher_logo = ['@type' => 'ImageObject', 'url' => $alpha_logo_src];
+    $alpha_suite_publisher_logo = ['@type' => 'ImageObject', 'url' => $alpha_logo_src];
   }
-  
-  $publisher_data = [
+
+  $alpha_suite_publisher_data = [
     '@type' => 'Organization',
     'name'  => $alpha_storys_publisher,
   ];
-  if ($publisher_logo) $publisher_data['logo'] = $publisher_logo;
+  if ($alpha_suite_publisher_logo) $alpha_suite_publisher_data['logo'] = $alpha_suite_publisher_logo;
 
   // Monta o Article (+ AmpStory opcional)
-  $schema = [
+  $alpha_suite_schema = [
     '@context'          => 'https://schema.org',
     '@type'             => ['Article', 'AmpStory'],
-    'mainEntityOfPage'  => ['@type' => 'WebPage', '@id' => $permalink],
-    'headline'          => wp_strip_all_tags($headline),
-    'description'       => $description,
-    'image'             => $images,
-    'datePublished'     => $datePublished,
-    'dateModified'      => $dateModified,
-    'author'            => $author,
-    'publisher'         => $publisher_data,
+    'mainEntityOfPage'  => ['@type' => 'WebPage', '@id' => $alpha_suite_permalink],
+    'headline'          => wp_strip_all_tags($alpha_suite_headline),
+    'description'       => $alpha_suite_description,
+    'image'             => $alpha_suite_images,
+    'datePublished'     => $alpha_suite_datePublished,
+    'dateModified'      => $alpha_suite_dateModified,
+    'author'            => $alpha_suite_author,
+    'publisher'         => $alpha_suite_publisher_data,
   ];
   ?>
   <script type="application/ld+json">
-    <?php echo wp_json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>
+    <?php echo wp_json_encode($alpha_suite_schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>
   </script>
 
   <link rel="canonical" href="<?php echo esc_url(get_permalink($post)); ?>">
 
-  <?php if ($font_href) :
+  <?php if ($alpha_suite_font_href) :
     // phpcs:disable WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet
   ?>
-    <link rel="stylesheet" href="<?php echo esc_url($font_href); ?>">
+    <link rel="stylesheet" href="<?php echo esc_url($alpha_suite_font_href); ?>">
   <?php
   // phpcs:enable WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet
   endif; ?>
@@ -325,7 +325,7 @@ $font_family = $font === 'system'
     /* Fonte e estilos base */
     <?php // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped 
     ?>amp-story {
-      font-family: <?php echo $font_family; ?>;
+      font-family: <?php echo $alpha_suite_font_family; ?>;
     }
 
     <?php // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped 
@@ -339,7 +339,7 @@ $font_family = $font === 'system'
       color: #fff;
       margin: 0 0 10px;
       padding-left: 15px;
-      border-left: 3px solid <?php echo esc_html($accent); ?>;
+      border-left: 3px solid <?php echo esc_html($alpha_suite_accent); ?>;
     }
 
     .p {
@@ -361,7 +361,7 @@ $font_family = $font === 'system'
     .bg {
       width: 100%;
       height: 100%;
-      background: <?php echo esc_html($bg_color); ?> center / cover no-repeat;
+      background: <?php echo esc_html($alpha_suite_bg_color); ?> center / cover no-repeat;
     }
 
     .overlay {
@@ -426,7 +426,7 @@ $font_family = $font === 'system'
     }
 
     amp-story-grid-layer {
-      border-bottom: 5px solid <?php echo esc_html($accent); ?>;
+      border-bottom: 5px solid <?php echo esc_html($alpha_suite_accent); ?>;
     }
 
     .style-card .layer-content {
@@ -464,7 +464,7 @@ $font_family = $font === 'system'
 
     .h2,
     .p {
-      color: <?php echo esc_html($txt_color); ?>;
+      color: <?php echo esc_html($alpha_suite_txt_color); ?>;
     }
 
     /* Fundo desfocado tipo Web Stories plugin */
@@ -477,7 +477,7 @@ $font_family = $font === 'system'
     .style-top .bg-solid {
       position: absolute;
       inset: 0;
-      background: <?php echo esc_html($bg_color); ?>;
+      background: <?php echo esc_html($alpha_suite_bg_color); ?>;
     }
 
     .style-top .layer-content-top {
@@ -538,7 +538,7 @@ $font_family = $font === 'system'
       font-size: 12px;
       font-weight: 700;
       letter-spacing: .2px;
-      color: <?php echo esc_html($txt_color); ?>;
+      color: <?php echo esc_html($alpha_suite_txt_color); ?>;
       text-shadow: 0 6px 24px rgba(0, 0, 0, .45);
       max-width: 210px;
       white-space: nowrap;
@@ -551,20 +551,18 @@ $font_family = $font === 'system'
 <body>
   <amp-story
     standalone
-    class="<?php echo esc_attr($style_class); ?>"
+    class="<?php echo esc_attr($alpha_suite_style_class); ?>"
     title="<?php echo esc_attr(get_the_title($post)); ?>"
     publisher="<?php echo esc_attr($alpha_storys_publisher); ?>"
     publisher-logo-src="<?php echo esc_url($alpha_logo_src); ?>"
-    poster-portrait-src="<?php echo esc_url($poster); ?>">
+    poster-portrait-src="<?php echo esc_url($alpha_suite_poster); ?>">
     <?php if ($alpha_ga_enable): ?>
       <amp-story-auto-analytics gtag-id="<?php echo esc_attr($alpha_ga_id); ?>"></amp-story-auto-analytics>
     <?php endif;
 
-
-
-    $i = 1;
-    foreach ($pages as $p):
-      $p = array_merge([
+    $alpha_suite_i = 1;
+    foreach ($pages as $alpha_suite_p):
+      $alpha_suite_p = array_merge([
         'image'     => '',
         'image_id'  => 0,
         'heading'   => '',
@@ -574,85 +572,85 @@ $font_family = $font === 'system'
         'cta_type'  => '',
         'cta_icon'  => '',
         'duration'  => null,
-      ], (array) $p);
+      ], (array) $alpha_suite_p);
 
       // === IMAGEM DO SLIDE (usa sizes especiais) ==========================
-      $img_id = (int) ($p['image_id'] ?? 0);
-      $img    = '';
+      $alpha_suite_img_id = (int) ($alpha_suite_p['image_id'] ?? 0);
+      $alpha_suite_img    = '';
 
       // define o size default por estilo
-      $size = 'alpha_storys_slide'; // vertical 9:16 padrão
+      $alpha_suite_size = 'alpha_storys_slide'; // vertical 9:16 padrão
 
-      switch ($style) {
+      switch ($alpha_suite_style) {
         case 'top':
           // hero no topo, pode ser 3:4 sem problema
-          $size = 'alpha_storys_poster';
+          $alpha_suite_size = 'alpha_storys_poster';
           break;
 
         case 'card':
         case 'split':
         case 'dark-left':
         default:
-          $size = 'alpha_storys_slide';
+          $alpha_suite_size = 'alpha_storys_slide';
           break;
       }
 
       // 1) Se tiver image_id, usa attachment + size
-      if ($img_id) {
-        $img = wp_get_attachment_image_url($img_id, $size);
+      if ($alpha_suite_img_id) {
+        $alpha_suite_img = wp_get_attachment_image_url($alpha_suite_img_id, $alpha_suite_size);
 
         // fallback se precisar
-        if (!$img) {
-          $img = wp_get_attachment_image_url($img_id, 'alpha_storys_slide')
-            ?: wp_get_attachment_image_url($img_id, 'alpha_storys_poster');
+        if (!$alpha_suite_img) {
+          $alpha_suite_img = wp_get_attachment_image_url($alpha_suite_img_id, 'alpha_storys_slide')
+            ?: wp_get_attachment_image_url($alpha_suite_img_id, 'alpha_storys_poster');
         }
       }
 
       // 2) Compat com stories antigos que só tinham 'image' (URL pura)
-      if (!$img && !empty($p['image'])) {
-        $att_id = attachment_url_to_postid($p['image']);
-        if ($att_id) {
-          $img = wp_get_attachment_image_url($att_id, $size)
-            ?: wp_get_attachment_image_url($att_id, 'alpha_storys_slide')
-            ?: wp_get_attachment_image_url($att_id, 'alpha_storys_poster');
+      if (!$alpha_suite_img && !empty($alpha_suite_p['image'])) {
+        $alpha_suite_att_id = attachment_url_to_postid($alpha_suite_p['image']);
+        if ($alpha_suite_att_id) {
+          $alpha_suite_img = wp_get_attachment_image_url($alpha_suite_att_id, $alpha_suite_size)
+            ?: wp_get_attachment_image_url($alpha_suite_att_id, 'alpha_storys_slide')
+            ?: wp_get_attachment_image_url($alpha_suite_att_id, 'alpha_storys_poster');
         }
 
         // último fallback: se ainda não achou attachment, aí sim usa a URL original
-        if (!$img) {
-          $img = esc_url($p['image']);
+        if (!$alpha_suite_img) {
+          $alpha_suite_img = esc_url($alpha_suite_p['image']);
         }
       }
 
-      $dur = $p['duration'] ? (int)$p['duration'] : (int)$seconds;
+      $alpha_suite_dur = $alpha_suite_p['duration'] ? (int)$alpha_suite_p['duration'] : (int)$alpha_suite_seconds;
 
       // CTA (fallback = swipe)
-      $cta_url  = !empty($p['cta_url'])  ? esc_url($p['cta_url']) : '';
-      $cta_text = !empty($p['cta_text']) ? esc_html($p['cta_text']) : 'Saiba mais';
-      $cta_type = !empty($p['cta_type']) ? $p['cta_type'] : ($cta_url ? 'swipe' : '');
-      $cta_icon = !empty($p['cta_icon']) ? esc_url($p['cta_icon']) : '';
-      $is_first = ($i === 1);
-      if ($is_first && $cta_type === 'button') $cta_type = 'swipe';
+      $alpha_suite_cta_url  = !empty($alpha_suite_p['cta_url'])  ? esc_url($alpha_suite_p['cta_url']) : '';
+      $alpha_suite_cta_text = !empty($alpha_suite_p['cta_text']) ? esc_html($alpha_suite_p['cta_text']) : 'Saiba mais';
+      $alpha_suite_cta_type = !empty($alpha_suite_p['cta_type']) ? $alpha_suite_p['cta_type'] : ($alpha_suite_cta_url ? 'swipe' : '');
+      $alpha_suite_cta_icon = !empty($alpha_suite_p['cta_icon']) ? esc_url($alpha_suite_p['cta_icon']) : '';
+      $alpha_suite_is_first = ($alpha_suite_i === 1);
+      if ($alpha_suite_is_first && $alpha_suite_cta_type === 'button') $alpha_suite_cta_type = 'swipe';
 
       // Animações só a partir do 2º slide
-      $anim = ($i > 1);
+      $alpha_suite_anim = ($alpha_suite_i > 1);
       // presets por estilo:
-      $anim_card_div = $anim ? ' animate-in="fly-in-right" animate-in-delay="0s" animate-in-duration="350ms" animate-in-timing-function="ease-out"' : '';
-      $anim_h2_clean = $anim ? ' animate-in="fly-in-bottom" animate-in-delay="0.08s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
-      $anim_p_clean  = $anim ? ' animate-in="fade-in"      animate-in-delay="0.20s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+      $alpha_suite_anim_card_div = $alpha_suite_anim ? ' animate-in="fly-in-right" animate-in-delay="0s" animate-in-duration="350ms" animate-in-timing-function="ease-out"' : '';
+      $alpha_suite_anim_h2_clean = $alpha_suite_anim ? ' animate-in="fly-in-bottom" animate-in-delay="0.08s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+      $alpha_suite_anim_p_clean  = $alpha_suite_anim ? ' animate-in="fade-in"      animate-in-delay="0.20s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
 
-      $anim_left_split = $anim ? ' animate-in="fly-in-left"  animate-in-delay="0s"    animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
-      $anim_h2_split   = $anim ? ' animate-in="fade-in"       animate-in-delay="0.12s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
-      $anim_p_split    = $anim ? ' animate-in="fly-in-bottom" animate-in-delay="0.22s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+      $alpha_suite_anim_left_split = $alpha_suite_anim ? ' animate-in="fly-in-left"  animate-in-delay="0s"    animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+      $alpha_suite_anim_h2_split   = $alpha_suite_anim ? ' animate-in="fade-in"       animate-in-delay="0.12s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
+      $alpha_suite_anim_p_split    = $alpha_suite_anim ? ' animate-in="fly-in-bottom" animate-in-delay="0.22s" animate-in-duration="360ms" animate-in-timing-function="ease-out"' : '';
     ?>
 
       <amp-story-page
-        id="p<?php echo (int)$i; ?>"
-        <?php if ($plugins_alpha_autoplay): ?>auto-advance-after="<?php echo (int)$dur; ?>s" <?php endif; ?>>
+        id="p<?php echo (int)$alpha_suite_i; ?>"
+        <?php if ($alpha_suite_autoplay): ?>auto-advance-after="<?php echo (int)$alpha_suite_dur; ?>s" <?php endif; ?>>
 
-        <?php if ($style === 'card'): ?>
+        <?php if ($alpha_suite_style === 'card'): ?>
           <amp-story-grid-layer template="fill">
-            <?php if ($img): ?>
-              <amp-img layout="fill" src="<?php echo esc_attr($img); ?>" alt=""></amp-img>
+            <?php if ($alpha_suite_img): ?>
+              <amp-img layout="fill" src="<?php echo esc_attr($alpha_suite_img); ?>" alt=""></amp-img>
             <?php else: ?>
               <div class="bg"></div>
             <?php endif; ?>
@@ -661,45 +659,45 @@ $font_family = $font === 'system'
 
           <amp-story-grid-layer template="vertical" class="layer-content">
             <div class="card"
-              <?php if ($img): ?>style="background-image:url('<?php echo esc_url($img); ?>');" <?php endif; ?>
-              <?php echo esc_attr($anim_card_div); ?>></div>
+              <?php if ($alpha_suite_img): ?>style="background-image:url('<?php echo esc_url($alpha_suite_img); ?>');" <?php endif; ?>
+              <?php echo esc_attr($alpha_suite_anim_card_div); ?>></div>
 
-            <?php if (!empty($p['heading'])): ?>
-              <h2 class="h2"><?php echo esc_html($p['heading']); ?></h2>
+            <?php if (!empty($alpha_suite_p['heading'])): ?>
+              <h2 class="h2"><?php echo esc_html($alpha_suite_p['heading']); ?></h2>
             <?php endif; ?>
-            <?php if (!empty($p['body'])): ?>
-              <p class="p"><?php echo esc_html($p['body']); ?></p>
+            <?php if (!empty($alpha_suite_p['body'])): ?>
+              <p class="p"><?php echo esc_html($alpha_suite_p['body']); ?></p>
             <?php endif; ?>
           </amp-story-grid-layer>
 
-        <?php elseif ($style === 'top'): ?>
+        <?php elseif ($alpha_suite_style === 'top'): ?>
           <amp-story-grid-layer template="fill">
             <div class="bg-solid"></div>
           </amp-story-grid-layer>
 
           <amp-story-grid-layer template="vertical" class="layer-content-top" style="padding:0;display:block">
-            <div class="hero" <?php echo esc_attr($anim_card_div); ?>>
-              <?php if ($img): ?>
-                <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
+            <div class="hero" <?php echo esc_attr($alpha_suite_anim_card_div); ?>>
+              <?php if ($alpha_suite_img): ?>
+                <amp-img layout="fill" src="<?php echo esc_url($alpha_suite_img); ?>" alt=""></amp-img>
               <?php endif; ?>
             </div>
 
             <div class="content">
               <div class="content-inner">
-                <?php if (!empty($p['heading'])): ?>
-                  <h2 class="h2"><?php echo esc_html($p['heading']); ?></h2>
+                <?php if (!empty($alpha_suite_p['heading'])): ?>
+                  <h2 class="h2"><?php echo esc_html($alpha_suite_p['heading']); ?></h2>
                 <?php endif; ?>
-                <?php if (!empty($p['body'])): ?>
-                  <p class="p"><?php echo esc_html($p['body']); ?></p>
+                <?php if (!empty($alpha_suite_p['body'])): ?>
+                  <p class="p"><?php echo esc_html($alpha_suite_p['body']); ?></p>
                 <?php endif; ?>
               </div>
             </div>
           </amp-story-grid-layer>
 
-        <?php elseif ($style === 'split'): ?>
+        <?php elseif ($alpha_suite_style === 'split'): ?>
           <amp-story-grid-layer template="fill">
-            <?php if ($img): ?>
-              <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
+            <?php if ($alpha_suite_img): ?>
+              <amp-img layout="fill" src="<?php echo esc_url($alpha_suite_img); ?>" alt=""></amp-img>
             <?php else: ?>
               <div class="bg"></div>
             <?php endif; ?>
@@ -709,14 +707,14 @@ $font_family = $font === 'system'
           <amp-story-grid-layer template="vertical">
             <div class="split">
               <div class="left"
-                <?php if ($img): ?>style="background-image:url('<?php echo esc_url($img); ?>');" <?php endif; ?>
-                <?php echo esc_attr($anim_left_split); ?>></div>
+                <?php if ($alpha_suite_img): ?>style="background-image:url('<?php echo esc_url($alpha_suite_img); ?>');" <?php endif; ?>
+                <?php echo esc_attr($alpha_suite_anim_left_split); ?>></div>
               <div class="right">
-                <?php if (!empty($p['heading'])): ?>
-                  <h2 class="h2"><?php echo esc_html($p['heading']); ?></h2>
+                <?php if (!empty($alpha_suite_p['heading'])): ?>
+                  <h2 class="h2"><?php echo esc_html($alpha_suite_p['heading']); ?></h2>
                 <?php endif; ?>
-                <?php if (!empty($p['body'])): ?>
-                  <p class="p"><?php echo esc_html($p['body']); ?></p>
+                <?php if (!empty($alpha_suite_p['body'])): ?>
+                  <p class="p"><?php echo esc_html($alpha_suite_p['body']); ?></p>
                 <?php endif; ?>
               </div>
             </div>
@@ -724,20 +722,20 @@ $font_family = $font === 'system'
 
         <?php else: ?>
           <amp-story-grid-layer template="fill">
-            <?php if ($img): ?>
-              <amp-img layout="fill" src="<?php echo esc_url($img); ?>" alt=""></amp-img>
+            <?php if ($alpha_suite_img): ?>
+              <amp-img layout="fill" src="<?php echo esc_url($alpha_suite_img); ?>" alt=""></amp-img>
             <?php else: ?>
               <div class="bg"></div>
             <?php endif; ?>
-            <?php if ($style === 'dark-left'): ?><div class="overlay"></div><?php endif; ?>
+            <?php if ($alpha_suite_style === 'dark-left'): ?><div class="overlay"></div><?php endif; ?>
           </amp-story-grid-layer>
 
           <amp-story-grid-layer template="vertical" class="layer-content pad">
-            <?php if (!empty($p['heading'])): ?>
-              <h2 class="h2"><?php echo esc_html($p['heading']); ?></h2>
+            <?php if (!empty($alpha_suite_p['heading'])): ?>
+              <h2 class="h2"><?php echo esc_html($alpha_suite_p['heading']); ?></h2>
             <?php endif; ?>
-            <?php if (!empty($p['body'])): ?>
-              <p class="p"><?php echo esc_html($p['body']); ?></p>
+            <?php if (!empty($alpha_suite_p['body'])): ?>
+              <p class="p"><?php echo esc_html($alpha_suite_p['body']); ?></p>
             <?php endif; ?>
           </amp-story-grid-layer>
         <?php endif; ?>
@@ -757,29 +755,29 @@ $font_family = $font === 'system'
           </amp-story-grid-layer>
         <?php endif; ?>
         <!-- CTA fica igual -->
-        <?php if ($cta_url): ?>
-          <?php if ($cta_type === 'button' && !$is_first): ?>
+        <?php if ($alpha_suite_cta_url): ?>
+          <?php if ($alpha_suite_cta_type === 'button' && !$alpha_suite_is_first): ?>
             <amp-story-cta-layer>
               <a class="btn"
-                href="<?php echo esc_url($cta_url); ?>"
+                href="<?php echo esc_url($alpha_suite_cta_url); ?>"
                 target="_blank"
                 rel="noreferrer">
-                <?php echo esc_html($cta_text); ?>
+                <?php echo esc_html($alpha_suite_cta_text); ?>
               </a>
             </amp-story-cta-layer>
-          <?php elseif ($cta_type === 'swipe'): ?>
+          <?php elseif ($alpha_suite_cta_type === 'swipe'): ?>
             <amp-story-page-outlink
               layout="nodisplay"
               theme="dark"
-              <?php if ($cta_icon): ?>cta-image="<?php echo esc_attr($cta_icon); ?>" <?php endif; ?>>
-              <a href="<?php echo esc_url($cta_url); ?>" target="_blank" rel="noreferrer"><?php echo esc_html($cta_text); ?></a>
+              <?php if ($alpha_suite_cta_icon): ?>cta-image="<?php echo esc_attr($alpha_suite_cta_icon); ?>" <?php endif; ?>>
+              <a href="<?php echo esc_url($alpha_suite_cta_url); ?>" target="_blank" rel="noreferrer"><?php echo esc_html($alpha_suite_cta_text); ?></a>
             </amp-story-page-outlink>
           <?php endif; ?>
         <?php endif; ?>
       </amp-story-page>
 
     <?php
-      $i++;
+      $alpha_suite_i++;
     endforeach;
     // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
 

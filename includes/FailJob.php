@@ -2,7 +2,7 @@
 // includes/License.php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_FailJob
+class AlphaSuite_FailJob
 {
     public static function fail_job($post_id, WP_Error $err)
     {

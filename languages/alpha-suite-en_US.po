@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Alpha Suite Alpha\n"
+"Project-Id-Version: Alpha Suite\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-21 00:20+0000\n"
 "PO-Revision-Date: 2026-02-21 00:22+0000\n"

@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_WS_Metabox
+class AlphaSuite_WS_Metabox
 {
     public static function init()
     {

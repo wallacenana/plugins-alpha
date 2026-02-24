@@ -2,7 +2,7 @@
 // includes/ws/CPT.php
 if (!defined('ABSPATH')) exit;
 
-final class PluginsAlpha_WS_CPT
+final class AlphaSuite_WS_CPT
 {
     public const POST_TYPE = 'ws_generator';
 
@@ -144,8 +144,8 @@ final class PluginsAlpha_WS_CPT
 
     public static function render(): void
     {
-        $opt = PluginsAlpha_Settings::get();
-        $chk = PluginsAlpha_License::check('alpha_stories');
+        $opt = AlphaSuite_Settings::get();
+        $chk = AlphaSuite_License::check('alpha_stories');
 
         if (!$chk['ok']) {
             $url = admin_url('admin.php?page=alpha-suite-license');
@@ -191,7 +191,7 @@ final class PluginsAlpha_WS_CPT
                 $story_status = (string) $story->post_status;
 
                 // Título central: meta_title (do story) ou post_title
-                $meta_title_h = (string) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_TITLE, true);
+                $meta_title_h = (string) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_TITLE, true);
                 $story_title  = trim($meta_title_h) !== '' ? $meta_title_h : (get_the_title($story_id) ?: '');
             }
         }
@@ -235,19 +235,19 @@ final class PluginsAlpha_WS_CPT
 
         // se edição, puxa do story
         if ($story_id > 0 && $story) {
-            $modal_meta_title = (string) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_TITLE, true);
-            $modal_meta_desc  = (string) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_DESC, true);
-            $modal_slug  = (string) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_SLUG, true);
+            $modal_meta_title = (string) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_TITLE, true);
+            $modal_meta_desc  = (string) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_DESC, true);
+            $modal_slug  = (string) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_SLUG, true);
 
-            $modal_accent = (string) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_ACCENT, true) ?: $modal_accent;
-            $modal_textc  = (string) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_TEXT_COLOR, true) ?: $modal_textc;
+            $modal_accent = (string) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_ACCENT, true) ?: $modal_accent;
+            $modal_textc  = (string) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_TEXT_COLOR, true) ?: $modal_textc;
 
             // locale salvo (se existir)
-            $loc = (string) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_LOCALE, true);
+            $loc = (string) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_LOCALE, true);
             if ($loc !== '') $modal_locale = $loc;
 
-            $logo_id_meta   = (int) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_LOGO_ID, true);
-            $poster_id_meta = (int) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_POSTER_ID, true);
+            $logo_id_meta   = (int) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_LOGO_ID, true);
+            $poster_id_meta = (int) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_POSTER_ID, true);
         }
 
         // logo efetiva = meta do story OU default settings
@@ -256,7 +256,7 @@ final class PluginsAlpha_WS_CPT
         // poster efetivo = meta do story OU thumbnail do post fonte
         $effective_poster_id = $poster_id_meta;
         if ($effective_poster_id <= 0 && $story_id > 0) {
-            $source_post = (int) get_post_meta($story_id, PluginsAlpha_REST_Ws_Generator::META_SOURCE, true);
+            $source_post = (int) get_post_meta($story_id, AlphaSuite_REST_Ws_Generator::META_SOURCE, true);
             if ($source_post > 0) {
                 $thumb_id = (int) get_post_thumbnail_id($source_post);
                 if ($thumb_id > 0) $effective_poster_id = $thumb_id;

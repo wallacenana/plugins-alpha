@@ -1,11 +1,11 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_REST_Ws_Generator
+class AlphaSuite_REST_Ws_Generator
 {
     const NS = 'pga/v1';
 
-    const STORY_CPT = PluginsAlpha_WS_CPT::POST_TYPE;
+    const STORY_CPT = AlphaSuite_WS_CPT::POST_TYPE;
 
     // metas
     const META_PAYLOAD     = '_pga_ws_payload';
@@ -137,11 +137,11 @@ class PluginsAlpha_REST_Ws_Generator
 
     private static function require_classes()
     {
-        if (!class_exists('PluginsAlpha_AI')) {
-            return new WP_Error('pga_ws_ai_missing', 'PluginsAlpha_AI não encontrado.', ['status' => 500]);
+        if (!class_exists('AlphaSuite_AI')) {
+            return new WP_Error('pga_ws_ai_missing', 'AlphaSuite_AI não encontrado.', ['status' => 500]);
         }
-        if (!class_exists('PluginsAlpha_Prompts')) {
-            return new WP_Error('pga_ws_prompts_missing', 'PluginsAlpha_Prompts não encontrado.', ['status' => 500]);
+        if (!class_exists('AlphaSuite_Prompts')) {
+            return new WP_Error('pga_ws_prompts_missing', 'AlphaSuite_Prompts não encontrado.', ['status' => 500]);
         }
         return true;
     }
@@ -428,8 +428,8 @@ class PluginsAlpha_REST_Ws_Generator
 
             // provider vindo do settings
             $provider = 'pollinations';
-            if (class_exists('PluginsAlpha_Settings')) {
-                $opts = PluginsAlpha_Settings::get();
+            if (class_exists('AlphaSuite_Settings')) {
+                $opts = AlphaSuite_Settings::get();
                 $orionPosts = $opts['orion_posts'] ?? [];
                 if (!empty($orionPosts['images_provider'])) {
                     $provider = (string)$orionPosts['images_provider'];
@@ -440,11 +440,11 @@ class PluginsAlpha_REST_Ws_Generator
             // Se for banco, retornamos 3 opções (sem salvar nada)
             if ($provider === 'pexels') {
 
-                if (!class_exists('PluginsAlpha_Settings')) {
+                if (!class_exists('AlphaSuite_Settings')) {
                     return new \WP_Error('pga_pexels_no_cfg', 'Configurações não encontradas.', ['status' => 500]);
                 }
 
-                $opts = PluginsAlpha_Settings::get();
+                $opts = AlphaSuite_Settings::get();
                 $api  = $opts['apis']['pexels'] ?? [];
                 $key  = trim((string)($api['key'] ?? ''));
 
@@ -462,16 +462,16 @@ class PluginsAlpha_REST_Ws_Generator
                     // query curta p/ banco
                     $query = $ctx;
 
-                    if (class_exists('PluginsAlpha_Prompts') && method_exists('PluginsAlpha_Prompts', 'build_image_prompt')) {
+                    if (class_exists('AlphaSuite_Prompts') && method_exists('AlphaSuite_Prompts', 'build_image_prompt')) {
 
                         if ($tit || $desc)
-                            $meta = PluginsAlpha_Prompts::build_ws_slide_image_prompt($tit, $desc, $provider);
+                            $meta = AlphaSuite_Prompts::build_ws_slide_image_prompt($tit, $desc, $provider);
                         else
-                            $meta = PluginsAlpha_Prompts::build_image_prompt('ws_generator', '', '', 'en', 'pexels');
+                            $meta = AlphaSuite_Prompts::build_image_prompt('ws_generator', '', '', 'en', 'pexels');
 
                         $schema = ['content' => 'string'];
-                        if (class_exists('PluginsAlpha_AI')) {
-                            $ai = PluginsAlpha_AI::complete(
+                        if (class_exists('AlphaSuite_AI')) {
+                            $ai = AlphaSuite_AI::complete(
                                 $meta,
                                 $schema,
                                 [
@@ -654,13 +654,13 @@ class PluginsAlpha_REST_Ws_Generator
                 ]);
             }
 
-            if (!class_exists('PluginsAlpha_Images')) {
-                return new \WP_Error('pga_ws_images_missing', 'PluginsAlpha_Images ausente.', ['status' => 500]);
+            if (!class_exists('AlphaSuite_Images')) {
+                return new \WP_Error('pga_ws_images_missing', 'AlphaSuite_Images ausente.', ['status' => 500]);
             }
 
             $alt = $heading !== '' ? $heading : $ctx;
 
-            $att_id = PluginsAlpha_Images::generate_story_by_settings($ctx, $story_id, $alt);
+            $att_id = AlphaSuite_Images::generate_story_by_settings($ctx, $story_id, $alt);
             if (is_wp_error($att_id)) return $att_id;
 
             $att_id = (int)$att_id;
@@ -1079,6 +1079,7 @@ class PluginsAlpha_REST_Ws_Generator
 
                 // conteúdo base (texto limpo)
                 $post_title = get_the_title($pid) ?: '';
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
                 $raw_html   = apply_filters('the_content', $src->post_content);
 
                 $content_txt = wp_strip_all_tags($raw_html);
@@ -1090,7 +1091,7 @@ class PluginsAlpha_REST_Ws_Generator
                 }
 
                 // 1) 1 prompt só (meta + pages)
-                $prompt = PluginsAlpha_Prompts::build_ws_story_prompt([
+                $prompt = AlphaSuite_Prompts::build_ws_story_prompt([
                     'slidesCount'      => $slidesCount,
                     'locale'           => $locale,
                     'title'            => $post_title,
@@ -1107,7 +1108,7 @@ class PluginsAlpha_REST_Ws_Generator
                     'pages' => 'array',
                 ];
 
-                $ai_raw = PluginsAlpha_AI::complete(
+                $ai_raw = AlphaSuite_AI::complete(
                     $prompt,
                     $schema,
                     [

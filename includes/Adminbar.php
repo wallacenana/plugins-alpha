@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Adminbar
+class AlphaSuite_Adminbar
 {
     public static function init(): void
     {

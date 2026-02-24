@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Youtube
+class AlphaSuite_Youtube
 {
     /**
      * Lê a chave da API do YouTube nas configurações.
@@ -10,14 +10,14 @@ class PluginsAlpha_Youtube
      */
     public static function get_key()
     {
-        if (!class_exists('PluginsAlpha_Settings')) {
+        if (!class_exists('AlphaSuite_Settings')) {
             return new WP_Error(
                 'pga_youtube_no_settings',
-                'PluginsAlpha_Settings não encontrado para ler a chave do YouTube.'
+                'AlphaSuite_Settings não encontrado para ler a chave do YouTube.'
             );
         }
 
-        $opt = PluginsAlpha_Settings::get();
+        $opt = AlphaSuite_Settings::get();
         $key = trim($opt['apis']['youtube']['key'] ?? '');
 
         if ($key === '') {

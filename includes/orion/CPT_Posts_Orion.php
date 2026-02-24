@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_CPT_Posts_Orion
+class AlphaSuite_CPT_Posts_Orion
 {
   /**
    * Slug interno do módulo no sistema de licença.
@@ -84,8 +84,8 @@ class PluginsAlpha_CPT_Posts_Orion
 
       // 🔹 Descobre provider de IMAGEM (Orion settings)
       $imageProvider = 'pollinations';
-      if (class_exists('PluginsAlpha_Settings')) {
-        $opts       = PluginsAlpha_Settings::get();
+      if (class_exists('AlphaSuite_Settings')) {
+        $opts       = AlphaSuite_Settings::get();
         $orionPosts = $opts['orion_posts'] ?? [];
         if (!empty($orionPosts['images_provider'])) {
           $imageProvider = (string) $orionPosts['images_provider'];
@@ -94,7 +94,7 @@ class PluginsAlpha_CPT_Posts_Orion
 
       // 1) META-PROMPT (texto rico, com título + conteúdo)
       if ($raw_prompt === '') {
-        if (!class_exists('PluginsAlpha_Prompts')) {
+        if (!class_exists('AlphaSuite_Prompts')) {
           wp_send_json_error('Classe de prompts ausente.');
         }
 
@@ -112,7 +112,7 @@ class PluginsAlpha_CPT_Posts_Orion
 
         $locale = get_locale() ?: 'pt_BR';
 
-        $meta_prompt = PluginsAlpha_Prompts::build_post_thumbnail_regen_prompt(
+        $meta_prompt = AlphaSuite_Prompts::build_post_thumbnail_regen_prompt(
           $title,
           $content,
           $locale,
@@ -126,21 +126,21 @@ class PluginsAlpha_CPT_Posts_Orion
       // 2) IA de TEXTO gera o PROMPT FINAL DE IMAGEM
       $final_prompt = $meta_prompt;
 
-      if (class_exists('PluginsAlpha_AI') && $raw_prompt === '') {
+      if (class_exists('AlphaSuite_AI') && $raw_prompt === '') {
         // aqui ele vai usar openai/gemini conforme get_text_provider ou args
-        $resolved = PluginsAlpha_AI::image_prompt($meta_prompt, []);
+        $resolved = AlphaSuite_AI::image_prompt($meta_prompt, []);
 
         if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
           $final_prompt = $resolved;
         }
       }
 
-      if (!class_exists('PluginsAlpha_Images')) {
+      if (!class_exists('AlphaSuite_Images')) {
         wp_send_json_error('Classe de imagem ausente.');
       }
 
       // 3) Gera a thumbnail com o provider de IMAGEM configurado
-      $thumb_id = PluginsAlpha_Images::generate_by_settings(
+      $thumb_id = AlphaSuite_Images::generate_by_settings(
         $final_prompt,
         $post_id
       );
@@ -315,11 +315,11 @@ class PluginsAlpha_CPT_Posts_Orion
       return;
     }
 
-    if (!class_exists('PluginsAlpha_License')) {
+    if (!class_exists('AlphaSuite_License')) {
       return;
     }
 
-    $chk = PluginsAlpha_License::check('alpha_orion');
+    $chk = AlphaSuite_License::check('alpha_orion');
 
     // 1) Aviso geral: licença/módulo não ativo
     if (empty($chk['ok'])) {
@@ -465,11 +465,11 @@ class PluginsAlpha_CPT_Posts_Orion
       return $actions;
     }
 
-    if (!class_exists('PluginsAlpha_License')) {
+    if (!class_exists('AlphaSuite_License')) {
       return $actions;
     }
 
-    $chk = PluginsAlpha_License::check('alpha_orion');
+    $chk = AlphaSuite_License::check('alpha_orion');
 
     // Se licença ok OU post já publicado → deixa tudo normal
     if (!empty($chk['ok']) || $post->post_status === 'publish') {
@@ -495,11 +495,11 @@ class PluginsAlpha_CPT_Posts_Orion
       return $link;
     }
 
-    if (!class_exists('PluginsAlpha_License')) {
+    if (!class_exists('AlphaSuite_License')) {
       return $link;
     }
 
-    $chk = PluginsAlpha_License::check('alpha_orion');
+    $chk = AlphaSuite_License::check('alpha_orion');
 
     // Licença ok ou post publicado → mantém link
     if (!empty($chk['ok']) || $post->post_status === 'publish') {
@@ -537,11 +537,11 @@ class PluginsAlpha_CPT_Posts_Orion
       return;
     }
 
-    if (!class_exists('PluginsAlpha_License')) {
+    if (!class_exists('AlphaSuite_License')) {
       return;
     }
 
-    $chk = PluginsAlpha_License::check('alpha_orion');
+    $chk = AlphaSuite_License::check('alpha_orion');
 
     // Se licença OK, deixa publicar normal
     if (!empty($chk['ok'])) {

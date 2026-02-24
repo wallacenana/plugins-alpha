@@ -1,14 +1,14 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Gemini
+class AlphaSuite_Gemini
 {
 
     // ---- Lê config do plugin (GEMINI) ----
     private static function cfg(): array
     {
-        // Fallback legado (sem PluginsAlpha_Settings)
-        if (!class_exists('PluginsAlpha_Settings')) {
+        // Fallback legado (sem AlphaSuite_Settings)
+        if (!class_exists('AlphaSuite_Settings')) {
             return [
                 'key'         => trim(get_option('alpha_orion_posts_gemini_key', '')),
                 'model_text'  => get_option('alpha_orion_posts_gemini_model_text', 'gemini-1.5-pro'),
@@ -18,7 +18,7 @@ class PluginsAlpha_Gemini
             ];
         }
 
-        $opt = PluginsAlpha_Settings::get();
+        $opt = AlphaSuite_Settings::get();
         $ge  = $opt['apis']['gemini'] ?? [];
 
         return [
@@ -207,20 +207,7 @@ class PluginsAlpha_Gemini
                 $parsed = $inner;
             }
         }
-
-        unset($schema['use_search']);
-
-        // valida contrato mínimo
-        foreach ($schema as $key => $_) {
-            if (!array_key_exists($key, $parsed)) {
-                return new WP_Error(
-                    'pga_schema_missing',
-                    "Campo obrigatório ausente no JSON: {$key}",
-                    ['response' => $parsed]
-                );
-            }
-        }
-
+        
         return $parsed;
     }
 }

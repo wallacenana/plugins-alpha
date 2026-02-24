@@ -1,13 +1,13 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_OpenAI
+class AlphaSuite_OpenAI
 {
 
     // ---- Lê config do plugin ----
     private static function cfg(): array
     {
-        $opt = PluginsAlpha_Settings::get();
+        $opt = AlphaSuite_Settings::get();
         $oa  = $opt['apis']['openai'] ?? [];
 
         return [
@@ -111,16 +111,6 @@ class PluginsAlpha_OpenAI
 
             if (json_last_error() === JSON_ERROR_NONE && is_array($inner)) {
                 $parsed = $inner;
-            }
-        }
-
-        foreach ($schema as $key => $_) {
-            if (!array_key_exists($key, $parsed)) {
-                return new WP_Error(
-                    'pga_schema_missing',
-                    "Campo obrigatório ausente: {$key}",
-                    ['response' => $parsed]
-                );
             }
         }
 

@@ -2,7 +2,7 @@
 // includes/License.php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_License
+class AlphaSuite_License
 {
     const OPTION_KEY = 'pga_client_license';
     const CRON_HOOK  = 'plugins_alpha_license_daily_check';
@@ -16,11 +16,9 @@ class PluginsAlpha_License
      */
     public static function api_base(): string
     {
-        $base = self::PGA_LICENSE_API_BASE ?? 'https://pluginsalpha.com/wp-json/pga-admin/v1';
-        $base = rtrim($base, '/');
-        return apply_filters('plugins_alpha/license_api_base', $base);
+        return 'https://pluginsalpha.com/wp-json/pga-admin/v1';
     }
-
+    
     public static function init(): void
     {
         add_action('admin_menu', [self::class, 'menu']);
@@ -714,7 +712,7 @@ class PluginsAlpha_License
 
     /**
      * Atalho simples: retorna só boolean.
-     * Ex.: PluginsAlpha_License::is_module_available('alpha_stories')
+     * Ex.: AlphaSuite_License::is_module_available('alpha_stories')
      */
     public static function is_module_available(string $module_slug): bool
     {

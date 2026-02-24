@@ -1,23 +1,23 @@
 <?php
 
 /**
- * Plugin Name: Alpha Suite Alpha
+ * Plugin Name: Alpha Suite
  * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Alpha Órion, Alpha Stories e muito mais.
- * Version: 3.2.2
+ * Version: 3.2.5
  * Author: Wallace Tavares
  * Author URI: https://pluginsalpha.com/
  * Text Domain: alpha-suite
  * Domain Path: /languages
  * Requires at least: 5.8
  * Requires PHP: 7.4
- * Tested up to: 6.8
+ * Tested up to: 6.9
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('PLUGINS_ALPHA_VERSION', '3.2.2');
+define('PLUGINS_ALPHA_VERSION', '3.2.5');
 
 // Constantes
 define('PGA_FILE', __FILE__);
@@ -27,22 +27,22 @@ define('PGA_URL',  plugin_dir_url(__FILE__));
 // === Constantes de diretórios (ajuste aqui se mudar) ===
 if (!defined('PGA_INC_DIR'))        define('PGA_INC_DIR',        rtrim(PGA_PATH, '/\\') . '/includes');
 if (!defined('PGA_INC_POSTS_DIR'))  define('PGA_INC_POSTS_DIR',  PGA_INC_DIR . '/orion');
-if (!defined('PGA_INC_STORYS_DIR')) define('PGA_INC_STORYS_DIR', PGA_INC_DIR . '/stories'); 
+if (!defined('PGA_INC_STORYS_DIR')) define('PGA_INC_STORYS_DIR', PGA_INC_DIR . '/stories');
 
 
 // Versão de asset por filemtime (cache-bust)
-function pga_asset_ver(string $relpath): string
+function alpha_suite_asset_ver(string $relpath): string
 {
   $path = PGA_PATH . ltrim($relpath, '/');
   return file_exists($path) ? (string) filemtime($path) : (string) time();
 }
 
 spl_autoload_register(function ($class) {
-  if (strpos($class, 'PluginsAlpha_') !== 0) return;
+  if (strpos($class, 'AlphaSuite_') !== 0) return;
 
-  // Normaliza: PluginsAlpha_Foo_Bar  -> Foo_Bar
+  // Normaliza: AlphaSuite_Foo_Bar  -> Foo_Bar
   // (se usar namespace no futuro, também troca "\" por "_")
-  $short = substr($class, strlen('PluginsAlpha_'));
+  $short = substr($class, strlen('AlphaSuite_'));
   $short = str_replace('\\', '_', $short);
 
   $dirs = array_filter([
@@ -55,8 +55,8 @@ spl_autoload_register(function ($class) {
   $candidates = [];
   foreach ($dirs as $dir) {
     $base = rtrim($dir, '/\\') . DIRECTORY_SEPARATOR;
-    $candidates[] = $base . $short . '.php';                                   // includes/Pages_Generator.php
-    $candidates[] = $base . str_replace('_', DIRECTORY_SEPARATOR, $short) . '.php'; // includes/Pages/Generator.php
+    $candidates[] = $base . $short . '.php';
+    $candidates[] = $base . str_replace('_', DIRECTORY_SEPARATOR, $short) . '.php';
   }
   foreach ($candidates as $file) {
     if (is_file($file)) {
@@ -109,36 +109,40 @@ spl_autoload_register(function ($class) {
 // Bootstrap
 add_action('plugins_loaded', function () {
 
-  if (!class_exists('PluginsAlpha_Plugin')) {
+  if (!class_exists('AlphaSuite_Plugin')) {
     return;
   }
 
-  PluginsAlpha_Plugin::init();
+  AlphaSuite_Plugin::init();
 
   // REST
-  if (class_exists('PluginsAlpha_REST')) {
-    add_action('rest_api_init', ['PluginsAlpha_REST', 'register_routes']);
+  if (class_exists('AlphaSuite_REST')) {
+    add_action('rest_api_init', ['AlphaSuite_REST', 'register_routes']);
   }
 
-  if (class_exists('PluginsAlpha_REST_Ws_Generator')) {
-    add_action('rest_api_init', ['PluginsAlpha_REST_Ws_Generator', 'register_routes']);
+  if (class_exists('AlphaSuite_REST_Ws_Generator')) {
+    add_action('rest_api_init', ['AlphaSuite_REST_Ws_Generator', 'register_routes']);
   }
 
-  if (class_exists('PluginsAlpha_RESTRSS')) {
-    add_action('rest_api_init', ['PluginsAlpha_RESTRSS', 'register_routes']);
+  if (class_exists('AlphaSuite_RESTRSS')) {
+    add_action('rest_api_init', ['AlphaSuite_RESTRSS', 'register_routes']);
+  }
+
+  if (class_exists('AlphaSuite_Updater')) {
+    AlphaSuite_Updater::init(PGA_FILE);
   }
 
   // Outros módulos
-  if (class_exists('PluginsAlpha_License')) {
-    PluginsAlpha_License::init();
+  if (class_exists('AlphaSuite_License')) {
+    AlphaSuite_License::init();
   }
 
-  if (class_exists('PluginsAlpha_WS_CPT')) {
-    PluginsAlpha_WS_CPT::init();
+  if (class_exists('AlphaSuite_WS_CPT')) {
+    AlphaSuite_WS_CPT::init();
   }
 
-  if (class_exists('PluginsAlpha_WS_Metabox')) {
-    PluginsAlpha_WS_Metabox::init();
+  if (class_exists('AlphaSuite_WS_Metabox')) {
+    AlphaSuite_WS_Metabox::init();
   }
 });
 
@@ -168,7 +172,7 @@ add_filter('cron_schedules', function ($schedules) {
 |--------------------------------------------------------------------------
 */
 
-add_action('pga_master_cron', ['PluginsAlpha_CRON', 'dispatch']);
+add_action('pga_master_cron', ['AlphaSuite_CRON', 'dispatch']);
 
 /*
 |--------------------------------------------------------------------------
@@ -179,7 +183,7 @@ add_action('pga_master_cron', ['PluginsAlpha_CRON', 'dispatch']);
 register_activation_hook(PGA_FILE, function () {
 
   // cria tabelas
-  pga_create_tables();
+  alpha_suite_create_tables();
 
   // agenda cron
   if (!wp_next_scheduled('pga_master_cron')) {
@@ -209,7 +213,7 @@ register_deactivation_hook(PGA_FILE, function () {
 |--------------------------------------------------------------------------
 */
 
-function pga_create_tables()
+function alpha_suite_create_tables()
 {
   global $wpdb;
   $charset = $wpdb->get_charset_collate();
@@ -272,6 +276,12 @@ add_action('admin_head', function () {
   echo '<style>
     #adminmenu .toplevel_page_alpha-suite-dashboard .wp-menu-image img{
       width:16px;height:16px;object-fit:contain;opacity:1;
+      padding-top: 0;
     }
+      #adminmenu .toplevel_page_alpha-suite-dashboard .wp-menu-image {
+      display: flex;
+        justify-content: center;
+        align-items: center;
+      }
   </style>';
 });

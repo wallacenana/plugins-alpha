@@ -1467,6 +1467,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
         body
       });
+      console.log(j)
       if (!j || !j.success) throw new Error(j?.data?.message || __('Falha ao remover.', 'alpha-suite'));
       tr.remove();
     };

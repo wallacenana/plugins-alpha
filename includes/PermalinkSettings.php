@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_PermalinkSettings
+class AlphaSuite_PermalinkSettings
 {
   public static function init()
   {

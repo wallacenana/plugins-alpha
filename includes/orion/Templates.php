@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) exit;
  *     'receitas' => ['label'=>'Receitas', 'builtin'=>0, 'enabled'=>1],
  *   ]
  */
-class PluginsAlpha_Orion_Templates
+class AlphaSuite_Orion_Templates
 {
     const OPTION = 'pga_orion_templates';
 

@@ -1,12 +1,12 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Generate
+class AlphaSuite_Generate
 {
   public static function init(): void
   {
     add_action('add_meta_boxes', [self::class, 'register_metabox']);
-    add_action('wp_ajax_alpha_ai_generate_now', [PluginsAlpha_Generate::class, 'alpha_ajax_ai_generate_now']);
+    add_action('wp_ajax_alpha_ai_generate_now', [AlphaSuite_Generate::class, 'alpha_ajax_ai_generate_now']);
     add_action('admin_enqueue_scripts', [self::class, 'enqueue_admin_assets']);
   }
 
@@ -28,8 +28,8 @@ class PluginsAlpha_Generate
     $ajax_nonce = wp_create_nonce('alpha_ai_generate_now');
 
     // checa licença do módulo Stories
-    $chk = class_exists('PluginsAlpha_License')
-      ? PluginsAlpha_License::check('alpha_stories')
+    $chk = class_exists('AlphaSuite_License')
+      ? AlphaSuite_License::check('alpha_stories')
       : ['ok' => true, 'message' => ''];
 
     $disabled = empty($chk['ok']);
@@ -98,8 +98,8 @@ class PluginsAlpha_Generate
     );
 
     // (Opcional, mas bem útil) – passa dados pro JS
-    $chk = class_exists('PluginsAlpha_License')
-      ? PluginsAlpha_License::check('alpha_stories')
+    $chk = class_exists('AlphaSuite_License')
+      ? AlphaSuite_License::check('alpha_stories')
       : ['ok' => true, 'message' => ''];
 
     wp_localize_script('alpha-suite-generate', 'PGA_Generate', [
@@ -150,12 +150,12 @@ class PluginsAlpha_Generate
       wp_send_json_error(['message' => 'Permissão negada.'], 403);
     }
 
-    if (!PluginsAlpha_Helpers::alpha_ai_get_api_key()) {
+    if (!AlphaSuite_Helpers::alpha_ai_get_api_key()) {
       wp_send_json_error(['message' => 'Configure a OpenAI API Key nas Configurações.'], 400);
     }
 
     // Gera (a função cria/atualiza a irmã alpha_storys e retorna target_id)
-    $res = PluginsAlpha_Helpers::alpha_ai_generate_for_post($source_id);
+    $res = AlphaSuite_Helpers::alpha_ai_generate_for_post($source_id);
     if (is_wp_error($res)) {
       wp_send_json_error(['message' => $res->get_error_message()], 500);
     }

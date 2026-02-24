@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_SEO {
+class AlphaSuite_SEO {
 
     /**
      * Aplica metadados de SEO nos plugins populares.

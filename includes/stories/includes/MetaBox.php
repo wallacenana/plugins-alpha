@@ -2,7 +2,7 @@
 // includes/stories/MetaBox.php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Stories_MetaBox
+class AlphaSuite_Stories_MetaBox
 {
   const NONCE = 'alpha_storys_meta_nonce';
 

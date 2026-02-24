@@ -1,12 +1,12 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Pages_Generator
+class AlphaSuite_Pages_Generator
 {
   public static function render(): void
   {
-    $opt = PluginsAlpha_Settings::get();
-    $chk = PluginsAlpha_License::check('alpha_orion');
+    $opt = AlphaSuite_Settings::get();
+    $chk = AlphaSuite_License::check('alpha_orion');
 ?>
     <div class="pga-wrap">
       <?php
@@ -174,8 +174,8 @@ class PluginsAlpha_Pages_Generator
                     <div class="pga-field">
                       <label for="pga_template_key"><?php esc_html_e('Modelo de Post', 'alpha-suite'); ?></label>
                       <?php
-                      $tpls_enabled = class_exists('PluginsAlpha_Orion_Templates')
-                        ? PluginsAlpha_Orion_Templates::get_enabled()
+                      $tpls_enabled = class_exists('AlphaSuite_Orion_Templates')
+                        ? AlphaSuite_Orion_Templates::get_enabled()
                         : [
                           'article' => ['label' => 'Artigo (padrão)'],
                           'modelar_youtube' => ['label' => 'Modelar vídeo do YouTube'],
@@ -505,7 +505,7 @@ class PluginsAlpha_Pages_Generator
     $template = $args['template'] ?? $args['template_key'] ?? 'article';
     $length = $args['length'] ?? 'short';
     $locale = $args['locale'] ?? 'pt_BR';
-    $provider = $args['provider'] ?? (class_exists('PluginsAlpha_AI') ? PluginsAlpha_AI::get_text_provider() : '');
+    $provider = $args['provider'] ?? (class_exists('AlphaSuite_AI') ? AlphaSuite_AI::get_text_provider() : '');
     $jobArgs = ['provider' => $provider, 'template' => $template, 'length' => $length, 'locale' => $locale, 'step' => 'outline'];
 
     // 2) publish_time: NÃO calcula, só recebe e repassa (timestamp ou string) 
@@ -517,7 +517,7 @@ class PluginsAlpha_Pages_Generator
     $post_type = !empty($args['post_type']) ? sanitize_key((string)$args['post_type']) : 'posts_orion';
 
     // SE LICENÇA FOR VITALÍCIA → força post normal
-    $lic = class_exists('PluginsAlpha_License') ? PluginsAlpha_License::check('alpha_orion') : ['ok' => false];
+    $lic = class_exists('AlphaSuite_License') ? AlphaSuite_License::check('alpha_orion') : ['ok' => false];
     $is_lifetime = !empty($lic['lifetime']) || (!empty($lic['plan']) && $lic['plan'] === 'lifetime');
 
     if ($is_lifetime && post_type_exists('post')) {
@@ -580,7 +580,7 @@ class PluginsAlpha_Pages_Generator
       }
     }
 
-    $chosenTitle = PluginsAlpha_Titles::getTitle(
+    $chosenTitle = AlphaSuite_Titles::getTitle(
       $draft_id,
       $template,
       $keyword,
@@ -597,7 +597,7 @@ class PluginsAlpha_Pages_Generator
       'post_title' => '(Gerando) ' . $chosenTitle,
     ]);
 
-    $promptSlug = PluginsAlpha_Prompts::build_slug_prompt(
+    $promptSlug = AlphaSuite_Prompts::build_slug_prompt(
       (string)$template,
       (string)$keyword,
       (string)$chosenTitle,
@@ -605,7 +605,7 @@ class PluginsAlpha_Pages_Generator
     );
 
     // chama endpoint dedicado (ou complete, se você não tiver meta_description)
-    $respSlug = PluginsAlpha_AI::slug($promptSlug);
+    $respSlug = AlphaSuite_AI::slug($promptSlug);
 
     if (!is_wp_error($respSlug)) {
 
@@ -676,10 +676,10 @@ class PluginsAlpha_Pages_Generator
 
     // 8) OUTLINE (prompt resolve via template) 
     if ($template === 'modelar_youtube') {
-      $yt = PluginsAlpha_Youtube::fetch_video_data($url);
+      $yt = AlphaSuite_Youtube::fetch_video_data($url);
       if (is_wp_error($yt)) return $yt; // ou trate como você trata erros no endpoint
 
-      $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt_modelar_youtube(
+      $outlinePrompt = AlphaSuite_Prompts::build_outline_prompt_modelar_youtube(
         $url,
         $yt,
         $chosenTitle,
@@ -687,13 +687,13 @@ class PluginsAlpha_Pages_Generator
         $locale
       );
     } else {
-      $outlinePrompt = PluginsAlpha_Prompts::build_outline_prompt($template, $keyword, $chosenTitle, $length, $locale, $url);
+      $outlinePrompt = AlphaSuite_Prompts::build_outline_prompt($template, $keyword, $chosenTitle, $length, $locale, $url);
     }
 
-    $outline = PluginsAlpha_AI::complete($outlinePrompt);
+    $outline = AlphaSuite_AI::complete($outlinePrompt);
 
     if (is_wp_error($outline)) {
-      return PluginsAlpha_FailJob::fail_job($draft_id, $outline);
+      return AlphaSuite_FailJob::fail_job($draft_id, $outline);
     }
 
     $outline = json_decode($outline, true);
@@ -847,7 +847,7 @@ class PluginsAlpha_Pages_Generator
     }
 
     // --- PROMPT (TUDO ACONTECE AQUI) ---
-    $prompt = PluginsAlpha_Prompts::build_section_prompt(
+    $prompt = AlphaSuite_Prompts::build_section_prompt(
       $template,
       $keyword,
       $title,
@@ -859,7 +859,7 @@ class PluginsAlpha_Pages_Generator
       $url,
     );
 
-    $resp = PluginsAlpha_AI::complete(
+    $resp = AlphaSuite_AI::complete(
       $prompt,
       [], // sem schema, é HTML/texto livre
       [
@@ -870,7 +870,7 @@ class PluginsAlpha_Pages_Generator
     );
 
     if (is_wp_error($resp)) {
-      return PluginsAlpha_FailJob::fail_job($post_id, $resp);
+      return AlphaSuite_FailJob::fail_job($post_id, $resp);
     }
 
     $content_html = trim((string)($resp ?? ''));
@@ -957,7 +957,7 @@ class PluginsAlpha_Pages_Generator
 
     // se estiver vazio (ou muito fraco), gera
     // monta prompt padronizado
-    $promptMeta = PluginsAlpha_Prompts::build_meta_description_prompt(
+    $promptMeta = AlphaSuite_Prompts::build_meta_description_prompt(
       (string)$template,
       (string)$keyword,
       (string)$title,
@@ -966,7 +966,7 @@ class PluginsAlpha_Pages_Generator
     );
 
     // chama endpoint dedicado (ou complete, se você não tiver meta_description)
-    $respMeta = PluginsAlpha_AI::meta_description($promptMeta);
+    $respMeta = AlphaSuite_AI::meta_description($promptMeta);
 
     $meta_desc = '';
 
@@ -1103,7 +1103,7 @@ class PluginsAlpha_Pages_Generator
         : $faq_json;
 
       if (is_array($faq)) {
-        $faq_block = PluginsAlpha_FAQ::render_faq_block($faq, $content_html);
+        $faq_block = AlphaSuite_FAQ::render_faq_block($faq, $content_html);
 
         if ($faq_block !== '') {
           $content_html .= "\n\n" . $faq_block;
@@ -1127,7 +1127,7 @@ class PluginsAlpha_Pages_Generator
     ]);
 
     if (is_wp_error($res)) {
-      return PluginsAlpha_FailJob::fail_job($post_id, $res, 'finalize');
+      return AlphaSuite_FailJob::fail_job($post_id, $res, 'finalize');
     }
 
     return [
@@ -1524,16 +1524,20 @@ class PluginsAlpha_Pages_Generator
       return is_array($query) ? $query : [];
     }
 
-    // --- AUTO / PILAR: MVP simples -> usa posts recentes ---
-    // Se no futuro quiser diferenciar "pillar", pode filtrar por categoria/meta aqui.
     $query = get_posts([
       'post_type'      => $post_type,
       'post_status'    => 'publish',
-      'post__not_in'   => [$post_id],
       'orderby'        => 'date',
       'order'          => 'DESC',
-      'posts_per_page' => $max * 2, // pega um pouco mais, se quiser filtrar depois
+      'posts_per_page' => $max * 2,
     ]);
+
+    $query = array_filter($query, function ($p) use ($post_id) {
+      return (int) $p->ID !== (int) $post_id;
+    });
+
+    // Se quiser garantir limite final:
+    $query = array_slice($query, 0, $max);
 
     return is_array($query) ? $query : [];
   }
@@ -1695,8 +1699,8 @@ class PluginsAlpha_Pages_Generator
       $meta_title = $title;
     }
 
-    if (class_exists('PluginsAlpha_SEO')) {
-      PluginsAlpha_SEO::apply_meta($post_id, [
+    if (class_exists('AlphaSuite_SEO')) {
+      AlphaSuite_SEO::apply_meta($post_id, [
         'title'         => $meta_title,
         'description'   => $meta_desc,
         'focus_keyword' => $keyword,

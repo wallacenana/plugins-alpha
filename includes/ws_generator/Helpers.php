@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Helpers
+class AlphaSuite_Helpers
 {
     public static function alpha_storys_options()
     {

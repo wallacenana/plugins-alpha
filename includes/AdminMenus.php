@@ -1,11 +1,11 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_AdminMenus
+class AlphaSuite_AdminMenus
 {
   public static function register(): void
   {
-    $icon_url = PGA_URL . 'assets/images/favicon-alpha-suite.png?v=' . pga_asset_ver('assets/images/favicon-alpha-suite.png');
+    $icon_url = PGA_URL . 'assets/images/favicon-alpha-suite.png?v=' . alpha_suite_asset_ver('assets/images/favicon-alpha-suite.png');
 
     // TOP LEVEL
     add_menu_page(
@@ -13,7 +13,7 @@ class PluginsAlpha_AdminMenus
       'Alpha Suite',
       'edit_posts',
       'alpha-suite-dashboard',
-      ['PluginsAlpha_AdminMenus', 'render_dashboard'],
+      ['AlphaSuite_AdminMenus', 'render_dashboard'],
       $icon_url,
       30
     );
@@ -25,7 +25,7 @@ class PluginsAlpha_AdminMenus
       __('Dashboard', 'alpha-suite'),
       'edit_posts',
       'alpha-suite-dashboard',
-      ['PluginsAlpha_AdminMenus', 'render_dashboard']
+      ['AlphaSuite_AdminMenus', 'render_dashboard']
     );
 
     // 2) Posts Órion Posts (lista do CPT)
@@ -45,16 +45,16 @@ class PluginsAlpha_AdminMenus
       __('Gerar Posts', 'alpha-suite'),
       'edit_posts',
       'alpha-suite-orion-posts',
-      ['PluginsAlpha_AdminMenus', 'render_generator']
+      ['AlphaSuite_AdminMenus', 'render_generator']
     );
 
     add_submenu_page(
       'alpha-suite-dashboard',
-      __('WS Generator (beta)', 'alpha-suite'),
-      __('WS Generator (beta)', 'alpha-suite'),
+      __('WS Generator', 'alpha-suite'),
+      __('WS Generator', 'alpha-suite'),
       'edit_posts',
       'alpha-suite-ws-generator',
-      ['PluginsAlpha_AdminMenus', 'render_ws_generator']
+      ['AlphaSuite_AdminMenus', 'render_ws_generator']
     );
 
     add_submenu_page(
@@ -62,7 +62,7 @@ class PluginsAlpha_AdminMenus
       __('WS Lista', 'alpha-suite'),
       __('WS Lista', 'alpha-suite'),
       'edit_posts',
-      'edit.php?post_type=' . PluginsAlpha_WS_CPT::POST_TYPE
+      'edit.php?post_type=' . AlphaSuite_WS_CPT::POST_TYPE
     );
 
     add_submenu_page(
@@ -71,7 +71,7 @@ class PluginsAlpha_AdminMenus
       __('RSS', 'alpha-suite'),
       'edit_posts',
       'alpha-suite-rss',
-      ['PluginsAlpha_AdminMenus', 'render_rss']
+      ['AlphaSuite_AdminMenus', 'render_rss']
     );
 
     // 3) Alpha Stories (lista do CPT)
@@ -91,7 +91,7 @@ class PluginsAlpha_AdminMenus
       __('Configurações', 'alpha-suite'),
       'manage_options',
       'alpha-suite-settings',
-      ['PluginsAlpha_AdminMenus', 'render_settings']
+      ['AlphaSuite_AdminMenus', 'render_settings']
     );
 
     add_submenu_page(
@@ -100,14 +100,14 @@ class PluginsAlpha_AdminMenus
       __('Prompts', 'alpha-suite'),
       'manage_options',
       'alpha-suite-orion-prompts',
-      ['PluginsAlpha_AdminMenus', 'render_prompts']
+      ['AlphaSuite_AdminMenus', 'render_prompts']
     );
   }
 
   public static function render_dashboard(): void
   {
-    if (class_exists('PluginsAlpha_Dashboard')) {
-      PluginsAlpha_Dashboard::render();
+    if (class_exists('AlphaSuite_Dashboard')) {
+      AlphaSuite_Dashboard::render();
     } else {
       echo '<div class="wrap"><h1>Alpha Suite — Dashboard</h1><p>Em breve…</p></div>';
     }
@@ -115,16 +115,16 @@ class PluginsAlpha_AdminMenus
 
   public static function render_ws_generator(): void
   {
-    if (class_exists('PluginsAlpha_WS_CPT')) {
-      PluginsAlpha_WS_CPT::render();
+    if (class_exists('AlphaSuite_WS_CPT')) {
+      AlphaSuite_WS_CPT::render();
     } else {
       echo '<div class="wrap"><h1>Web Story Generator</h1><p>Em breve…</p></div>';
     }
   }
   public static function render_rss(): void
   {
-    if (class_exists('PluginsAlpha_RSS')) {
-      PluginsAlpha_RSS::render();
+    if (class_exists('AlphaSuite_RSS')) {
+      AlphaSuite_RSS::render();
     } else {
       echo '<div class="wrap"><h1>RSS Feed Settings</h1><p>Em breve…</p></div>';
     }
@@ -132,8 +132,8 @@ class PluginsAlpha_AdminMenus
 
   public static function render_generator(): void
   {
-    if (class_exists('PluginsAlpha_Pages_Generator')) {
-      PluginsAlpha_Pages_Generator::render();
+    if (class_exists('AlphaSuite_Pages_Generator')) {
+      AlphaSuite_Pages_Generator::render();
     } else {
       echo '<div class="wrap"><h1>Gerar Posts</h1><p>Em breve…</p></div>';
     }
@@ -141,16 +141,16 @@ class PluginsAlpha_AdminMenus
 
   public static function render_settings(): void
   {
-    if (class_exists('PluginsAlpha_Settings')) {
-      PluginsAlpha_Settings::render();
+    if (class_exists('AlphaSuite_Settings')) {
+      AlphaSuite_Settings::render();
     } else {
       echo '<div class="wrap"><h1>Configurações</h1><p>Em breve…</p></div>';
     }
   }
   public static function render_prompts(): void
   {
-    if (class_exists('PluginsAlpha_Prompts')) {
-      PluginsAlpha_Prompts::render_page();
+    if (class_exists('AlphaSuite_Prompts')) {
+      AlphaSuite_Prompts::render_page();
     } else {
       echo '<div class="wrap"><h1>Configurações</h1><p>Em breve…</p></div>';
     }

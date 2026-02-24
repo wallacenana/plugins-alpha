@@ -21,10 +21,10 @@ function alpha_register_cpt_storys()
   require_once PGA_PATH . 'includes/stories/includes/Generate.php';
   require_once PGA_PATH . 'includes/stories/includes/Helpers.php';
   require_once PGA_PATH . 'includes/stories/includes/StoriesRest.php';
-  add_action('rest_api_init', ['PluginsAlpha_StoriesRest', 'register_routes']);
+  add_action('rest_api_init', ['AlphaSuite_StoriesRest', 'register_routes']);
 
-  PluginsAlpha_Stories_MetaBox::init();
-  PluginsAlpha_Generate::init();
+  AlphaSuite_Stories_MetaBox::init();
+  AlphaSuite_Generate::init();
 
   if (empty($p['image']) && !empty($p['image_id'])) {
     $p['image'] = wp_get_attachment_image_url((int)$p['image_id'], 'alpha_storys_slide')
@@ -107,12 +107,12 @@ function alpha_storys_get_base_slug(): string
  */
 function alpha_storys_license_check(): array
 {
-  if (!class_exists('PluginsAlpha_License')) {
+  if (!class_exists('AlphaSuite_License')) {
     // se a classe não existir, não vamos travar nada pra não quebrar o admin
     return ['ok' => true, 'code' => 'no_license_class', 'message' => ''];
   }
 
-  return PluginsAlpha_License::check(PGA_STORIES_MODULE_SLUG);
+  return AlphaSuite_License::check(PGA_STORIES_MODULE_SLUG);
 }
 
 /**

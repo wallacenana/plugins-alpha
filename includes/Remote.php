@@ -3,7 +3,7 @@ if (! defined('ABSPATH')) {
   exit;
 }
 
-class PluginsAlpha_Remote
+class AlphaSuite_Remote
 {
 
   /**

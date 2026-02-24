@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Settings
+class AlphaSuite_Settings
 {
   const OPTION = 'pga_settings';
   const NONCE  = 'pga_settings_nonce';
@@ -146,20 +146,6 @@ class PluginsAlpha_Settings
       ];
 
       /**
-       * Manus – credenciais para textos
-       */
-      $man = $in['apis']['manus'] ?? [];
-      $out['apis']['manus'] = [
-        'key'        => sanitize_text_field($man['key'] ?? ''),
-        'model_text' => sanitize_text_field($man['model_text'] ?? 'manus-chat'),
-        'base_url'   => esc_url_raw($man['base_url'] ?? ''),
-        'temperature' => is_numeric($man['temperature'] ?? null)
-          ? (float) $man['temperature']
-          : 0.6,
-        'max_tokens' => max(1, (int) ($man['max_tokens'] ?? 4096)),
-      ];
-
-      /**
        * Perplexity – credenciais para textos
        */
       $per = $in['apis']['perplexity'] ?? [];
@@ -213,7 +199,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($gp['text_provider'])
         : 'openai'; // default
 
-      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity', 'manus'];
+      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity'];
       if (!in_array($text_prov, $allowed_text_prov, true)) {
         $text_prov = 'openai';
       }
@@ -223,7 +209,7 @@ class PluginsAlpha_Settings
         ? sanitize_text_field($gp['images_provider'])
         : 'pollinations'; // default imagem
 
-      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'manus', 'none'];
+      $allowed_img_prov = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'none'];
       if (!in_array($img_prov, $allowed_img_prov, true)) {
         $img_prov = 'pollinations';
       }
@@ -248,8 +234,8 @@ class PluginsAlpha_Settings
       $allowed_styles = ['clean', 'dark-left', 'card', 'split', 'top'];
       $allowed_fonts  = ['system', 'inter', 'poppins', 'merriweather', 'plusjakarta'];
 
-      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity', 'manus'];
-      $allowed_img_prov  = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'manus', 'none'];
+      $allowed_text_prov = ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity'];
+      $allowed_img_prov  = ['pollinations', 'openai', 'pexels', 'unsplash', 'claude', 'mistral', 'cohere', 'perplexity', 'none'];
 
       $allowed_languages = [
         'pt-BR',
@@ -440,7 +426,6 @@ class PluginsAlpha_Settings
     $mis  = $o['apis']['mistral'] ?? [];
     $per  = $o['apis']['perplexity'] ?? [];
     $cla  = $o['apis']['claude'] ?? [];
-    $man  = $o['apis']['manus'] ?? [];
     $uns  = $o['apis']['unsplash'] ?? [];
     $gem  = $o['apis']['gemini'] ?? [];
     $yt   = $o['apis']['youtube'] ?? [];
@@ -621,66 +606,6 @@ class PluginsAlpha_Settings
         <td><input name="pga_settings[apis][claude][max_tokens]" id="pga_claude_maxtok" type="number" class="small-text" value="<?php echo esc_attr($cla['max_tokens'] ?? 4096); ?>"></td>
       </tr>
     </table>
-
-    <h2 class="title">Manus</h2>
-    <table class="form-table" role="presentation">
-      <tr>
-        <th scope="row"><label for="pga_manus_key">API Key</label></th>
-        <td>
-          <p class="description">
-            <a href="http://manus.im/app?show_settings=integrations&app_name=api" target="_blank" rel="noopener noreferrer">
-              <?php esc_html_e('Gerar chave.', 'alpha-suite'); ?>
-            </a>
-          </p>
-          <input
-            name="pga_settings[apis][manus][key]"
-            id="pga_manus_key"
-            type="text"
-            class="regular-text"
-            value="<?php echo esc_attr($man['key'] ?? ''); ?>">
-        </td>
-      </tr>
-
-      <tr>
-        <th scope="row"><label for="pga_manus_model">Modelo</label></th>
-        <td>
-          <input
-            name="pga_settings[apis][manus][model_text]"
-            id="pga_manus_model"
-            type="text"
-            class="regular-text"
-            value="<?php echo esc_attr($man['model_text'] ?? 'manus-large'); ?>">
-        </td>
-      </tr>
-
-      <tr>
-        <th scope="row"><label for="pga_manus_temp">Temperatura</label></th>
-        <td>
-          <input
-            name="pga_settings[apis][manus][temperature]"
-            id="pga_manus_temp"
-            type="number"
-            min="0"
-            max="1"
-            step="0.1"
-            value="<?php echo esc_attr($man['temperature'] ?? 0.6); ?>">
-        </td>
-      </tr>
-
-      <tr>
-        <th scope="row"><label for="pga_manus_maxtok">Max tokens</label></th>
-        <td>
-          <input
-            name="pga_settings[apis][manus][max_tokens]"
-            id="pga_manus_maxtok"
-            type="number"
-            max="8192"
-            class="small-text"
-            value="<?php echo esc_attr($man['max_tokens'] ?? 4096); ?>">
-        </td>
-      </tr>
-    </table>
-
 
     <h2 class="title">Mistral</h2>
     <table class="form-table" role="presentation">
@@ -873,7 +798,6 @@ class PluginsAlpha_Settings
             <option value="mistral" <?php selected($gp_text, 'mistral'); ?>>Mistral</option>
             <option value="perplexity" <?php selected($gp_text, 'perplexity'); ?>>Perplexity</option>
             <option value="cohere" <?php selected($gp_text, 'cohere'); ?>>Cohere</option>
-            <option value="manus" <?php selected($gp_text, 'manus'); ?>>Manus</option>
             <option value="gemini" <?php selected($gp_text, 'gemini'); ?>>Gemini</option>
           </select>
 
@@ -1108,7 +1032,6 @@ class PluginsAlpha_Settings
             <option value="openai" <?php selected($text_provider, 'openai'); ?>>OpenAI</option>
             <option value="gemini" <?php selected($text_provider, 'gemini'); ?>>Gemini</option>
             <option value="claude" <?php selected($text_provider, 'claude'); ?>>Claude</option>
-            <option value="manus" <?php selected($text_provider, 'manus'); ?>>Manus</option>
             <option value="mistral" <?php selected($text_provider, 'mistral'); ?>>Mistral</option>
             <option value="cohere" <?php selected($text_provider, 'cohere'); ?>>Cohere</option>
             <option value="perplexity" <?php selected($text_provider, 'perplexity'); ?>>Perplexity</option>

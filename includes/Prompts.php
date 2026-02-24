@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Prompts
+class AlphaSuite_Prompts
 {
     public static function init(): void {}
     public static function register_ajax(): void
@@ -1025,9 +1025,10 @@ class PluginsAlpha_Prompts
 
         $cta_pages_str = empty($cta_pages) ? 'nenhuma' : implode(', ', $cta_pages);
 
+        error_log("lag. " . $locale);
         $prompt = ""
             . "Você é um gerador de Web Stories a partir de conteúdo.\n"
-            . "Todo o conteúdo deve ser gerado em, pode traduzir incluse a KW: {$locale}\n"
+            . "Todo o conteúdo deve ser gerado em: {$locale} (pode traduzir incluse a KW), é uma informação muito importante, tudo precisa estar no idioma {$locale}, independente do texto base.\n"
             . "Título base: {$title}\n"
             . "Quantidade de páginas: {$slidesCount}\n"
             . "Páginas com CTA (0-indexado): {$cta_pages_str}\n\n"
@@ -1071,7 +1072,7 @@ class PluginsAlpha_Prompts
             . "- Regras para a descrição:\n"
             . "- Analise o nivel do funil do conteúdo e crie algo condizente com isso, a descrição deve ter entre 120 e 160 caracteres com cta no final. CTA levando em conta o nivel de funil e assim proibindo palavras de outros niveis\n"
             . "Regras editoriais:\n"
-            . "- Slide 1 = capa com headline forte (máx 38 caracteres) + gancho (1 frase)\n"
+            . "- Slide 1 = capa com headline forte (máx 38 caracteres) + gancho (1 frase), sempre sem CTA.\n"
             . "- Slides 2+ = progressão (máx 45 caracteres no heading)\n"
             . "- body curto (1 a 2 frases)\n"
             . "- Evite repetição de palavras entre slides\n"
@@ -1084,7 +1085,6 @@ class PluginsAlpha_Prompts
             . "- Máx 38 caracteres, sem ponto final, sem 'Slide 1', sem emoji.\n"
             . "- pages[0].body deve ser 1 frase curta (gancho), sem entregar tudo.\n"
             . "- Interprete o conteúdo e avalie e nivel de funil e proiba palavras de outros niveis de funil, se for meio de funil, proiba palavras de topo e fundo, e assim sucessivamente para todos os niveis.\n\n"
-
 
             . $content;
 
@@ -1137,8 +1137,8 @@ class PluginsAlpha_Prompts
         $raw = self::get_all_raw();
         $stages = self::stages();
 
-        $tpls = class_exists('PluginsAlpha_Orion_Templates')
-            ? PluginsAlpha_Orion_Templates::get_all()
+        $tpls = class_exists('AlphaSuite_Orion_Templates')
+            ? AlphaSuite_Orion_Templates::get_all()
             : [
                 'article' => ['label' => 'Artigo (padrão)', 'builtin' => 1, 'enabled' => 1],
                 'modelar_youtube' => ['label' => 'Modelar YouTube', 'builtin' => 1, 'enabled' => 1],
@@ -1176,8 +1176,8 @@ class PluginsAlpha_Prompts
         }
 
         // Templates salvos
-        $tpls_all = class_exists('PluginsAlpha_Orion_Templates')
-            ? PluginsAlpha_Orion_Templates::get_all()
+        $tpls_all = class_exists('AlphaSuite_Orion_Templates')
+            ? AlphaSuite_Orion_Templates::get_all()
             : [];
 
         // Garante os 2 nativos (se por algum motivo não vierem)
@@ -1216,7 +1216,7 @@ class PluginsAlpha_Prompts
             <div class="pga-topbar">
                 <div class="pga-title-row">
                     <div>
-                        <h1 class="pga-h1"><?php esc_html_e('Prompts do Órion', 'alpha-suite'); ?></h1>
+                        <h1 class="pga-h1"><?php esc_html_e('Prompts Gerais', 'alpha-suite'); ?></h1>
                         <p class="pga-sub">
                             <?php esc_html_e('Configure o comportamento da IA por modelo e etapa. Campos vazios herdam automaticamente o padrão interno.', 'alpha-suite'); ?>
                         </p>
@@ -3281,7 +3281,7 @@ class PluginsAlpha_Prompts
             . "      \"body\": \"Texto curto.\",\n"
             . "      \"cta_text\": \"\",\n"
             . "      \"cta_url\": \"\",\n"
-            . "      \"prompt\": \"\"\n"
+            . "      \"prompt\": \"Prompt para gerar uma imagem sobre o slide (sempre em inglês, independente do idioma pedido do conteudo)\"\n"
             . "    }\n"
             . "  ]\n"
             . "}\n";

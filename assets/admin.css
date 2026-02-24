@@ -170,6 +170,7 @@
   color: #888
 }
 
+
 .pa-title {
   margin-top: 14px
 }
@@ -1006,7 +1007,7 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
   transition: all 0.2s;
 }
 
-#pga_save_keywords.pga-rss:hover svg{
+#pga_save_keywords.pga-rss:hover svg {
   color: var(--pga-bg);
 }
 
@@ -2504,4 +2505,60 @@ details.pga-tpl summary {
   flex-direction: column !important;
   gap: 15px !important;
   align-items: flex-start !important;
+}
+
+.pga-logo {
+  background: var(--pga-text);
+  padding: 8px;
+  box-sizing: border-box;
+  width: 35px;
+  border-radius: 8px;
+}
+
+.pa-title.pga-dashboard {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-weight: 600;
+  letter-spacing: -1px;
+  font-size: 19px;
+}
+
+.pga-flex {
+  display: flex;
+}
+
+.pga-color-white {
+  color: var(--pga-branco) !important;
+}
+
+.pga-color-black {
+  color: var(--pga-text) !important;
+}
+
+.pga-links a {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+}
+
+.pga-links a svg {
+  width: 15px;
+}
+
+.pga-full {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+}
+
+#adminmenu .toplevel_page_alpha-suite-dashboard .wp-menu-image img {
+  height: auto !important;
+}
+
+#adminmenu div.wp-menu-image {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }

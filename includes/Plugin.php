@@ -1,19 +1,20 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Plugin
+class AlphaSuite_Plugin
 {
   public static function init(): void
   {
-    if (class_exists('PluginsAlpha_CPT_Posts_Orion')) PluginsAlpha_CPT_Posts_Orion::init();
-    if (class_exists('PluginsAlpha_PermalinkSettings')) PluginsAlpha_PermalinkSettings::init();
-    if (class_exists('PluginsAlpha_Settings')) PluginsAlpha_Settings::init();
-    if (class_exists('PluginsAlpha_Adminbar')) PluginsAlpha_Adminbar::init();
-    if (class_exists('PluginsAlpha_Orion_Migrator')) PluginsAlpha_Orion_Migrator::init();
+    if (class_exists('AlphaSuite_CPT_Posts_Orion')) AlphaSuite_CPT_Posts_Orion::init();
+    if (class_exists('AlphaSuite_PermalinkSettings')) AlphaSuite_PermalinkSettings::init();
+    if (class_exists('AlphaSuite_Settings')) AlphaSuite_Settings::init();
+    if (class_exists('AlphaSuite_Adminbar')) AlphaSuite_Adminbar::init();
+    if (class_exists('AlphaSuite_Orion_Migrator')) AlphaSuite_Orion_Migrator::init();
+    if (class_exists('AlphaSuite_Prompts')) AlphaSuite_Prompts::register_ajax();
 
     require_once PGA_PATH . 'includes/stories/autoload.php';
     // Menus e assets
-    add_action('admin_menu', ['PluginsAlpha_AdminMenus', 'register']);
+    add_action('admin_menu', ['AlphaSuite_AdminMenus', 'register']);
     add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
   }
 
@@ -49,18 +50,18 @@ class PluginsAlpha_Plugin
       'pga-admin',
       PGA_URL . 'assets/admin.css',
       [],
-      pga_asset_ver('assets/admin.css')
+      alpha_suite_asset_ver('assets/admin.css')
     );
 
     wp_register_style(
       'select2',
-      'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css',
+      PGA_URL . 'assets/vendor/select2.min.css',
       [],
       '4.1.0'
     );
     wp_register_script(
       'select2',
-      'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js',
+      PGA_URL . 'assets/vendor/select2.min.js',
       ['jquery'],
       '4.1.0',
       true
@@ -86,7 +87,7 @@ class PluginsAlpha_Plugin
         'pga-admin',
         PGA_URL . 'assets/admin.js',
         ['jquery', 'wp-util', 'sweetalert2', 'wp-i18n'],
-        pga_asset_ver('assets/admin.js'),
+        alpha_suite_asset_ver('assets/admin.js'),
         true
       );
     }
@@ -98,14 +99,14 @@ class PluginsAlpha_Plugin
         'pga-rss',
         PGA_URL . 'assets/pga-rss.js',
         ['jquery', 'sweetalert2', 'wp-i18n'],
-        pga_asset_ver('assets/pga-rss.js'),
+        alpha_suite_asset_ver('assets/pga-rss.js'),
         true
       );
 
       wp_localize_script('pga-rss', 'PGA_CFG', [
         'rest'   => esc_url_raw(rest_url('pga/v1')),
         'nonce'  => wp_create_nonce('wp_rest'),
-        'options' => class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [],
+        'options' => class_exists('AlphaSuite_Settings') ? AlphaSuite_Settings::get() : [],
         'site_url'     => site_url(),
       ]);
 
@@ -113,14 +114,14 @@ class PluginsAlpha_Plugin
         'pga-admin-rss',
         PGA_URL . 'assets/admin-rss.js',
         ['jquery', 'sweetalert2', 'wp-i18n'],
-        pga_asset_ver('assets/admin-rss.js'),
+        alpha_suite_asset_ver('assets/admin-rss.js'),
         true
       );
 
       wp_localize_script('pga-admin-rss', 'PGA_CFG', [
         'rest'   => esc_url_raw(rest_url('pga/v1')),
         'nonce'  => wp_create_nonce('wp_rest'),
-        'options' => class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [],
+        'options' => class_exists('AlphaSuite_Settings') ? AlphaSuite_Settings::get() : [],
         'site_url'     => site_url(),
       ]);
     }
@@ -130,25 +131,25 @@ class PluginsAlpha_Plugin
         'pga-ws-builder',
         PGA_URL . 'assets/ws-builder.js',
         ['jquery', 'sweetalert2', 'wp-i18n'],
-        pga_asset_ver('assets/ws-builder.js'),
+        alpha_suite_asset_ver('assets/ws-builder.js'),
         true
       );
 
       wp_localize_script('pga-ws-builder', 'PGA_CFG', [
         'rest'   => esc_url_raw(rest_url('pga/v1')),
         'nonce'  => wp_create_nonce('wp_rest'),
-        'options' => class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [],
+        'options' => class_exists('AlphaSuite_Settings') ? AlphaSuite_Settings::get() : [],
         'site_url'     => site_url(),
         'isCPT'  => (bool) $is_cpt_screen,
       ]);
 
-      wp_enqueue_style('pga-ws-builder', PGA_URL . 'assets/ws-builder.css', [], pga_asset_ver('assets/ws-builder.css'));
+      wp_enqueue_style('pga-ws-builder', PGA_URL . 'assets/ws-builder.css', [], alpha_suite_asset_ver('assets/ws-builder.css'));
     }
 
     wp_localize_script('pga-admin', 'PGA_CFG', [
       'rest'   => esc_url_raw(rest_url('pga/v1')),
       'nonce'  => wp_create_nonce('wp_rest'),
-      'options' => class_exists('PluginsAlpha_Settings') ? PluginsAlpha_Settings::get() : [],
+      'options' => class_exists('AlphaSuite_Settings') ? AlphaSuite_Settings::get() : [],
       'site_url'     => site_url(),
       'isCPT'  => (bool) $is_cpt_screen,
     ]);

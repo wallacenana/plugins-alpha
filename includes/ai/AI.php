@@ -1,15 +1,15 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_AI
+class AlphaSuite_AI
 {
     // ------------------------------------------------------------
     // BASE: leitura de settings (1 lugar só)
     // ------------------------------------------------------------
     private static function settings(): array
     {
-        // Fallback legado (antes do PluginsAlpha_Settings existir)
-        if (!class_exists('PluginsAlpha_Settings')) {
+        // Fallback legado (antes do AlphaSuite_Settings existir)
+        if (!class_exists('AlphaSuite_Settings')) {
             return [
                 'apis' => [
                     'openai' => [
@@ -34,7 +34,7 @@ class PluginsAlpha_AI
             ];
         }
 
-        return PluginsAlpha_Settings::get();
+        return AlphaSuite_Settings::get();
     }
 
     public static function resolve_provider(string $provider)
@@ -43,13 +43,13 @@ class PluginsAlpha_AI
         $provider = strtolower(trim($provider));
 
         $map = [
-            'openai'     => 'PluginsAlpha_OpenAI',
-            'gemini'     => 'PluginsAlpha_Gemini',
-            'perplexity' => 'PluginsAlpha_Perplexity',
-            'claude'     => 'PluginsAlpha_Claude',
-            'mistral'    => 'PluginsAlpha_Mistral',
-            'cohere'     => 'PluginsAlpha_Cohere',
-            'manus'      => 'PluginsAlpha_Manus',
+            'openai'     => 'AlphaSuite_OpenAI',
+            'gemini'     => 'AlphaSuite_Gemini',
+            'perplexity' => 'AlphaSuite_Perplexity',
+            'claude'     => 'AlphaSuite_Claude',
+            'mistral'    => 'AlphaSuite_Mistral',
+            'cohere'     => 'AlphaSuite_Cohere',
+            'manus'      => 'AlphaSuite_Manus',
         ];
 
 
@@ -76,8 +76,8 @@ class PluginsAlpha_AI
     {
         $provider = 'openai';
 
-        if (class_exists('PluginsAlpha_Settings')) {
-            $opts   = PluginsAlpha_Settings::get();
+        if (class_exists('AlphaSuite_Settings')) {
+            $opts   = AlphaSuite_Settings::get();
             $bucket = $opts[$format] ?? [];
 
             if (!empty($bucket['text_provider'])) {
@@ -113,7 +113,7 @@ class PluginsAlpha_AI
         }
 
         /**
-         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini>
+         * @var class-string<AlphaSuite_OpenAI|AlphaSuite_Gemini>
          */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {
@@ -190,7 +190,7 @@ class PluginsAlpha_AI
         $locale = $args['locale'] ?? 'pt_BR';
 
         // PROMPT enxuto e determinístico
-        $prompt = PluginsAlpha_Prompts::build_faq_prompt([
+        $prompt = AlphaSuite_Prompts::build_faq_prompt([
             'keyword' => $keyword,
             'qty'     => $qty,
             'locale'  => $locale,
@@ -236,7 +236,7 @@ class PluginsAlpha_AI
         }
 
         /**
-         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
+         * @var class-string<AlphaSuite_OpenAI|AlphaSuite_Gemini> $class
          */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {
@@ -308,8 +308,8 @@ class PluginsAlpha_AI
     // 3) Resolve a classe do provider (OpenAI / Gemini / etc.)
         /** 
          * @var class-string<
-         *    PluginsAlpha_OpenAI |
-         *    PluginsAlpha_Gemini
+         *    AlphaSuite_OpenAI |
+         *    AlphaSuite_Gemini
          * > $class 
          */
         $class = self::resolve_provider($provider);
@@ -338,13 +338,13 @@ class PluginsAlpha_AI
     public static function get_story_text_provider(): string
     {
         $provider = 'openai';
-        if (class_exists('PluginsAlpha_Settings')) {
-            $opts    = PluginsAlpha_Settings::get();
+        if (class_exists('AlphaSuite_Settings')) {
+            $opts    = AlphaSuite_Settings::get();
             $stories = $opts['stories'] ?? [];
 
             if (!empty($stories['text_provider'])) {
                 $candidate = (string) $stories['text_provider'];
-                if (in_array($candidate, ['openai', 'gemini'], true)) {
+                if (in_array($candidate, ['openai', 'gemini', 'claude', 'mistral', 'cohere', 'perplexity'], true)) {
                     $provider = $candidate;
                 }
             }
@@ -371,7 +371,7 @@ class PluginsAlpha_AI
         }
 
         /**
-         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
+         * @var class-string<AlphaSuite_OpenAI|AlphaSuite_Gemini> $class
          */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {
@@ -388,7 +388,6 @@ class PluginsAlpha_AI
             'temperature' => $args['temperature'] ?? 0.4,
             'max_tokens'  => $args['max_tokens'] ?? 6000,
             'template'    => 'story_pages',
-            'provider'    => $provider,
         ];
 
         // 🔥 AQUI é o ponto-chave
@@ -431,7 +430,7 @@ class PluginsAlpha_AI
         }
 
         /**
-         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
+         * @var class-string<AlphaSuite_OpenAI|AlphaSuite_Gemini> $class
          */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {
@@ -499,7 +498,7 @@ class PluginsAlpha_AI
         }
 
         /**
-         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
+         * @var class-string<AlphaSuite_OpenAI|AlphaSuite_Gemini> $class
          */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {
@@ -574,7 +573,7 @@ class PluginsAlpha_AI
         }
 
         /**
-         * @var class-string<PluginsAlpha_OpenAI|PluginsAlpha_Gemini> $class
+         * @var class-string<AlphaSuite_OpenAI|AlphaSuite_Gemini> $class
          */
         $class = self::resolve_provider($provider);
         if (is_wp_error($class)) {

@@ -1,12 +1,12 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class PluginsAlpha_Claude
+class AlphaSuite_Claude
 {
     // ---- Lê config do plugin ----
     private static function cfg(): array
     {
-        $opt = PluginsAlpha_Settings::get();
+        $opt = AlphaSuite_Settings::get();
         $cl  = $opt['apis']['claude'] ?? [];
 
         return [
@@ -47,7 +47,7 @@ Não use aspas tipográficas."
 
         $body = [
             'model' => $model,
-            'max_tokens' => $maxTokens,
+            'max_tokens' => 4055,
             'temperature' => $temperature,
             'system' => $systemPrompt,
             'messages' => [
@@ -122,18 +122,6 @@ Não use aspas tipográficas."
             $inner = json_decode($parsed['content'], true);
             if (json_last_error() === JSON_ERROR_NONE && is_array($inner)) {
                 $parsed = $inner;
-            }
-        }
-
-        unset($schema['use_search']);
-        // valida contrato mínimo
-        foreach ($schema as $key => $_) {
-            if (!array_key_exists($key, $parsed)) {
-                return new WP_Error(
-                    'pga_schema_missing',
-                    "Campo obrigatório ausente no JSON: {$key}",
-                    ['response' => $parsed]
-                );
             }
         }
 
