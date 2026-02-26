@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Alpha Suite
  * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Alpha Órion, Alpha Stories e muito mais.
- * Version: 3.2.5
+ * Version: 3.2.54
  * Author: Wallace Tavares
  * Author URI: https://pluginsalpha.com/
  * Text Domain: alpha-suite
@@ -17,7 +17,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('PLUGINS_ALPHA_VERSION', '3.2.5');
+define('PLUGINS_ALPHA_VERSION', '3.2.54');
 
 // Constantes
 define('PGA_FILE', __FILE__);
@@ -242,17 +242,19 @@ function alpha_suite_create_tables()
     ) $charset;");
 
   dbDelta("CREATE TABLE {$wpdb->prefix}pga_generator_items (
-        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        generator_id BIGINT UNSIGNED NOT NULL,
-        keyword TEXT NOT NULL,
-        status VARCHAR(20) DEFAULT 'pending',
-        post_id BIGINT DEFAULT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        generated_at DATETIME NULL,
-        PRIMARY KEY (id),
-        KEY generator_id (generator_id),
-        KEY status (status)
-    ) $charset;");
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      generator_id BIGINT UNSIGNED NOT NULL,
+      keyword VARCHAR(64) NOT NULL,
+      status VARCHAR(20) DEFAULT 'pending',
+      embedding MEDIUMTEXT NULL,
+      post_id BIGINT DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      generated_at DATETIME NULL,
+      PRIMARY KEY (id),
+      KEY generator_id (generator_id),
+      KEY generator_embedding (generator_id, id),
+      KEY status (status)
+  ) $charset;");
 
   dbDelta("CREATE TABLE {$wpdb->prefix}pga_generator_runtime (
         generator_id BIGINT UNSIGNED NOT NULL,
@@ -263,6 +265,40 @@ function alpha_suite_create_tables()
         last_status VARCHAR(50) DEFAULT NULL,
         PRIMARY KEY (generator_id)
     ) $charset;");
+}
+
+define('ALPHASUITE_DB_VERSION', '1.1');
+
+function maybe_update_database()
+{
+  global $wpdb;
+
+  $installed_version = get_option('alphasuite_db_version');
+
+  if ($installed_version === ALPHASUITE_DB_VERSION) {
+    return;
+  }
+
+  require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+  $charset = $wpdb->get_charset_collate();
+
+  dbDelta("CREATE TABLE {$wpdb->prefix}pga_generator_items (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        generator_id BIGINT UNSIGNED NOT NULL,
+        keyword VARCHAR(64) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        embedding MEDIUMTEXT NULL,
+        post_id BIGINT DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        generated_at DATETIME NULL,
+        PRIMARY KEY (id),
+        KEY generator_id (generator_id),
+        KEY generator_embedding (generator_id, id),
+        KEY status (status)
+    ) $charset;");
+
+  update_option('alphasuite_db_version', ALPHASUITE_DB_VERSION);
 }
 
 // Link “Dashboard” na tela de Plugins

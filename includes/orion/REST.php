@@ -654,40 +654,80 @@ class AlphaSuite_REST
             $existing_list
         );
 
+
         $resp = AlphaSuite_AI::complete($prompt, [], [
             'temperature' => 0.3,
-            'top_p' => 1,
-            'presence_penalty' => 0.2,
-            'frequency_penalty' => 0.4,
-            'template'          => 'keyword'
         ]);
+
 
         if (is_wp_error($resp)) return $resp;
 
+        // 🔥 Se vier JSON como string, decodifica
+        if (is_string($resp)) {
+            $decoded = json_decode($resp, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $resp = $decoded;
+            }
+        }
         if (!is_array($resp) || !isset($resp['content'])) {
             return new WP_Error('kw_invalid_response', 'Resposta inválida do gerador de keywords.');
         }
 
-        $text = trim((string) $resp['content']);
+        $content = $resp['content'];
 
-        // 🔹 unwrap se vier JSON serializado dentro do content (caso Gemini)
-        if ($text !== '' && $text[0] === '{') {
-            $inner = json_decode($text, true);
-            if (is_array($inner) && isset($inner['content']) && is_string($inner['content'])) {
-                $text = trim($inner['content']);
+        /*
+        |--------------------------------------------------------------------------
+        | 🔥 CASO 1: ARRAY DIRETO (CORRETO)
+        |--------------------------------------------------------------------------
+        */
+        if (is_array($content)) {
+            $lines = array_values(array_filter(
+                array_map('trim', $content),
+                fn($l) => $l !== ''
+            ));
+        }
+        /*
+        |--------------------------------------------------------------------------
+        | 🔥 CASO 2: STRING NORMAL
+        |--------------------------------------------------------------------------
+        */ elseif (is_string($content)) {
+
+            $text = trim($content);
+
+            // unwrap se vier JSON dentro da string
+            if ($text !== '' && $text[0] === '{') {
+                $inner = json_decode($text, true);
+                if (is_array($inner) && isset($inner['content'])) {
+                    $content = $inner['content'];
+
+                    if (is_array($content)) {
+                        $lines = array_values(array_filter(
+                            array_map('trim', $content),
+                            fn($l) => $l !== ''
+                        ));
+                    } else {
+                        $text = trim((string)$content);
+                    }
+                }
             }
+
+            if (!isset($lines)) {
+                $text = str_replace(["\r\n", "\r"], "\n", $text);
+
+                $lines = array_values(array_filter(
+                    array_map('trim', explode("\n", $text)),
+                    fn($l) => $l !== ''
+                ));
+            }
+        } else {
+            return new WP_Error('kw_invalid_type', 'Formato inesperado do content.');
         }
 
-        // normalização mínima e segura
-        $text = str_replace(["\r\n", "\r"], "\n", $text);
-
-        // remove linhas vazias no início/fim
-        $lines = array_values(array_filter(
-            array_map('trim', explode("\n", $text)),
-            fn($l) => $l !== ''
-        ));
-
-        // respeita limite
+        /*
+        |--------------------------------------------------------------------------
+        | 🔥 LIMITA
+        |--------------------------------------------------------------------------
+        */
         $lines = array_slice($lines, 0, $count);
 
         return [
@@ -998,7 +1038,7 @@ class AlphaSuite_REST
 
         return $provider;
     }
-    
+
     public static function selftest($req)
     {
         if (!current_user_can('manage_options')) {

@@ -244,6 +244,24 @@ class AlphaSuite_RSS
                                                 <option value="ru_RU" <?php selected($current, 'ru_RU'); ?>>🇷🇺 Русский</option>
                                             </select>
                                         </div>
+                                        <div class="pga-field pga_quota_wrap" style="display:none">
+                                            <label for="pga_quota_day"><?php esc_html_e('Tempo de atualização', 'alpha-suite'); ?></label>
+                                            <input class="pga_quota_day" type="number" min="0" step="1" value="1">
+                                        </div>
+
+                                        <div class="pga-field">
+                                            <label for="pga_start_hour">Iniciar às:</label>
+                                            <input type="number" min="0" max="23" id="pga_start_hour" class="pga_start_hour">
+                                        </div>
+                                        <div class="pga-field">
+                                            <label for="pga_end_hour">Parar às:</label>
+                                            <input type="number" min="0" max="23" id="pga_end_hour" class="pga_end_hour">
+                                        </div>
+
+                                        <div class="pga-field">
+                                            <label for="pga_interval_hours">Interval de hours:</label>
+                                            <input type="number" min="0" max="23" id="pga_interval_hours" class="pga_interval_hours">
+                                        </div>
                                         <div class="pga-field">
                                             <label><?php esc_html_e('Tags', 'alpha-suite'); ?></label>
 
@@ -269,28 +287,14 @@ class AlphaSuite_RSS
                                                 ?>
                                             </select>
                                         </div>
-                                        <div class="pga-field pga_quota_wrap" style="display:none">
-                                            <label for="pga_quota_day"><?php esc_html_e('Tempo de atualização', 'alpha-suite'); ?></label>
-                                            <input class="pga_quota_day" type="number" min="0" step="1" value="1">
-                                        </div>
-
                                         <div class="pga-field">
-                                            <label for="pga_start_hour">Iniciar às:</label>
-                                            <input type="number" min="0" max="23" id="pga_start_hour" class="pga_start_hour">
-                                        </div>
-                                        <div class="pga-field">
-                                            <label for="pga_end_hour">Parar às:</label>
-                                            <input type="number" min="0" max="23" id="pga_end_hour" class="pga_end_hour">
-                                        </div>
-
-                                        <div class="pga-field">
-                                            <label for="pga_interval_hours">Interval de hours:</label>
-                                            <input type="number" min="0" max="23" id="pga_interval_hours" class="pga_interval_hours">
-                                        </div>
-
-                                        <div class="pga-field">
-                                            <label for="rssKeyword"><?php esc_html_e('Palavras para filtro', 'alpha-suite'); ?></label>
-                                            <input type="text" id="rssKeyword" placeholder="Ex: politica, economia, futebol" class="rssKeyword">
+                                            <label style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                                                <span class="pga-switch">
+                                                    <input type="checkbox" id="pga_make_faq" class="pga_make_faq">
+                                                    <span class="pga-switch-ui" aria-hidden="true"></span>
+                                                    <span class="pga-switch-label"><?php esc_html_e('Criar FAQ', 'alpha-suite'); ?></span>
+                                                </span>
+                                            </label>
                                         </div>
                                         <div class="pga-field">
                                             <div class="pga-faq-qty-wrap" style="display:none;align-items:center;gap:8px;">
@@ -305,15 +309,9 @@ class AlphaSuite_RSS
                                                     value="5">
                                             </div>
                                         </div>
-                                        <div class="pga-field">
-                                            <label style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-                                                <span class="pga-switch">
-                                                    <input type="checkbox" id="pga_make_faq" class="pga_make_faq">
-                                                    <span class="pga-switch-ui" aria-hidden="true"></span>
-                                                    <span class="pga-switch-label"><?php esc_html_e('Criar FAQ', 'alpha-suite'); ?></span>
-                                                </span>
-                                            </label>
-                                        </div>
+
+
+
 
                                     </div>
 

@@ -11,18 +11,18 @@ if (!($post instanceof WP_Post)) exit;
 
 $post_id = (int) $post->ID;
 
-$alpha_suite_opts = PluginsAlpha_Settings::get();
+$alpha_suite_opts = AlphaSuite_Settings::get();
 $alpha_suite_st = $alpha_suite_opts['stories'] ?? [];
 
 // ====== metas que você já tem ======
-$alpha_suite_meta_title = (string) get_post_meta($post_id, PluginsAlpha_REST_Ws_Generator::META_TITLE, true); // ajuste para sua constante real (META_TITLE)
-$alpha_suite_meta_desc  = (string) get_post_meta($post_id, PluginsAlpha_REST_Ws_Generator::META_DESC, true);  // ajuste para sua constante real (META_DESC)
-$alpha_suite_accent     = (string) get_post_meta($post_id, PluginsAlpha_REST_Ws_Generator::META_ACCENT, true);     // META_ACCENT
-$alpha_suite_textc      = (string) get_post_meta($post_id, PluginsAlpha_REST_Ws_Generator::META_TEXT_COLOR, true); // META_TEXT_COLOR
-$alpha_suite_theme      = (string) get_post_meta($post_id, PluginsAlpha_REST_Ws_Generator::META_THEME, true);      // META_THEME
-$alpha_suite_slides     = (array)  get_post_meta($post_id, PluginsAlpha_REST_Ws_Generator::META_SLIDES, true);     // META_SLIDES (array)
-$alpha_suite_logo_id    = (int)    get_post_meta($post_id, PluginsAlpha_REST_Ws_Generator::META_LOGO_ID, true);    // META_LOGO_ID
-$alpha_suite_poster_id  = (int)    get_post_meta($post_id, PluginsAlpha_REST_Ws_Generator::META_POSTER_ID, true);  // META_POSTER_ID
+$alpha_suite_meta_title = (string) get_post_meta($post_id, AlphaSuite_REST_Ws_Generator::META_TITLE, true); // ajuste para sua constante real (META_TITLE)
+$alpha_suite_meta_desc  = (string) get_post_meta($post_id, AlphaSuite_REST_Ws_Generator::META_DESC, true);  // ajuste para sua constante real (META_DESC)
+$alpha_suite_accent     = (string) get_post_meta($post_id, AlphaSuite_REST_Ws_Generator::META_ACCENT, true);     // META_ACCENT
+$alpha_suite_textc      = (string) get_post_meta($post_id, AlphaSuite_REST_Ws_Generator::META_TEXT_COLOR, true); // META_TEXT_COLOR
+$alpha_suite_theme      = (string) get_post_meta($post_id, AlphaSuite_REST_Ws_Generator::META_THEME, true);      // META_THEME
+$alpha_suite_slides     = (array)  get_post_meta($post_id, AlphaSuite_REST_Ws_Generator::META_SLIDES, true);     // META_SLIDES (array)
+$alpha_suite_logo_id    = (int)    get_post_meta($post_id, AlphaSuite_REST_Ws_Generator::META_LOGO_ID, true);    // META_LOGO_ID
+$alpha_suite_poster_id  = (int)    get_post_meta($post_id, AlphaSuite_REST_Ws_Generator::META_POSTER_ID, true);  // META_POSTER_ID
 
 // ====== novos settings (se já tiver, ótimo; se não, ficam defaults) ======
 $alpha_suite_publisher_name = $alpha_suite_st['publisher_name'] ?? [];
@@ -55,7 +55,7 @@ if ($alpha_suite_poster_url === '') {
     if ($alpha_suite_thumb_id) $alpha_suite_poster_url = wp_get_attachment_image_url($alpha_suite_thumb_id, 'full') ?: '';
 }
 
-$alpha_ga_id      = PluginsAlpha_Helpers::alpha_get_ga4_id();
+$alpha_ga_id      = AlphaSuite_Helpers::alpha_get_ga4_id();
 $alpha_ga_enable  = !empty($alpha_ga_id);
 
 // ====== slides: garantir array ======

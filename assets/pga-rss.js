@@ -102,7 +102,7 @@
                     'X-WP-Nonce': NONCE
                 },
                 body: JSON.stringify({
-                    url: feedUrl,
+                    feedUrl: feedUrl,
                     limit: keyword ? 50 : 10,
                     keyword: keyword
                 })

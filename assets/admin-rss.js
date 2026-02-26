@@ -301,6 +301,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       end_hour: parseInt($box.find('.pga_end_hour').val() || '23', 10) || 23,
       active: $box.find('.pga_active').is(':checked') ? 1 : 0,
       make_faq: $box.find('.pga_make_faq').is(':checked') ? 1 : 0,
+      tags: $box.find('.pga_tags').val() || [],
 
       // 🔹 novo: salvar config de links internos por grupo
       internal_links: {
@@ -308,7 +309,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
         max: parseInt($box.find('.pga_link_max').val() || '0', 10) || 0,
         manual_ids: Array.isArray(manualVals) ? manualVals.join(',') : String(manualVals || '')
       }
-    };
+    }; 
   }
 
   // aplica objeto de config em 1 box
@@ -320,6 +321,9 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $box.find('.pga_template_key').val(cfg.template_key || 'rss');
     $box.find('.pga_category').val(cfg.category || '0');
     $box.find('.pga_end_hour').val(cfg.end_hour || 0);
+    $box.find('.pga_tags')
+    .val(Array.isArray(cfg.tags) ? cfg.tags : [])
+    .trigger('change');
     $box.find('.pga_start_hour').val(cfg.start_hour || 0);
     $box.find('.pga_interval_hours').val(cfg.interval_hours || 0);
     $box.find('.pga_active').prop('checked', !!cfg.active);

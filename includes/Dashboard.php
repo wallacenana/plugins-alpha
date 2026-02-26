@@ -87,7 +87,7 @@ class AlphaSuite_Dashboard
         <nav class="flex justify-between items-center mb-12">
           <div class="flex items-center gap-2">
             <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
-              <img src="<?php echo PGA_URL . 'assets/images/favicon-alpha-suite.png' ?>" class="rounded-md pga-logo" alt="Alpha Suite" />
+              <img src="<?php echo esc_attr(PGA_URL) . 'assets/images/favicon-alpha-suite.png' ?>" class="rounded-md pga-logo" alt="Alpha Suite" />
             </div>
             <span class="font-bold text-xl tracking-tight">Plugins Alpha</span></span>
           </div>
@@ -166,7 +166,7 @@ class AlphaSuite_Dashboard
             <div>
               <div class="flex justify-between items-start mb-8">
                 <div class="w-12 h-12 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm">
-                  <img src="<?php echo PGA_URL . 'assets/images/orion-posts.png' ?>" class="rounded-md" alt="Alpha Órion" />
+                  <img src="<?php echo esc_attr(PGA_URL) . 'assets/images/orion-posts.png' ?>" class="rounded-md" alt="Alpha Órion" />
                 </div>
                 <span class="text-[9px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md tracking-wider">INSTALADO</span>
               </div>
@@ -180,7 +180,7 @@ class AlphaSuite_Dashboard
                 <span class="text-slate-400 text-xs line-through font-medium">R$ 24,90</span>
                 <span class="text-base font-bold text-slate-900">R$ 19,90 <small class="text-[10px] font-normal opacity-50">/mês</small></span>
               </div>
-              <a href="<?php echo site_url() ?>/wp-admin/admin.php?page=alpha-suite-orion-posts" class="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all pga-full">Abrir Painel</a>
+              <a href="<?php echo esc_attr(site_url()) ?>/wp-admin/admin.php?page=alpha-suite-orion-posts" class="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all pga-full">Abrir Painel</a>
             </div>
           </div>
 
@@ -189,7 +189,7 @@ class AlphaSuite_Dashboard
             <div>
               <div class="flex justify-between items-start mb-8">
                 <div class="w-12 h-12 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-amber-500 shadow-sm">
-                  <img src="<?php echo PGA_URL . 'assets/images/alpha-stories.png' ?>" class="rounded-md" alt="Alpha Stories" />
+                  <img src="<?php echo esc_attr(PGA_URL) . 'assets/images/alpha-stories.png' ?>" class="rounded-md" alt="Alpha Stories" />
                 </div>
                 <span class="text-[9px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md tracking-wider">INSTALADO</span>
               </div>
@@ -203,7 +203,7 @@ class AlphaSuite_Dashboard
                 <span class="text-slate-400 text-xs line-through font-medium">R$ 19,90</span>
                 <span class="text-base font-bold text-slate-900">R$ 14,90 <small class="text-[10px] font-normal opacity-50">/mês</small></span>
               </div>
-              <a href="<?php echo site_url(); ?>/wp-admin/admin.php?page=alpha-suite-ws-generator" class="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all pga-full">Abrir Painel</a>
+              <a href="<?php echo esc_attr(site_url()) ?>/wp-admin/admin.php?page=alpha-suite-ws-generator" class="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all pga-full">Abrir Painel</a>
             </div>
           </div>
 
@@ -212,7 +212,7 @@ class AlphaSuite_Dashboard
             <div>
               <div class="flex justify-between items-start mb-8">
                 <div class="w-12 h-12 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-pink-500 shadow-sm group-hover:bg-pink-50 transition-colors">
-                  <img src="<?php echo PGA_URL . 'assets/images/alpha-form.png' ?>" class="rounded-md" alt="Alpha Form" />
+                  <img src="<?php echo esc_attr(PGA_URL) . 'assets/images/alpha-form.png' ?>" class="rounded-md" alt="Alpha Form" />
                 </div>
                 <span class="text-[9px] font-extrabold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-md tracking-wider uppercase">Breve</span>
               </div>

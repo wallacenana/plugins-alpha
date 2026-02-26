@@ -124,6 +124,32 @@ class AlphaSuite_AI
         return $class::complete($prompt, $schema, $args);
     }
 
+    public static function embeddings(array $texts, array $args = [])
+    {
+        $format = (string)($args['format'] ?? '');
+
+        $provider = $args['provider']
+            ?? self::get_text_provider($format ?: 'orion_posts');
+
+        $ok = self::ensure_text_provider($provider);
+        if (is_wp_error($ok)) {
+            return $ok;
+        }
+
+        $class = self::resolve_provider($provider);
+        if (is_wp_error($class)) {
+            return $class;
+        }
+
+        if (!method_exists($class, 'embeddings')) {
+            return new WP_Error(
+                'embedding_not_supported',
+                'Provider não suporta embeddings em lote.'
+            );
+        }
+
+        return $class::embeddings($texts, $args);
+    }
 
     /**
      * Provider de IMAGEM (Pollinations, OpenAI, Pexels, Unsplash...)
@@ -317,19 +343,7 @@ class AlphaSuite_AI
             return $class;
         }
 
-        if ($provider === 'openai') {
-
-            // 4) Chama o método outline() do próprio provedor
-            if (!method_exists($class, 'outline')) {
-                return new WP_Error(
-                    'pga_outline_not_implemented',
-                    "O provedor '{$provider}' não implementa outline()."
-                );
-            }
-
-            return $class::outline($prompt, $args);
-        } else
-            return $class::complete($prompt, $args);
+        return $class::complete($prompt, $args);
     }
 
     /**

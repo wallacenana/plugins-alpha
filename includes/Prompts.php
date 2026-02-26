@@ -218,7 +218,8 @@ class AlphaSuite_Prompts
             . "   ]\n"
             . "  }\n"
             . " ]\n"
-            . "}";
+            . "}"
+            . "Responda SOMENTE em JSON UTF-8 válido no formato {\"sections\":[...]} sem qualquer texto antes ou depois. FORMATO VALIDO JSON COM NO MÁXIMO 20 BULLETS, MÁXIMO.\n\n";
     }
 
     private static function meta_description_json_suffix(): string
@@ -425,6 +426,7 @@ class AlphaSuite_Prompts
             . "Crie apenas o esboço e passe as infomações conforme listado abaixo.\n\n"
 
             . "É PROIBIDO GERAR ALGO SEM TER INFORMAÇÕES PEDIDAS ABAIXO.\n\n"
+            . "Responda SOMENTE em JSON UTF-8 válido no formato {\"sections\":[...]} sem qualquer texto antes ou depois. FORMATO VALIDO JSON COM NO MÁXIMO 20 BULLETS, MÁXIMO.\n\n"
 
             . "CONTEXTO DA NOTÍCIA:\n"
             . "Título original: {$seedTitle}\n"
@@ -447,12 +449,16 @@ class AlphaSuite_Prompts
             . "CORRETO:\n"
             . "- \"No dia [x] de [mês x] de [ano x] (se for o caso), [Pessoa 1] acusou [pessoa 2]\"\n"
             . "- \"[pessoa 1] se reuniu com [pessoa 2] em [quando e onde]\"\n"
-            . "- \"[empresa x] propõe janela de [x] dias para exibição teatral\"\n\n"
+            . "- \"[empresa x] propõe janela de [x] dias para exibição teatral\"\n"
+            . "- \"[empresa x] deu previsão para o [semestre x] de 2026\"\n\n"
 
             . "ERRADO:\n"
             . "- \"A situação atual levanta questões sobre ética\"\n"
             . "- \"A forma como as empresas gerenciam isso pode afetar...\"\n"
-            . "- \"A resolução terá implicações para...\"\n\n"
+            . "- \"A resolução terá implicações para...\"\n"
+            . "- \"[empresa x] divulgou [o que] de [obra]... (se não tiver o [onde], não serve, precisa complementar com o onde, o dado tem que ser verificavel)\"\n"
+            . "- \"[empresa x] deu previsão para 2026, sem data definida\"\n\n"
+
 
             . $base . "\n\n"
 
@@ -500,15 +506,31 @@ class AlphaSuite_Prompts
             if ($list) $childrenDetailed = implode("\n", $list);
         }
 
-        // bullets (da própria seção)
         $bullets = '';
         if (!empty($section['bullets']) && is_array($section['bullets'])) {
             $list = [];
+
             foreach ($section['bullets'] as $b) {
-                $b = trim((string)$b);
-                if ($b !== '') $list[] = '- ' . $b;
+
+                if (is_array($b)) {
+                    // tenta pegar campo comum
+                    $b = $b['text'] ?? reset($b);
+                }
+
+                if (!is_string($b)) {
+                    continue;
+                }
+
+                $b = trim($b);
+
+                if ($b !== '') {
+                    $list[] = '- ' . $b;
+                }
             }
-            if ($list) $bullets = implode("\n", $list);
+
+            if ($list) {
+                $bullets = implode("\n", $list);
+            }
         }
 
         // children headings (H3 sugeridos)
@@ -1025,7 +1047,6 @@ class AlphaSuite_Prompts
 
         $cta_pages_str = empty($cta_pages) ? 'nenhuma' : implode(', ', $cta_pages);
 
-        error_log("lag. " . $locale);
         $prompt = ""
             . "Você é um gerador de Web Stories a partir de conteúdo.\n"
             . "Todo o conteúdo deve ser gerado em: {$locale} (pode traduzir incluse a KW), é uma informação muito importante, tudo precisa estar no idioma {$locale}, independente do texto base.\n"
@@ -2869,7 +2890,14 @@ class AlphaSuite_Prompts
             . "- NÃO inclua barras \\ (exceto nos \\n), pipes | ou ponto-e-vírgula ; como separadores.\n"
             . "- Não adicione explicações.\n\n"
             . "Exemplo válido:\n"
-            . "{\"content\":\"keyword 1\\nkeyword 2\\nkeyword 3\"}";
+            . "Responda SOMENTE em JSON válido no formato: "
+            . "{\n"
+            . " \"content\": [\n"
+            . " \"item 1\",\n"
+            . " \"item 2\",\n"
+            . " \"item 3\"\n"
+            . "]\n"
+            . "}";
 
 
 

@@ -1,7 +1,5 @@
 <?php
 
-use Soap\Url;
-
 if (!defined('ABSPATH')) exit;
 
 class AlphaSuite_RESTRSS
@@ -118,16 +116,18 @@ class AlphaSuite_RESTRSS
         $old_runtime = [];
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $tab_id = intval($tab_id);
+
         $old = $wpdb->get_results(
             $wpdb->prepare(
                 "
-        SELECT g.id, r.interval_hours, r.next_run
-        FROM {$wpdb->prefix}pga_generators g
-        LEFT JOIN {$wpdb->prefix}pga_generator_runtime r
-            ON r.generator_id = g.id
-        WHERE g.tab_id = %s
-        ORDER BY g.id ASC
-        ",
+                SELECT g.id, r.interval_hours, r.next_run
+                FROM {$wpdb->prefix}pga_generators g
+                LEFT JOIN {$wpdb->prefix}pga_generator_runtime r
+                    ON r.generator_id = g.id
+                WHERE g.tab_id = %d
+                ORDER BY g.id ASC
+                ",
                 $tab_id
             )
         );
@@ -222,6 +222,27 @@ class AlphaSuite_RESTRSS
         }
 
         return ['success' => true];
+    }
+
+    private static function resolve_google_redirect($link)
+    {
+        if (strpos($link, 'google.com/url?') === false) {
+            return $link;
+        }
+
+        $parts = parse_url($link);
+
+        if (empty($parts['query'])) {
+            return $link;
+        }
+
+        parse_str($parts['query'], $query);
+
+        if (!empty($query['url'])) {
+            return esc_url_raw($query['url']);
+        }
+
+        return $link;
     }
 
     public static function rest_extract_image(WP_REST_Request $request)
@@ -362,8 +383,6 @@ class AlphaSuite_RESTRSS
             update_post_meta($postId, '_pga_image_alt', $image_alt);
 
             return $attachmentId;
-        } else {
-            AlphaSuite_FailJob::fail_job($postId, $respSlug);
         }
 
         return false;
@@ -414,10 +433,10 @@ class AlphaSuite_RESTRSS
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | 2️⃣ Cria post base
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | 2️⃣ Cria post base
+        |--------------------------------------------------------------------------
+        */
 
         $postId = wp_insert_post([
             'post_title'  => "GERANDO " . $title,
@@ -430,10 +449,10 @@ class AlphaSuite_RESTRSS
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | 3️⃣ Salva dados RSS
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | 3️⃣ Salva dados RSS
+        |--------------------------------------------------------------------------
+        */
 
         update_post_meta($postId, '_pga_news_hash', $hash);
 
@@ -468,16 +487,20 @@ class AlphaSuite_RESTRSS
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | 4️⃣ Tenta extrair conteúdo (OPCIONAL)
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | 4️⃣ Tenta extrair conteúdo (OPCIONAL)
+        |--------------------------------------------------------------------------
+        */
 
         $hasSourceContent = false;
 
         if (!empty($link)) {
 
             $data = self::extract_article_data($link);
+
+            if (is_wp_error($data)) {
+                return new WP_Error('pga_invalid_content', 'O site não permite copia.');
+            }
 
             if (!empty($data['content'])) {
                 update_post_meta($postId, '_pga_source_content', $data['content']);
@@ -489,10 +512,10 @@ class AlphaSuite_RESTRSS
         update_post_meta($postId, '_pga_has_source_content', $hasSourceContent);
 
         /*
-    |--------------------------------------------------------------------------
-    | 5️⃣ Retorno
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | 5️⃣ Retorno
+        |--------------------------------------------------------------------------
+        */
 
         return [
             'duplicate' => false,
@@ -546,11 +569,17 @@ class AlphaSuite_RESTRSS
         }
 
         $code = wp_remote_retrieve_response_code($response);
+
+        if ($code === 403) {
+            return new WP_Error('domain_forbidden', 'Domain blocked (403)');
+        }
+
         if ($code !== 200) {
             return false;
         }
 
         $html = wp_remote_retrieve_body($response);
+
         if (!$html || strlen($html) < 500) {
             return false;
         }
@@ -560,7 +589,6 @@ class AlphaSuite_RESTRSS
         $html = preg_replace('#<style(.*?)</style>#is', '', $html);
 
         $title = '';
-        $description = '';
         $content = '';
 
         /*
@@ -574,76 +602,93 @@ class AlphaSuite_RESTRSS
 
         /*
     |--------------------------------------------------------------------------
-    | 2️⃣ OG DESCRIPTION
+    | 2️⃣ Extrai conteúdo do <article> ou <main>
     |--------------------------------------------------------------------------
     */
-        if (preg_match('/<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)/i', $html, $m)) {
-            $description = trim($m[1]);
+
+        libxml_use_internal_errors(true);
+
+        if (!$html) {
+            return new WP_Error('pga_invalid_content', 'O site não permite copia.');
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | 3️⃣ JSON-LD Article
-    |--------------------------------------------------------------------------
-    */
-        if (preg_match('/<script type=["\']application\/ld\+json["\']>(.*?)<\/script>/is', $html, $m)) {
-            $json = json_decode($m[1], true);
-            if (is_array($json)) {
-                if (!empty($json['articleBody'])) {
-                    $content = trim($json['articleBody']);
-                }
-                if (!$title && !empty($json['headline'])) {
-                    $title = trim($json['headline']);
-                }
-                if (!$description && !empty($json['description'])) {
-                    $description = trim($json['description']);
-                }
+        $dom = new DOMDocument();
+        $dom->loadHTML($html);
+
+        $xpath = new DOMXPath($dom);
+
+        // Tenta primeiro <article>
+        $nodes = $xpath->query('//article//p');
+
+        if ($nodes->length === 0) {
+            // Fallback para <main>
+            $nodes = $xpath->query('//main//p');
+        }
+
+        $paragraphs = [];
+
+        foreach ($nodes as $node) {
+
+            $text = trim($node->textContent);
+            $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+
+            if (mb_strlen($text) > 80) {
+                $paragraphs[] = $text;
             }
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | 4️⃣ Fallback: primeiros parágrafos
-    |--------------------------------------------------------------------------
-    */
-        if (!$content) {
-            preg_match_all('/<p[^>]*>(.*?)<\/p>/is', $html, $matches);
-
-            if (!empty($matches[1])) {
-                $paragraphs = array_slice($matches[1], 0, 5);
-                $clean = [];
-
-                foreach ($paragraphs as $p) {
-                    $p = wp_strip_all_tags($p);
-                    $p = html_entity_decode($p, ENT_QUOTES, 'UTF-8');
-                    $p = trim($p);
-
-                    if (strlen($p) > 50) {
-                        $clean[] = $p;
-                    }
-                }
-
-                $content = implode("\n\n", $clean);
-            }
-        }
-
-        if (!$content && !$description) {
+        if (empty($paragraphs)) {
             return false;
         }
 
         /*
     |--------------------------------------------------------------------------
-    | 5️⃣ Limita tamanho (importante!)
+    | 3️⃣ Limite proporcional se passar de 2000 caracteres
     |--------------------------------------------------------------------------
     */
 
-        $content = mb_substr($content, 0, 2000);
-        $description = mb_substr($description, 0, 500);
+        $maxChars = 2000;
+
+        $totalChars = 0;
+
+        foreach ($paragraphs as $p) {
+            $totalChars += mb_strlen($p);
+        }
+
+        // Se estiver dentro do limite, mantém tudo
+        if ($totalChars <= $maxChars) {
+            $finalParagraphs = $paragraphs;
+        } else {
+
+            $ratio = $maxChars / $totalChars;
+            $finalParagraphs = [];
+
+            foreach ($paragraphs as $p) {
+
+                $newLength = floor(mb_strlen($p) * $ratio);
+
+                if ($newLength < 30) {
+                    continue;
+                }
+
+                $cut = mb_substr($p, 0, $newLength);
+
+                $finalParagraphs[] = $cut;
+            }
+        }
+
+        // Reconstrói com HTML estruturado
+        $wrapped = [];
+
+        foreach ($finalParagraphs as $p) {
+            $wrapped[] = '<p>' . esc_html($p) . '</p>';
+        }
+
+        $content = implode("\n", $wrapped);
 
         return [
-            'title'       => $title,
-            'description' => $description,
-            'content'     => $content,
+            'title'   => $title,
+            'content' => $content,
         ];
     }
 
@@ -682,7 +727,6 @@ class AlphaSuite_RESTRSS
 
         if (is_wp_error($respSlug)) {
             return AlphaSuite_FailJob::fail_job($postId, $respSlug);
-            return $respSlug;
         }
 
         $slugTxt = '';
@@ -878,7 +922,6 @@ class AlphaSuite_RESTRSS
 
         if (is_wp_error($respMeta)) {
             return AlphaSuite_FailJob::fail_job($postId, $respMeta);
-            return $respMeta;
         }
 
         $meta_desc = '';
@@ -996,13 +1039,12 @@ class AlphaSuite_RESTRSS
             $sourceContent
         );
 
-        $outline = AlphaSuite_AI::outline($prompt, [
+        $outline = AlphaSuite_AI::complete($prompt, [], [
             'use_search' => true
         ]);
 
         if (is_wp_error($outline)) {
             return AlphaSuite_FailJob::fail_job($postId, $outline);
-            return $outline;
         }
 
         $sections = self::normalize_outline($outline);
@@ -1313,7 +1355,6 @@ class AlphaSuite_RESTRSS
 
         if (is_wp_error($resp)) {
             return AlphaSuite_FailJob::fail_job($postId, $resp);
-            return $resp;
         }
 
         $content_html = trim((string)($resp ?? ''));
@@ -1470,54 +1511,12 @@ class AlphaSuite_RESTRSS
     public static function get_rss(WP_REST_Request $req)
     {
         $params = $req->get_json_params();
-        $url    = trim($params['url'] ?? '');
+        $rssUrl = trim($params['feedUrl'] ?? '');
         $limit  = min(20, intval($params['limit'] ?? 10));
 
-        if (!$url) {
+        if (!$rssUrl) {
             return new WP_Error('no_url', 'URL is required', ['status' => 400]);
         }
-
-        /*
-    |--------------------------------------------------------------------------
-    | 1️⃣ Detecta tipo de URL
-    |--------------------------------------------------------------------------
-    */
-
-        // Google News → converte para RSS search
-        if (str_contains($url, 'news.google.com')) {
-
-            $parsed = wp_parse_url($url);
-
-            if (empty($parsed['query'])) {
-                return new WP_Error('invalid_url', 'Invalid Google News URL', ['status' => 400]);
-            }
-
-            $rssUrl = 'https://news.google.com/rss/search?' . $parsed['query'];
-        } else {
-
-            // Se já for RSS
-            if (preg_match('#(rss|feed|\.xml)$#i', $url)) {
-                $rssUrl = $url;
-            } else {
-
-                // Tenta descobrir feed automaticamente
-                $rssUrl = self::discover_feed($url);
-
-                if (!$rssUrl) {
-                    return new WP_Error(
-                        'no_feed_found',
-                        'Nenhum RSS/XML encontrado para este domínio.',
-                        ['status' => 404]
-                    );
-                }
-            }
-        }
-
-        /*
-    |--------------------------------------------------------------------------
-    | 2️⃣ Fetch RSS
-    |--------------------------------------------------------------------------
-    */
 
         $response = wp_remote_get($rssUrl, [
             'timeout' => 15,
@@ -1535,41 +1534,57 @@ class AlphaSuite_RESTRSS
             return new WP_Error('empty_body', 'Empty RSS body', ['status' => 500]);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | 3️⃣ Parse XML
-    |--------------------------------------------------------------------------
-    */
-
         libxml_use_internal_errors(true);
-        $rss = simplexml_load_string($body, 'SimpleXMLElement', LIBXML_NOCDATA);
+        $xml = simplexml_load_string($body, 'SimpleXMLElement', LIBXML_NOCDATA);
 
-        if ($rss === false || empty($rss->channel->item)) {
-            return new WP_Error('invalid_rss', 'Invalid RSS feed', ['status' => 500]);
+        if (!$xml) {
+            return new WP_Error('invalid_rss', 'Invalid RSS/Atom feed', ['status' => 500]);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | 4️⃣ Extrai e normaliza itens
-    |--------------------------------------------------------------------------
-    */
+        // 🔥 Detecta formato
+        if (!empty($xml->channel->item)) {
+            $entries = $xml->channel->item; // RSS
+        } elseif (!empty($xml->entry)) {
+            $entries = $xml->entry; // Atom (Google Alerts)
+        } else {
+            return new WP_Error('invalid_rss', 'Feed sem itens válidos', ['status' => 500]);
+        }
 
         $items = [];
 
-        foreach ($rss->channel->item as $item) {
+        foreach ($entries as $item) {
 
+            // 🔹 Título
             $title = trim((string) $item->title);
-
-            // remove " - Fonte"
+            $title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
+            $title = strip_tags($title);
             $title = preg_replace('/\s+-\s+.+$/', '', $title);
 
-            $link = trim((string) $item->link);
+            // 🔹 Link
+            $link = '';
 
-            // ignora redirect do Google
-            if (str_contains($link, 'news.google.com')) {
-                $link = '';
+            if (isset($item->link)) {
+
+                if (is_string((string)$item->link)) {
+                    $link = trim((string) $item->link);
+                }
+
+                if (empty($link) && isset($item->link['href'])) {
+                    $link = trim((string) $item->link['href']);
+                }
             }
 
+            if (empty($link)) {
+                continue;
+            }
+
+            $link = self::resolve_google_redirect($link);
+
+            if (empty($link)) {
+                continue;
+            }
+
+            // 🔹 Source
             $source = '';
             if (!empty($item->source)) {
                 $source = trim((string) $item->source);
@@ -1578,19 +1593,17 @@ class AlphaSuite_RESTRSS
             $items[] = [
                 'title'   => $title,
                 'link'    => $link,
+                'guid'    => $link,
                 'source'  => $source,
-                'pubDate' => (string) ($item->pubDate ?? ''),
-                'hash'    => md5(strtolower($title . '|' . $source))
+                'author'  => $source,
+                'pubDate' => (string) ($item->pubDate ?? $item->published ?? ''),
+                'hash'    => md5(strtolower($link))
             ];
 
-            if (count($items) >= $limit) break;
+            if (count($items) >= $limit) {
+                break;
+            }
         }
-
-        /*
-    |--------------------------------------------------------------------------
-    | 5️⃣ Retorno final
-    |--------------------------------------------------------------------------
-    */
 
         return rest_ensure_response([
             'rss_url' => $rssUrl,
@@ -1599,70 +1612,105 @@ class AlphaSuite_RESTRSS
         ]);
     }
 
-    private static function discover_feed($url)
-    {
-        $base = rtrim($url, '/');
-
-        $candidates = [
-            $base . '/feed',
-            $base . '/rss',
-            $base . '/rss.xml',
-            $base . '/feed.xml'
-        ];
-
-        foreach ($candidates as $try) {
-            $res = wp_remote_get($try, ['timeout' => 10]);
-            if (!is_wp_error($res)) {
-                $body = wp_remote_retrieve_body($res);
-                if ($body && str_contains($body, '<rss')) {
-                    return $try;
-                }
-            }
-        }
-
-        return false;
-    }
-
     public static function process_feed($rssUrl, $generator_id = 0)
     {
+        global $wpdb;
+
         $items = self::fetch_feed_items($rssUrl, 3);
 
-        if (empty($items)) return;
+        if (empty($items)) {
+            return;
+        }
 
         foreach ($items as $item) {
+            // 🔹 Monta todos textos primeiro
+            $texts = [];
 
-            if (self::already_exists($item['hash'])) {
-                continue;
+            foreach ($items as $item) {
+                $texts[] = trim(
+                    ($item['title'] ?? '') . ' ' .
+                        ($item['description'] ?? '')
+                );
             }
 
+            // 🔹 Gera embeddings em lote
+            $embeddings = AlphaSuite_AI::embeddings($texts);
+
+            if (is_wp_error($embeddings)) {
+                return;
+            }
+
+            // 🔹 Busca embeddings antigos UMA VEZ
+            $recent = self::get_recent_embeddings($generator_id, 30);
+
+            foreach ($recent as $row) {
+
+                if (empty($row->embedding)) {
+                    continue;
+                }
+
+                $oldEmbedding = json_decode($row->embedding, true);
+
+                if (!$oldEmbedding || !is_array($oldEmbedding)) {
+                    continue;
+                }
+
+                $score = self::cosine_similarity($embeddings, $oldEmbedding);
+
+                if ($score > 0.90) {
+                    continue 2; // pula para próximo item
+                }
+            }
+
+            // 🔹 Se passou na verificação → cria post
             $postId = self::create_base_post($item);
+
+            if (!$postId) {
+                continue;
+            }
 
             self::generate_title($postId);
             self::generate_slug($postId);
             self::generate_meta($postId);
-            $outline = self::generate_outline($postId);
+
+            $outline  = self::generate_outline($postId);
             $sections = self::normalize_outline($outline);
 
-            foreach ($sections as $sec) {
-                if (!empty($sec['id'])) {
-                    self::generate_section($postId, (string)$sec['id']);
+            if (!empty($sections)) {
+                foreach ($sections as $sec) {
+                    if (!empty($sec['id'])) {
+                        self::generate_section($postId, (string) $sec['id']);
+                    }
                 }
             }
 
             $result = self::finalize($postId);
 
             if (is_wp_error($result)) {
-                return;
+                wp_delete_post($postId, true);
+                continue;
             }
 
-            // 🔥 Aqui sim marca como done
-            self::mark_as_done($generator_id, $item['hash'], $postId);
+            // 🔹 Salva registro com embedding
+            $wpdb->insert(
+                "{$wpdb->prefix}pga_generator_items",
+                [
+                    'generator_id' => $generator_id,
+                    'status'       => 'done',
+                    'post_id'      => $postId,
+                    'embedding'    => wp_json_encode($embeddings),
+                    'created_at'   => current_time('mysql'),
+                    'generated_at' => current_time('mysql'),
+                ]
+            );
 
+            // 🔹 Extrai imagem se existir link
             if (!empty($item['link'])) {
                 self::extract_image($postId, $item['link']);
             }
 
-            break; // 👈 recomendável: 1 post por cron
+            // 👇 1 post por cron
+            break;
         }
     }
 
@@ -1709,35 +1757,64 @@ class AlphaSuite_RESTRSS
         }
 
         libxml_use_internal_errors(true);
-        $rss = simplexml_load_string($body, 'SimpleXMLElement', LIBXML_NOCDATA);
+        $xml = simplexml_load_string($body, 'SimpleXMLElement', LIBXML_NOCDATA);
 
-        if (!$rss || empty($rss->channel->item)) {
+        if (!$xml) {
+            return [];
+        }
+
+        // 🔥 Detecta formato
+        if (!empty($xml->channel->item)) {
+            $entries = $xml->channel->item; // RSS
+        } elseif (!empty($xml->entry)) {
+            $entries = $xml->entry; // Atom (Google Alerts)
+        } else {
             return [];
         }
 
         $items = [];
 
-        foreach ($rss->channel->item as $item) {
+        foreach ($entries as $item) {
 
+            // 🔹 TÍTULO (remove html e bold do Google Alerts)
             $title = trim((string) $item->title);
+            $title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
+            $title = strip_tags($title);
             $title = preg_replace('/\s+-\s+.+$/', '', $title);
 
-            $link = trim((string) $item->link);
+            // 🔹 LINK
+            $link = '';
 
-            // ignora redirect do Google
+            if (isset($item->link)) {
+
+                // RSS
+                if (is_string((string)$item->link)) {
+                    $link = trim((string) $item->link);
+                }
+
+                // Atom (href attribute)
+                if (empty($link) && isset($item->link['href'])) {
+                    $link = trim((string) $item->link['href']);
+                }
+            }
+
             if (empty($link)) {
                 continue;
             }
 
+            // 🔥 resolve redirect Google
+            $link = self::resolve_google_redirect($link);
 
             if (empty($link)) {
                 continue;
             }
 
-            // 🔥 NORMALIZA LINK (remove parâmetros)
+            // 🔥 normaliza link
             $normalizedLink = preg_replace('/\?.*/', '', strtolower(trim($link)));
 
+            // 🔹 SOURCE
             $source = '';
+
             if (!empty($item->source)) {
                 $source = trim((string) $item->source);
             }
@@ -1746,11 +1823,13 @@ class AlphaSuite_RESTRSS
                 'title'   => $title,
                 'link'    => $link,
                 'source'  => $source,
-                'pubDate' => (string) ($item->pubDate ?? ''),
+                'pubDate' => (string) ($item->pubDate ?? $item->published ?? ''),
                 'hash'    => md5($normalizedLink)
             ];
 
-            if (count($items) >= $limit) break;
+            if (count($items) >= $limit) {
+                break;
+            }
         }
 
         return $items;
@@ -1784,20 +1863,44 @@ class AlphaSuite_RESTRSS
         return $postId;
     }
 
-    private static function already_exists($hash)
+    private static function get_recent_embeddings($generator_id, $limit = 30)
     {
-        // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-        $q = new WP_Query([
-            'post_type'              => 'posts_orion',
-            'meta_key'               => '_pga_news_hash',
-            'meta_value'             => $hash,
-            'fields'                 => 'ids',
-            'no_found_rows'          => true,
-            'update_post_meta_cache' => false,
-            'update_post_term_cache' => false,
-        ]);
-        // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+        global $wpdb;
 
-        return $q->have_posts();
+        return $wpdb->get_results(
+            $wpdb->prepare(
+                "
+            SELECT embedding
+            FROM {$wpdb->prefix}pga_generator_items
+            WHERE generator_id = %d
+            AND embedding IS NOT NULL
+            ORDER BY id DESC
+            LIMIT %d
+            ",
+                $generator_id,
+                $limit
+            )
+        );
+    }
+
+    private static function cosine_similarity(array $a, array $b): float
+    {
+        $dot = 0.0;
+        $normA = 0.0;
+        $normB = 0.0;
+
+        foreach ($a as $i => $val) {
+            if (!isset($b[$i])) continue;
+
+            $dot   += $val * $b[$i];
+            $normA += $val * $val;
+            $normB += $b[$i] * $b[$i];
+        }
+
+        if ($normA == 0 || $normB == 0) {
+            return 0.0;
+        }
+
+        return $dot / (sqrt($normA) * sqrt($normB));
     }
 }
