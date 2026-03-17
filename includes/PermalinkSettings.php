@@ -72,8 +72,5 @@ class AlphaSuite_PermalinkSettings
 
     update_option('pga_story_base', $story, false);
     update_option('pga_posts_base', $posts, false);
-
-    // garante que as novas regras valem imediatamente
-    flush_rewrite_rules(false);
   }
 }

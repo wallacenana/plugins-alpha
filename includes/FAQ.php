@@ -1,10 +1,9 @@
 <?php
-// includes/License.php
 if (!defined('ABSPATH')) exit;
 
 class AlphaSuite_FAQ
 {
-    public static function render_faq_block(array $faq, $content_html): string
+    public static function render_faq_block(array $faq): string
     {
         if (
             ($faq['@type'] ?? '') !== 'FAQPage' ||

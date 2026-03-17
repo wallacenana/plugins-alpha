@@ -99,8 +99,8 @@ class AlphaSuite_CRON
         }
 
         // 🔥 Chama o pipeline único
-        AlphaSuite_RESTRSS::process_feed($feedUrl, $generator_id);
-
+        AlphaSuite_RESTRSS::process_feed($feedUrl, $generator_id, $config);
+        
         // 🔥 Atualiza runtime como executado
         self::update_runtime($row, 'executed');
     }
@@ -124,7 +124,7 @@ class AlphaSuite_CRON
         if (in_array($status, ['feed_empty', 'no_new_items'], true)) {
             $seconds = 10 * MINUTE_IN_SECONDS;
         } else {
-            $seconds = $interval * HOUR_IN_SECONDS;
+            $seconds = $interval * MINUTE_IN_SECONDS;
         }
 
         $next_ts = $base_ts + $seconds;

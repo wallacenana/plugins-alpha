@@ -70,6 +70,7 @@ class AlphaSuite_Prompts
             'title'                => __('Título', 'alpha-suite'),
             'outline'              => __('Esboço', 'alpha-suite'),
             'section'              => __('Seções', 'alpha-suite'),
+            'excerpt'              => __('Subtítulo', 'alpha-suite'),
             'meta_description'     => __('Meta descrição', 'alpha-suite'),
             'keywords'             => __('Gerar keywords', 'alpha-suite'),
             'slug'                 => __('Slug', 'alpha-suite'),
@@ -121,6 +122,14 @@ class AlphaSuite_Prompts
         $template = sanitize_key($template);
         $stage    = sanitize_key($stage);
 
+        if ($template === 'ryan') {
+            if ($stage === 'outline') {
+                return self::default_outline_ryan_prompt();
+            }
+            if ($stage === 'section') {
+                return self::default_section_ryan_prompt();
+            }
+        }
         if ($template === 'modelar_youtube') {
             if ($stage === 'title') {
                 return self::default_title_modelar_youtube_prompt();
@@ -152,11 +161,13 @@ class AlphaSuite_Prompts
             case 'outline':
                 return self::default_outline_prompt();
             case 'section':
-                return self::default_section_base_prompt();
+                return self::default_section_prompt();
             case 'slug':
                 return self::default_slug_prompt();
             case 'image':
                 return self::default_image_prompt();
+            case 'excerpt':
+                return self::default_excerpt_prompt();
             case 'meta_description':
                 return self::default_meta_description_prompt();
             case 'post_thumbnail_regen':
@@ -190,36 +201,36 @@ class AlphaSuite_Prompts
     private static function outline_json_suffix(): string
     {
         return
-            "Você está tendo muitos problemas para gerar um json válido POR FAVOR, PRESTE MUITA ATENÇÃO NA ABERTURA E FECHAMENTO DAS TAGS, ESTOU GASTANDO MUITOS CRÉDITOS NESSE MODELO QUE SÓ ESTÁ RETORNANDO UM JSON VÁLIDO, SE ATENTE EM ENVIAR UM JSON VALIDO, COM NO MÁXIMO 1 CHILDREN\n"
-            . "Responda SOMENTE em JSON UTF-8 válido, sem markdown, não se esqueça de fechar o json, crie um json 100% válido, TENTE NÃO COLOCAR EM ASPAS OS DETALHES IMPORTANTES, POIS ISSO VAI ATRAPALHAR NA CRIAÇÃO DE UM JSON VÁLIDO, FOQUE APENAS NO JSON VÁLIDO\n"
-            . "Formato exato (MÁXIMO DE 20 BULLETS INDEPENDENTE DA OCASIÃO, PROIBIDO GERAR BULLETS DUPLICADOS E INFINITOS):\n"
+            "Responda SOMENTE em JSON UTF-8 válido. Não escreva explicações, não use markdown e não coloque qualquer texto antes ou depois do JSON. Verifique cuidadosamente a abertura e o fechamento de chaves e colchetes para garantir um JSON totalmente válido.\n"
+            . "Estrutura obrigatória:\n"
             . "{"
-            . "\"sections\": [\n"
+            . "\"s\": [\n"
             . "  {\n"
-            . "   \"id\": 1,\n"
-            . "   \"level\": \"h2\",\n"
-            . "   \"paragraph\": \"contexto sobre o tema apresentado\",\n"
-            . "   \"heading\": \"Título H2...\",\n"
-            . "   \"bullets\": [\n"
-            . "     \"...\",\n"
-            . "     \"...\"\n"
-            . "  ],\n"
-            . "  \"children\": [\n (se houver necessidade de h3 na sessão)"
-            . "    {\n"
-            . "      \"id\": 1,\n"
-            . "      \"level\": \"h3\",\n"
-            . "      \"heading\": \"Subtítulo H3...\",\n"
-            . "      \"paragraph\": \"paragrafo sobre o h3...\",\n"
-            . "      \"bullets\": [\n"
-            . "        \"...\",\n"
-            . "        \"...\"\n"
-            . "      ]\n"
-            . "    }\n"
-            . "   ]\n"
+            . "    \"i\": 1,\n"
+            . "    \"l\": \"h2\",\n"
+            . "    \"t\": \"Título\",\n"
+            . "    \"p\": \"\",\n"
+            . "    \"lista\": [\n"
+            . "      \"item x\",\n"
+            . "      \"item x\"\n"
+            . "    ],\n"
+            . "    \"c\": [\n"
+            . "      {\n"
+            . "        \"i\": int,\n"
+            . "        \"l\": \"h3 (quando necessário, mas nunca no primeiro h2)\",\n"
+            . "        \"t\": \"Subtítulo relacionado ao H2\",\n"
+            . "        \"p\": \"\",\n"
+            . "        \"lista\": [\n"
+            . "          \"item x\",\n"
+            . "          \"item x\"\n"
+            . "        ]\n"
+            . "      }\n"
+            . "    ]\n"
             . "  }\n"
-            . " ]\n"
-            . "}"
-            . "Responda SOMENTE em JSON UTF-8 válido no formato {\"sections\":[...]} sem qualquer texto antes ou depois. FORMATO VALIDO JSON COM NO MÁXIMO 20 BULLETS, MÁXIMO.\n\n";
+            . "]\n"
+            . "}\n"
+
+            . "Responda SOMENTE com o JSON válido no formato {\"s\":[...]}.\n\n";
     }
 
     private static function meta_description_json_suffix(): string
@@ -252,11 +263,11 @@ class AlphaSuite_Prompts
         array  $video,
         string $articleTitle,
         string $length,
-        string $locale
+        string $lang
     ): string {
 
         $tpl    = self::get_prompt_for('modelar_youtube', 'outline');
-        $locale = $locale ?: 'pt_BR';
+        $lang = $lang ?: 'pt_BR';
 
         [$minWords, $maxWords] = self::length_to_range($length);
         $cfg = self::outline_config($length);
@@ -288,7 +299,7 @@ class AlphaSuite_Prompts
 
         // prompt base editável
         $base = self::replace_vars($tpl, [
-            'locale'       => $locale,
+            'lang'       => $lang,
             'articleTitle' => $articleTitle,
             'url'          => trim((string)$url),
             'videoTitle'   => $videoTitle,
@@ -304,7 +315,7 @@ class AlphaSuite_Prompts
         }
         $ctx .= "- Título do artigo: {$articleTitle}\n";
         $ctx .= "- Hoje é: " . SELF::date();
-        $ctx .= "O esboço deve ser gerada no idioma, pode traduzir incluse a KW: {$locale}\n\n";
+        $ctx .= "O esboço deve ser gerada no idioma, pode traduzir incluse a KW: {$lang}\n\n";
 
         if (!empty($chapters)) {
             $ctx .= "- Capítulos (use como esqueleto principal do outline):\n";
@@ -342,21 +353,20 @@ class AlphaSuite_Prompts
         string $keyword,
         int $min = 3,
         int $max = 5,
-        string $locale = 'pt_BR'
+        string $lang = 'pt_BR'
     ): string {
         $tpl = self::get_prompt_for($template, 'title');
 
         $base = self::replace_vars($tpl, [
             'keyword' => $keyword,
-            'locale'  => $locale,
+            'lang'  => $lang,
             'template' => $template,
         ]);
 
         return
             "CONTEXTO DO TEMA:\n"
             . "Assunto principal: \"{$keyword}\"\n"
-            . "Quantidade de títulos a gerar: entre {$min} e {$max}\n"
-            . "O titulo deve ser gerado em, pode traduzir incluse a KW: {$locale}\n"
+            . "O titulo deve ser gerado em {$lang} e pode traduzir a Keyword também de maneira fluida \n"
             . "Data atual: " . SELF::date() . " (use o ano quando relevante)\n\n"
             . $base
             . "\n\n"
@@ -368,15 +378,16 @@ class AlphaSuite_Prompts
 
     public static function build_title_rss_prompt(
         string $seed_title,
-        string $locale = 'pt_BR',
-        string $url = ''
+        string $lang = 'pt_BR',
+        string $url = '',
+        string $template = 'rss'
     ): string {
 
-        $tpl = self::get_prompt_for('rss', 'title');
+        $tpl = self::get_prompt_for($template, 'title');
 
         $base = self::replace_vars($tpl, [
             'tituloRef'  => $seed_title,
-            'locale'     => $locale,
+            'lang'     => $lang,
             'url'        => $url,
         ]);
 
@@ -388,7 +399,7 @@ class AlphaSuite_Prompts
             "CONTEXTO DA NOTÍCIA:\n"
             . "Título base: \"{$seed_title}\"\n"
             . $sourceContext
-            . "O titulo deve ser gerado em, pode traduzir incluse a KW: {$locale}\n"
+            . "O titulo deve ser gerado em, pode traduzir incluse a KW: {$lang}\n"
             . "Data atual: " . self::date() . "\n\n"
             . "INSTRUÇÕES:\n"
             . "- Reescreva o título\n"
@@ -400,322 +411,51 @@ class AlphaSuite_Prompts
             . "{ \"title\": \"Título final aqui\" }\n";
     }
 
-    public static function build_outline_rss_prompt(
-        string $chosenTitle,
-        string $seedTitle,
-        string $length,
-        string $locale,
-        string $url = '',
-        string $font = '',
-        string $sourceContent = '',
-    ): string {
-
-        $tpl = self::get_prompt_for('rss', 'outline');
-
-        $base = self::replace_vars($tpl, [
-            'tituloRef'  => $seedTitle,
-            'locale'     => $locale,
-            'url'        => $url,
-        ]);
-
-        [$minWords, $maxWords] = self::length_to_range($length);
-        $cfg = self::outline_config($length);
-
-        return
-            "Você é um jornalista espealista criar esboço com base em uma noticia.\n"
-            . "Crie apenas o esboço e passe as infomações conforme listado abaixo.\n\n"
-
-            . "É PROIBIDO GERAR ALGO SEM TER INFORMAÇÕES PEDIDAS ABAIXO.\n\n"
-            . "Responda SOMENTE em JSON UTF-8 válido no formato {\"sections\":[...]} sem qualquer texto antes ou depois. FORMATO VALIDO JSON COM NO MÁXIMO 20 BULLETS, MÁXIMO.\n\n"
-
-            . "CONTEXTO DA NOTÍCIA:\n"
-            . "Título original: {$seedTitle}\n"
-            . "Título reescrito: {$chosenTitle}\n"
-            . "Url do artigo RSS Fonte original (se houver): \"{$url}\"\n"
-            . "O esboço deve ser gerado em, pode traduzir incluse a KW: {$locale}\n\n"
-
-            . "Se a URL não puder ser acessada e estiver vazia, pesquise pelo título \"{$seedTitle}\" no site \"{$font}\".\n"
-            . "Se não encontrar conteúdo confiável na fonte indicada, retorne:\n"
-            . "Não crie mais niveis, o máximo que deve ser criado é o h3, mas isso se for pedido mais abaixo pelo usuário:\n"
-            . "{\"sections\":[]}\n\n"
-
-            . "ESTRUTURA:\n"
-            . "- Gere entre {$cfg['min_sections']} e {$cfg['max_sections']} seções H2\n"
-            . "- Conteúdo estimado entre {$minWords} e {$maxWords} palavras\n"
-            . "- Cada seção deve conter no máximo 20 bullets (vinte, VINTEEEEE, MÁXIMO 20, MÁXIMO DE 20 BULLETS, MAXIMO, MAXIMO MAXIMOOOOOOO, NUNCA GERAR MAIS DO QUE ISSOOOOO)\n"
-            . "- Se não houver fatos suficientes, gere apenas os existentes\n"
-            . "- Cada bullet deve ter no máximo 100 caracteres e não ter caracteres especiais, aspas ou formatação de texto, apenas texto corrido.\n"
-            . "- Cada paragraph deve ter no máximo 100 caracteres e não ter caracteres especiais, aspas ou formatação de texto, apenas texto corrido.\n"
-            . "CORRETO:\n"
-            . "- \"No dia [x] de [mês x] de [ano x] (se for o caso), [Pessoa 1] acusou [pessoa 2]\"\n"
-            . "- \"[pessoa 1] se reuniu com [pessoa 2] em [quando e onde]\"\n"
-            . "- \"[empresa x] propõe janela de [x] dias para exibição teatral\"\n"
-            . "- \"[empresa x] deu previsão para o [semestre x] de 2026\"\n\n"
-
-            . "ERRADO:\n"
-            . "- \"A situação atual levanta questões sobre ética\"\n"
-            . "- \"A forma como as empresas gerenciam isso pode afetar...\"\n"
-            . "- \"A resolução terá implicações para...\"\n"
-            . "- \"[empresa x] divulgou [o que] de [obra]... (se não tiver o [onde], não serve, precisa complementar com o onde, o dado tem que ser verificavel)\"\n"
-            . "- \"[empresa x] deu previsão para 2026, sem data definida\"\n\n"
-
-
-            . $base . "\n\n"
-
-            . "CONTEÚDO BASE DA NOTÍCIA:\n"
-            . "-----inicio----\n"
-            . $sourceContent . "\n"
-            . "-----fim----\n\n"
-
-            . self::outline_json_suffix();
-    }
-
-    public static function build_section_rss_prompt(
-        string $articleTitle,
-        array  $section,
-        string $length,
-        string $locale,
-        int    $sectionsCount,
-        string $section_number,
-        string $url = '',
-        string $font = '',
-    ): string {
-        $tpl    = self::get_prompt_for('rss', 'section');
-
-        $heading = trim((string)($section['heading'] ?? ''));
-        $level   = strtolower(trim((string)($section['level'] ?? 'h2')));
-        if ($level !== 'h2' && $level !== 'h3') $level = 'h2';
-
-        $sectionParagraph = trim((string)($section['paragraph'] ?? ''));
-
-        // children detalhado (H3 sugeridos com paragraph)
-        $childrenDetailed = '';
-        if (!empty($section['children']) && is_array($section['children'])) {
-            $list = [];
-            $n = 1;
-            foreach ($section['children'] as $c) {
-                $h = trim((string)($c['heading'] ?? ''));
-                $p = trim((string)($c['paragraph'] ?? ''));
-                if ($h === '') continue;
-
-                $line = "H3 {$n}: {$h}";
-                if ($p !== '') $line .= " — Brief: {$p}";
-                $list[] = $line;
-                $n++;
-            }
-            if ($list) $childrenDetailed = implode("\n", $list);
-        }
-
-        $bullets = '';
-        if (!empty($section['bullets']) && is_array($section['bullets'])) {
-            $list = [];
-
-            foreach ($section['bullets'] as $b) {
-
-                if (is_array($b)) {
-                    // tenta pegar campo comum
-                    $b = $b['text'] ?? reset($b);
-                }
-
-                if (!is_string($b)) {
-                    continue;
-                }
-
-                $b = trim($b);
-
-                if ($b !== '') {
-                    $list[] = '- ' . $b;
-                }
-            }
-
-            if ($list) {
-                $bullets = implode("\n", $list);
-            }
-        }
-
-        // children headings (H3 sugeridos)
-        $children = '';
-        if (!empty($section['children']) && is_array($section['children'])) {
-            $list = [];
-            foreach ($section['children'] as $c) {
-                $h = trim((string)($c['heading'] ?? ''));
-                if ($h !== '') $list[] = '- ' . $h;
-            }
-            if ($list) $children = implode("\n", $list);
-        }
-
-        // word goal
-        $goalMin = 0;
-        $goalMax = 0;
-        if (!empty($section['word_goal']) && is_array($section['word_goal'])) {
-            $goalMin = (int)($section['word_goal']['min'] ?? 0);
-            $goalMax = (int)($section['word_goal']['max'] ?? 0);
-        }
-
-        [$minWords, $maxWords] = self::length_to_range($length);
-
-        $sectionsCount = max(1, (int)$sectionsCount);
-
-        // Se só existe 1 seção → usa o range inteiro
-        if ($sectionsCount === 1) {
-            $goalMin = $minWords;
-            $goalMax = $maxWords;
-        } else {
-
-            // Distribuição proporcional simples
-            $goalMin = (int) floor($minWords / $sectionsCount);
-            $goalMax = (int) floor($maxWords / $sectionsCount);
-
-            // Ajuste leve para dar margem editorial
-            $goalMax = (int) floor($goalMax * 1.10); // +10% de flexibilidade
-        }
-
-        // Garantia mínima apenas para evitar micro seção
-        $goalMin = max(40, $goalMin);
-        $goalMax = max($goalMin + 30, $goalMax);
-
-        $idx = max(1, (int)$section_number);
-        $total = max(1, (int)$sectionsCount);
-        $remaining = max(0, $total - $idx);
-
-        $base = self::replace_vars($tpl, [
-            'articleTitle'              => $articleTitle,
-            'locale'                    => $locale,
-            'section_heading'           => $heading,
-            'section_level'             => $level,
-            'section_paragraph'         => $sectionParagraph,
-            'section_children'          => $children,
-            'section_children_detailed' => $childrenDetailed,
-            'section_bullets'           => $bullets,
-            'sections_count'            => (string)$sectionsCount,
-            'section_number'            => (string)$section_number,
-            'url'                       => $url,
-            'font'                      => $font,
-        ]);
-
-        $state = "CONTEXTO DA SEÇÃO:\n"
-            . "Título do artigo: \"{$articleTitle}\"\n"
-            . "Título da seção: \"{$heading}\"\n"
-            . "Fonte original: {$url} ou {$font}\n"
-            . "Idioma final para escrever, pode traduzir incluse a KW: {$locale}\n"
-            . "Você está gerando APENAS a seção {$idx} de {$total} (restam {$remaining}) (Cada seção é gerada ISOLADAMENTE - você NÃO tem acesso ao conteúdo das outras seções)\n\n"
-
-            . "REGRAS CRITICAS OBRIGATÓRIAS:\n"
-            . "Cada sessão deve ser de h2 até h2, ou seja, quando tiver h3, ele também deve ter no máximo {$goalMax} palavras, ou seja, h2+h3+[quantos outros h3 tiverem] a soma máxima tem qser de {$goalMax} palavras\n"
-
-            . "Tente acessar a URL para extrair informações, mas se não conseguir, use o conteúdo do site \"{$font}\" para se informar sobre a notícia. Não invente informações que não estejam presentes na URL ou no site de referência.\n\n";
-
-        $brief = "BRIEF DA SEÇÃO (siga fielmente):\n"
-            . "Heading ({$level}): {$heading}\n";
-
-        if ($sectionParagraph !== '') {
-            $brief .= "Parágrafo-guia: {$sectionParagraph}\n"
-                . "REGRA: EXPANDA com profundidade, contexto e exemplos. Não apenas reescreva, mas acima de tudo, modele com base no conteúdo existente na noticia real.\n\n";
-        }
-
-        if ($childrenDetailed !== '') {
-            $brief .= "Subtítulos H3 com briefs:\n{$childrenDetailed}\n"
-                . "REGRA: Crie cada H3 e desenvolva seguindo o brief.\n\n";
-        } else if ($children !== '') {
-            $brief .= "Subtítulos H3 sugeridos:\n{$children}\n\n";
-        }
-
-        if ($bullets !== '') {
-            $brief .= "Os bullets são guias para o conteúdo, sao dados importantes extraidos para ajudar a cada sessão, isso não quer dizer que tenha que colocar bullets no conteúdo, você receberá mais abaixo informações sobre isso:\n{$bullets}\n\n";
-        }
-
-        $tech = "REGRAS TÉCNICAS (obrigatório):\n"
-            . "- Comece EXATAMENTE com: <{$level}>{$heading}</{$level}>\n"
-            . "- NÃO escreva outros H2\n"
-            . "- Esta seção inteira deve ter entre {$goalMin} e {$goalMax} palavras\n\n";
-
-        return $state . $brief . $tech . $base . "Não use markdown";
-    }
-
     public static function build_outline_prompt(
         string $template,
         string $keyword,
         string $articleTitle,
         string $length,
-        string $locale,
-        string $url = ''
+        string $lang,
+        string $url = '',
+        string $content = '',
+
     ): string {
         $tpl = self::get_prompt_for($template, 'outline');
 
         [$minWords, $maxWords] = self::length_to_range($length);
         $cfg = self::outline_config($length);
 
-        $url = trim((string)$url);
+        $minSections = $cfg['min_sections'];
+        $maxSections = $cfg['max_sections'];
 
         $base = self::replace_vars($tpl, [
             'keyword'      => $keyword,
             'articleTitle' => $articleTitle,
-            'url'          => $url,
-            'locale'       => $locale,
+            'lang'         => $lang,
             'template'     => $template,
+            'content'      => $content,
+            'min_sections' => $minSections,
+            'max_sections' => $maxSections,
+            'max_words'    => $maxWords,
+            'min_words'    => $minWords,
+            'date'         => SELF::date()
         ]);
 
         $suffix = self::outline_json_suffix();
 
-        // CONTEXTO INTERNO
-        $ctx  = "\n\nCONTEXTO INTERNO:\n";
-        $ctx .= "Título do artigo: {$articleTitle}\n";
-        $ctx .= "Palavra-chave de foco (GEO): {$keyword}\n";
-        $ctx .= "Data atual: " . SELF::date() . "\n";
-        $ctx .= "Idioma de saída (idioma que deve ser), pode traduzir incluse a KW: {$locale}\n\n";
+        $ctt = '';
+        if ($content)
+            $ctt = "O conteúdo a ser modelado é com base nesse:\n"
+                . "----- INICIO ------\n"
+                . $content . "\n"
+                . "------ FIM -------\n\n";
 
-        $ctx .= "ESTRUTURA E TAMANHO:\n";
-        $ctx .= "- Esboço deve ter entre {$cfg['min_sections']} e {$cfg['max_sections']} seções H2\n";
-        $ctx .= "- Conteúdo final terá entre {$minWords} e {$maxWords} palavras\n";
 
-        $ctx .= "ANÁLISE DO TÍTULO:\n";
-        $ctx .= "- Se o título promete QUANTIDADE ESPECÍFICA (ex: '5 motivos', '7 dicas', '3 erros'), você DEVE criar EXATAMENTE esse número de H2s\n";
-        $ctx .= "- Exemplos de estrutura:\n";
-        $ctx .= "  • Título: '5 motivos para usar WordPress' → H2s: 'Motivo 1: Flexibilidade total', 'Motivo 2: Comunidade ativa', etc.\n";
-        $ctx .= "  • Título: '7 erros comuns em SEO' → H2s: 'Erro 1: Ignorar pesquisa de palavras-chave', 'Erro 2: Conteúdo duplicado', etc.\n";
-        $ctx .= "  • Título: '3 passos para criar um blog' → H2s: 'Passo 1: Escolher plataforma', 'Passo 2: Configurar hospedagem', etc.\n";
-        $ctx .= "- Se o título NÃO especifica quantidade, NÃO numere os H2s\n";
-        $ctx .= "- NUNCA mude o foco ou contradiga o que o título promete\n\n";
-
-        $ctx .= "CONTEXTUALIZAÇÃO PARA SEÇÕES FUTURAS:\n";
-        $ctx .= "- CRÍTICO: Cada seção será escrita ISOLADAMENTE por outro chat sem contexto das outras seções\n";
-        $ctx .= "- Você DEVE ser ESPECÍFICO e EXPLÍCITO nas instruções de cada seção\n";
-        $ctx .= "- Crie um paragraph para criar um breve contexto sobre o assunto da seção\n";
-        $ctx .= "- NUNCA use referências vagas como:\n";
-        $ctx .= "  ❌ 'use os critérios dos itens selecionados'\n";
-        $ctx .= "  ❌ 'conforme mencionado anteriormente'\n";
-        $ctx .= "  ❌ 'baseado na lista acima'\n";
-        $ctx .= "- SEMPRE especifique COMPLETAMENTE o que deve ser feito:\n";
-        $ctx .= "  ✅ 'crie tabela comparando: preço, facilidade de uso, recursos, suporte. Os itens serão: xx, xxx, xxx'\n";
-        $ctx .= "  ✅ 'explique os 3 tipos: WordPress.com, WordPress.org, Managed WordPress'\n";
-        $ctx .= "  ✅ 'detalhe cada passo: 1) escolher domínio, 2) contratar hospedagem, 3) instalar WordPress'\n";
-        $ctx .= "- Se pedir tabela, especifique TODOS os itens/colunas/critérios que devem estar nela\n";
-        $ctx .= "- Se pedir lista, especifique TODOS os elementos que devem compor a lista\n\n";
-
-        $ctx .= "CAPITALIZAÇÃO (OBRIGATÓRIO):\n";
-        $ctx .= "- Use APENAS primeira palavra maiúscula + nomes próprios nos H2 e H3\n";
-        $ctx .= "- ❌ ERRADO: 'Como Instalar WordPress No Seu Servidor'\n";
-        $ctx .= "- ❌ ERRADO: 'como instalar wordpress no seu servidor'\n";
-        $ctx .= "- ✅ CORRETO: 'Como instalar WordPress no seu servidor'\n";
-        $ctx .= "- ✅ CORRETO: 'O que é SEO'\n";
-        $ctx .= "- ✅ CORRETO: 'Quem foi Moana'\n";
-        $ctx .= "- ✅ CORRETO: 'Como usar E-E-A-T'\n\n";
-
-        $ctx .= "FINALIZAÇÃO DO OUTLINE:\n";
-        $ctx .= "- ÚLTIMA seção H2 NUNCA deve ser: 'Conclusão', 'Finalizando', 'Considerações finais', 'Resumo'\n";
-        $ctx .= "- Opções válidas de última seção (escolha uma que faça sentido para o tema):\n";
-        $ctx .= "  ✅ 'O que assistir [tempo baseado no título ('hoje', 'fim de semana')]'\n";
-        $ctx .= "  ✅ 'Próximos passos para [objetivo]'\n";
-        $ctx .= "  ✅ 'Como aplicar [tema] na prática'\n";
-        $ctx .= "  ✅ 'Erros comuns ao [ação] e como evitá-los'\n";
-        $ctx .= "  ✅ 'Recursos e ferramentas recomendadas para [tema]'\n";
-        $ctx .= "  ✅ 'Checklist de implementação de [solução]'\n";
-        $ctx .= "- Objetivo: manter engajamento, não encerrar o clique\n\n";
-
-        return $base . "\n\n" . $ctx . "\n\n" . $suffix;
+        return $base . "\n\n" . $ctt . $suffix;
     }
 
-    public static function build_meta_description_prompt(string $template, string $keyword, string $articleTitle, string $locale = 'pt_BR', string $content = ''): string
+    public static function build_meta_description_prompt(string $template, string $keyword, string $articleTitle, string $lang = 'pt_BR', string $content = ''): string
     {
         $tpl = self::get_prompt_for($template, 'meta_description');
 
@@ -733,33 +473,33 @@ class AlphaSuite_Prompts
         $base = self::replace_vars($tpl, [
             'keyword'      => $keyword,
             'articleTitle' => $articleTitle,
-            'locale'       => $locale,
+            'lang'       => $lang,
             'content'      => $plain,
         ]);
 
-        $default = "Você é um especialista em SEO e Copywriting em {$locale}. Pode traduzir incluse a KW.\n"
+        $default = "Você é um especialista em SEO e Copywriting em {$lang}. Pode traduzir incluse a KW.\n"
             . "- Hoje é: " . SELF::date()
             . "\n Sua tarefa é criar uma meta descrição altamente clicável para o Google.\n"
             . "Título: \"{$articleTitle}\"\n"
             . "Palavra-chave principal: \"{$keyword}\"\n"
-            . "A meta deve ser gerado em, pode traduzir incluse a KW: \"{$locale}\"\n";
+            . "A meta deve ser gerado em, pode traduzir incluse a KW: \"{$lang}\"\n";
 
         return $default . "\n\n" . $base . "\n\n" . self::meta_description_json_suffix();
     }
 
-    public static function build_slug_prompt(string $template, string $keyword, string $articleTitle, string $locale = 'pt_br'): string
+    public static function build_slug_prompt(string $template, string $keyword, string $articleTitle, string $lang = 'pt_br'): string
     {
         $tpl = self::get_prompt_for($template, 'slug');
 
         $base = self::replace_vars($tpl, [
             'keyword'      => $keyword,
             'articleTitle' => $articleTitle,
-            'locale'       => $locale,
+            'lang'       => $lang,
         ]);
 
         $default = "Palavra-chave principal: \"{$keyword}\"\n"
             . "Gere um slug de URL para o título: \"{$articleTitle}\"\n"
-            . "A slug deve ser gerada em: \"{$locale}\"\n"
+            . "A slug deve ser gerada em: \"{$lang}\"\n"
             . "- Hoje é: " . SELF::date() . "\n\n";
 
         return $default . "\n\n" . $base . "\n\n" . self::meta_description_json_suffix();
@@ -842,7 +582,7 @@ class AlphaSuite_Prompts
     public static function build_image_prompt(
         string $keyword,
         string $title,
-        string $locale,
+        string $lang,
         string $imageProvider = ''
     ): string {
         $provider = strtolower(trim((string)$imageProvider));
@@ -851,7 +591,7 @@ class AlphaSuite_Prompts
         // base com vars (serve pros 2 casos)
         $base = self::replace_vars($tpl, [
             'keyword'  => $keyword,
-            'locale'   => "English",
+            'lang'   => "English",
             'title'    => $title,
         ]);
 
@@ -910,7 +650,7 @@ class AlphaSuite_Prompts
     /* =============================
    * PROMPT: regen thumbnail por post
    * ============================= */
-    public static function build_post_thumbnail_regen_prompt(string $title, string $content, string $locale = 'pt_BR', string $imageProvider = ''): string
+    public static function build_post_thumbnail_regen_prompt(string $title, string $content, string $lang = 'pt_BR', string $imageProvider = ''): string
     {
         // esse stage é "core", não depende do template selecionado no gerador
         $tpl = self::get_prompt_for('article', 'post_thumbnail_regen');
@@ -957,7 +697,7 @@ class AlphaSuite_Prompts
         return self::replace_vars($tpl, [
             'title'   => $title,
             'content' => $plain,
-            'locale'  => $locale,
+            'lang'  => $lang,
         ]);
     }
 
@@ -971,7 +711,7 @@ class AlphaSuite_Prompts
         $title   = get_the_title($post);
         $content = wp_strip_all_tags($raw_html);
         $content = html_entity_decode($content, ENT_QUOTES, 'UTF-8');
-        $locale  = $lang;
+        $lang  = $lang;
 
         $provider = strtolower(trim((string)$imageProvider));
 
@@ -1016,7 +756,7 @@ class AlphaSuite_Prompts
         $s .= "- Title: {$title}\n";
         $s .= "- Content: {$content}\n";
         $s .= "- Brief: {$brief}\n";
-        $s .= "- Locale, pode traduzir incluse a KW: {$locale}\n\n";
+        $s .= "- lang, pode traduzir incluse a KW: {$lang}\n\n";
         $s .= "TASK:\n";
         $s .= "Convert the blog post into an engaging Web Story following the rules below.\n\n";
 
@@ -1026,7 +766,7 @@ class AlphaSuite_Prompts
     /**
      * $ctx esperado:
      * - slidesCount (int)
-     * - locale (pt_BR etc)
+     * - lang (pt_BR etc)
      * - title (string)
      * - content (string)  -> enviado por último no prompt
      * - cta_pages (array<int>) -> páginas (1-based) que DEVEM ter CTA
@@ -1036,7 +776,7 @@ class AlphaSuite_Prompts
     public static function build_ws_story_prompt(array $a): string
     {
         $slidesCount = max(1, (int)($a['slidesCount'] ?? 6));
-        $locale      = (string)($a['locale'] ?? 'pt_BR');
+        $lang      = (string)($a['lang'] ?? 'pt_BR');
         $title       = trim((string)($a['title'] ?? ''));
         $content     = trim((string)($a['content'] ?? ''));
         $cta_pages   = is_array($a['cta_pages'] ?? null) ? array_values(array_filter(array_map('absint', $a['cta_pages']))) : [];
@@ -1049,7 +789,7 @@ class AlphaSuite_Prompts
 
         $prompt = ""
             . "Você é um gerador de Web Stories a partir de conteúdo.\n"
-            . "Todo o conteúdo deve ser gerado em: {$locale} (pode traduzir incluse a KW), é uma informação muito importante, tudo precisa estar no idioma {$locale}, independente do texto base.\n"
+            . "Todo o conteúdo deve ser gerado em: {$lang} (pode traduzir incluse a KW), é uma informação muito importante, tudo precisa estar no idioma {$lang}, independente do texto base.\n"
             . "Título base: {$title}\n"
             . "Quantidade de páginas: {$slidesCount}\n"
             . "Páginas com CTA (0-indexado): {$cta_pages_str}\n\n"
@@ -1164,6 +904,7 @@ class AlphaSuite_Prompts
                 'article' => ['label' => 'Artigo (padrão)', 'builtin' => 1, 'enabled' => 1],
                 'modelar_youtube' => ['label' => 'Modelar YouTube', 'builtin' => 1, 'enabled' => 1],
                 'rss' => ['label' => 'Modelar RSS', 'builtin' => 1, 'enabled' => 1],
+                'ryan' => ['label' => 'Ryan Nascimento', 'builtin' => 1, 'enabled' => 1],
             ];
 
         // Garante que os 2 core sempre apareçam
@@ -1176,10 +917,14 @@ class AlphaSuite_Prompts
         if (!isset($tpls['rss'])) {
             $tpls['rss'] = ['label' => 'Modelar RSS', 'builtin' => 1, 'enabled' => 1];
         }
+        if(!isset($tpls['ryan'])){
+            $tpls['ryan'] = ['label' => 'Ryan Nascimento', 'builtin' => 1, 'enabled' => 1];
+        }
+            
 
         // Ordena: core primeiro
         uksort($tpls, function ($a, $b) {
-            $prio = ['article' => 0, 'modelar_youtube' => 2, 'rss' => 1, 'global' => 3];
+            $prio = ['article' => 0, 'modelar_youtube' => 2, 'rss' => 1,'ryan' => 3,'global' => 4];
             $pa = $prio[$a] ?? (!empty($tpls_all[$a]['builtin']) ? 10 : 20);
             $pb = $prio[$b] ?? (!empty($tpls_all[$b]['builtin']) ? 10 : 20);
 
@@ -1211,6 +956,10 @@ class AlphaSuite_Prompts
 
         if (empty($tpls_all['rss'])) {
             $tpls_all['rss'] = ['label' => 'Modelar RSS', 'enabled' => 1, 'builtin' => 1];
+        }
+
+        if (empty($tpls_all['ryan'])) {
+            $tpls_all['ryan'] = ['label' => 'Ryan Nascimento', 'enabled' => 1, 'builtin' => 1];
         }
 
         if (empty($tpls_all['global'])) {
@@ -1573,18 +1322,18 @@ class AlphaSuite_Prompts
                                         <div class="pga-vars-grid">
                                             <h3><?php esc_html_e('Título', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
-                                            <code>{{locale}}</code>
+                                            <code>{{lang}}</code>
                                             <code>{{template}}</code>
 
                                             <h3><?php esc_html_e('Esboço', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
-                                            <code>{{locale}}</code>
+                                            <code>{{lang}}</code>
                                             <code>{{template}}</code>
 
                                             <h3><?php esc_html_e('Esboço', 'alpha-suite'); ?> Youtube</h3>
                                             <code>{{articleTitle}}</code>
-                                            <code>{{locale}}</code>
+                                            <code>{{lang}}</code>
                                             <code>{{url}}</code>
                                             <code>{{videoTitle}}</code>
                                             <code>{{chapters}}</code>
@@ -1594,7 +1343,7 @@ class AlphaSuite_Prompts
                                             <h3><?php esc_html_e('Sessão', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
-                                            <code>{{locale}}</code>
+                                            <code>{{lang}}</code>
                                             <code>{{section_number}}</code>
                                             <code>{{section_heading}}</code>
                                             <code>{{section_level}}</code>
@@ -1605,24 +1354,24 @@ class AlphaSuite_Prompts
                                             <h3><?php esc_html_e('Descrição', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
-                                            <code>{{locale}}</code>
+                                            <code>{{lang}}</code>
                                             <code>{{content}}</code>
 
                                             <h3><?php esc_html_e('Slug', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{articleTitle}}</code>
-                                            <code>{{locale}}</code>
+                                            <code>{{lang}}</code>
 
                                             <h3><?php esc_html_e('Re-geração (image_stock)', 'alpha-suite'); ?></h3>
                                             <code>{{content}}</code>
                                             <code>{{title}}</code>
-                                            <code>{{locale}}</code>
+                                            <code>{{lang}}</code>
 
                                             <h3><?php esc_html_e('Imagem', 'alpha-suite'); ?></h3>
                                             <code>{{keyword}}</code>
                                             <code>{{title}}</code>
                                             <code>{{template}}</code>
-                                            <code>{{locale}}</code>
+                                            <code>{{lang}}</code>
 
                                             <h3><?php esc_html_e('Stories', 'alpha-suite'); ?></h3>
                                             <code>{{title}}</code>
@@ -1631,7 +1380,7 @@ class AlphaSuite_Prompts
                                             <code>{{image_prompt_rule}}</code>
 
                                             <h3><?php esc_html_e('Keywords', 'alpha-suite'); ?></h3>
-                                            <code>{{locale}}</code>
+                                            <code>{{lang}}</code>
                                         </div>
                                     </div>
                                 </div>
@@ -2591,10 +2340,10 @@ class AlphaSuite_Prompts
     {
         $keyword = trim((string)($args['keyword'] ?? ''));
         $qty     = min(5, max(1, (int)($args['qty'] ?? 3)));
-        $locale  = $args['locale'] ?? 'pt_BR';
+        $lang  = $args['lang'] ?? 'pt_BR';
         $context  = $args['context'] ?? '';
 
-        $lang = match ($locale) {
+        $lang = match ($lang) {
             'pt_BR' => 'português do Brasil',
             'en_US' => 'inglês',
             'es_ES' => 'espanhol',
@@ -2633,13 +2382,13 @@ class AlphaSuite_Prompts
         string $articleTitle,
         array  $section,
         string $length,
-        string $locale,
+        string $lang,
         int    $sectionsCount,
         string $section_number,
+        string $content = '',
         string $url = '',
     ): string {
         $tpl = self::get_prompt_for($template, 'section');
-
         $heading = trim((string)($section['heading'] ?? ''));
         $level   = strtolower(trim((string)($section['level'] ?? 'h2')));
         if ($level !== 'h2' && $level !== 'h3') $level = 'h2';
@@ -2656,8 +2405,9 @@ class AlphaSuite_Prompts
                 $p = trim((string)($c['paragraph'] ?? ''));
                 if ($h === '') continue;
 
-                $line = "H3 {$n}: {$h}";
-                if ($p !== '') $line .= " — Brief: {$p}";
+                $line = "{$n}. {$h}";
+                if ($p !== '') $line .= " — {$p}";
+
                 $list[] = $line;
                 $n++;
             }
@@ -2667,12 +2417,25 @@ class AlphaSuite_Prompts
         // bullets (da própria seção)
         $bullets = '';
         if (!empty($section['bullets']) && is_array($section['bullets'])) {
+
             $list = [];
+
             foreach ($section['bullets'] as $b) {
-                $b = trim((string)$b);
-                if ($b !== '') $list[] = '- ' . $b;
+
+                if (!is_scalar($b)) {
+                    continue;
+                }
+
+                $b = trim(wp_strip_all_tags((string)$b));
+
+                if ($b !== '') {
+                    $list[] = '- ' . $b;
+                }
             }
-            if ($list) $bullets = implode("\n", $list);
+
+            if ($list) {
+                $bullets = implode("\n", $list);
+            }
         }
 
         // children headings (H3 sugeridos)
@@ -2702,17 +2465,12 @@ class AlphaSuite_Prompts
             $goalMax = (int) max($goalMin + 30, floor($per * 0.75));
         }
 
-        $childrenCount = 0;
-        if (!empty($section['children']) && is_array($section['children'])) {
-            $childrenCount = count($section['children']);
-        }
-
         $url = trim((string)$url);
 
         $base = self::replace_vars($tpl, [
             'keyword'                   => $keyword,
             'articleTitle'              => $articleTitle,
-            'locale'                    => $locale,
+            'lang'                      => $lang,
             'section_heading'           => $heading,
             'section_level'             => $level,
             'section_paragraph'         => $sectionParagraph,
@@ -2722,9 +2480,14 @@ class AlphaSuite_Prompts
             'sections_count'            => (string)$sectionsCount,
             'section_number'            => (string)$section_number,
             'url'                       => $url,
+            'content'                   => $content,
+            'min_Words'                 => $minWords,
+            'max_Words'                 => $maxWords,
+            'site_url'                  => site_url(),
+            'goalMin'                   => $goalMin,
+            'goalMax'                   => $goalMax
         ]);
 
-        $ctx = '';
         $idx = max(1, (int)$section_number);
         $total = max(1, (int)$sectionsCount);
         $remaining = max(0, $total - $idx);
@@ -2733,24 +2496,17 @@ class AlphaSuite_Prompts
             . "Título do artigo: \"{$articleTitle}\"\n"
             . "Esta é a seção {$idx} de {$total} (restam {$remaining})\n"
             . "Data atual: " . SELF::date() . "\n"
-            . "Frase chave: \"{$keyword}\"\n"
             . "Título da sessão: \"{$heading}\"\n"
-            . "A sessão deve ser gerada no idioma, pode traduzir incluse a KW: {$locale}\n\n"
+            . "PROIBIDO MARKDOWN, SEMPRE MANDAR EM HTML: SÓ É PERMITIDO ENVIAR TAGS HTML, COMO <a>, <strong>, <em>, <p>, <ul>, <ol>, <li>,<table>\n"
+            . "A sessão deve ser gerada no idioma \"{$lang}\"\n\n";
 
-            . "REGRAS DE FORMATAÇÃO:\n"
-            . "- Use HTML limpo: p, strong, ul, ol, li, a... etc\n"
-
-            . "CONTEXTO CRÍTICO:\n"
-            . "- Você está gerando APENAS a seção {$section_number} de um total de {$sectionsCount} seções\n"
-            . "- Cada seção é gerada ISOLADAMENTE - você NÃO tem acesso ao conteúdo das outras seções\n\n";
-
-        if ($template != 'modelar_youtube') {
-            $state .= "PALAVRA-CHAVE DE FOCO:\n"
-                . "- Só use quando fizer sentido contextualmente\n"
-                . "- Como você sabe, mais importante que frases chaves, para o Google, é o contexto do artigo\n"
-                . "- Integre de forma fluida no texto, nunca forçada\n"
-                . "- Ex: para a frase chave \"filmes de desenho\", a frase \"Filmes de desenho na Netflix conquistam cada vez mais espaço entre opções familiares\" não é nada fluida como primeira frase do conteúdo\n\n";
+        if ($keyword) {
+            $state .= "Frase chave: \"{$keyword}\"\n";
+            $state .= " quando for inserir a frase chave, ela também deve ser traduzida, mas claro, de maneira fluida no texto e somente se o idioma dela for diferente do idioma solicitado\"\n";
         }
+        $state .= "REGRAS DE FORMATAÇÃO:\n"
+            . "- Você está gerando APENAS a seção {$section_number} de um total de {$sectionsCount} seções\n"
+            . "- Cada seção é gerada ISOLADAMENTE\n\n";
 
         $brief = "BRIEF DA SEÇÃO (siga fielmente — esta é sua fonte principal):\n"
             . "Heading ({$level}): {$heading}\n";
@@ -2761,35 +2517,55 @@ class AlphaSuite_Prompts
         }
 
         if ($childrenDetailed !== '') {
-            $brief .= "Subtítulos H3 sugeridos com briefs:\n{$childrenDetailed}\n"
-                . "REGRA: Crie cada H3 e desenvolva seguindo o brief específico de cada um.\n\n";
+            $brief .= "Subtítulos H3:\n{$childrenDetailed}\n"
+                . "REGRA: Crie cada H3 e desenvolva seguindo o brief específico de cada um.\n\n"
+                . "PROIBIDO MARKDOWN, SEMPRE MANDAR EM HTML\n";
         } else if ($children !== '') {
             $brief .= "Subtítulos H3 sugeridos:\n{$children}\n\n";
         }
 
         if ($bullets !== '') {
-            $brief .= "Bullets sugeridos (use como guia, não liste literalmente):\n{$bullets}\n\n";
+            $brief .= "Guias sugeridos:\n{$bullets}\n\n";
         }
 
-        $brief .= "IMPORTANTE:\n"
-            . "- Não invente novos tópicos fora do escopo do brief\n";
+        if ($content)
+            $content .= "O conteúdo a ser modelado é com base nesse:\n"
+                . "----- INICIO ------\n"
+                . $content . "\n"
+                . "------ FIM -------\n\n";
 
-        $tech = "REGRAS TÉCNICAS (não discuta, apenas cumpra):\n"
-            . "- Escreva SOMENTE esta seção (não escreva o artigo inteiro)\n"
-            . "- Comece EXATAMENTE com: <{$level}>{$heading}</{$level}>\n"
-            . "- NÃO escreva outros H2 além deste\n"
-            . "- Esta seção (incluindo TODOS os H3 e TODO o texto) deve ter entre {$goalMin} e {$goalMax} palavras NO TOTAL\n"
-            . "- Se ultrapassar {$goalMax} palavras, encurte antes de finalizar\n"
-            . "- Use bullet points (<ul>, <li>) apenas quando realmente melhorar a clareza, mas apenas em sessões de numeros impares ou quando o brief sugerir\n"
-            . "- Inclua H3 dentro desta seção se sugeridos no brief\n";
+        $tech = "REGRAS TÉCNICAS (não discuta, apenas cumpra):\n";
+        if ($childrenDetailed !== '' || $children !== '') {
+
+            $tech .= "- SE houver subtítulos H3 no brief, você DEVE criar TODOS eles\n"
+                . "- A estrutura obrigatória é:\n"
+                . "<{$level}>{$heading}</{$level}>\n"
+                . "<p>introdução da seção</p>\n"
+                . "<h3>subtítulo</h3>\n"
+                . "<p>conteúdo</p>\n"
+                . "- NÃO omita nenhum H3 fornecido\n";
+        } else {
+            $tech .= "- Esta seção NÃO possui subtítulos H3\n"
+                . "- Escreva apenas parágrafos explicativos\n";
+        }
+
+        $tech .= "- Use a frase chave de forma NATURAL, no máximo 1 vez nesta seção\n";
+        $tech .= "- NÃO repita a frase chave em todos os parágrafos\n";
+        $tech .= "- Use variações semânticas quando possível\n";
+        $tech .= "- Desenvolva cada subtítulo com pelo menos um parágrafo completo\n";
+        $tech .= "- Cada H3 deve conter pelo menos 80 palavras\n"
+            . "Evite capitalização excessiva, capitalize apenas, nome, primeira letra, siglas. Isso vale também para a frase chave de foco, só capitalize se for necessário. "
+            . "ex. de títulos da seção:\n"
+            . "ERRADO: \"Erros Que Todo Mundo Comete Ao Lavar O Cabelo\"\n"
+            . "CERTO: \"Erros que todo mundo comete ao lavar o cabelo\"\n"
+            . "ERRADO: \"Como É Feito o Trabalho na C.I.A.\"\n"
+            . "CERTO: \"Como é feito o trabalho na C.I.A.\"\n";
 
         if ($template === 'modelar_youtube') {
             $tech .= "- NUNCA mencione: vídeo, canal, link, URL, ou qualquer referência à fonte original\n";
         }
 
-        $tech .= "\n";
-
-        return $state . $brief . $tech . $base . "\n" . $ctx . "\n\n";
+        return $base . "\n\n" . $state . $brief . $tech . "\n" . $content . "PROIBIDO MARKDOWN, SEMPRE MANDAR EM HTML\n";
     }
 
     public static function build_title_prompt_modelar_youtube(
@@ -2797,11 +2573,11 @@ class AlphaSuite_Prompts
         string $keyword,
         int $min = 1,
         int $max = 3,
-        string $locale = 'pt_BR'
+        string $lang = 'pt_BR'
     ): string {
 
         $tpl    = self::get_prompt_for('modelar_youtube', 'title');
-        $locale = $locale ?: 'pt_BR';
+        $lang = $lang ?: 'pt_BR';
 
         $videoTitle       = trim((string)($video['title'] ?? ''));
         $videoDescription = trim((string)($video['description'] ?? ''));
@@ -2818,7 +2594,7 @@ class AlphaSuite_Prompts
         // 1) prompt base editável (limpo)
         $base = self::replace_vars($tpl, [
             'keyword' => $keyword,
-            'locale'  => $locale,
+            'lang'  => $lang,
         ]);
 
         // 2) contexto interno (backend) — obrigatório, invisível pro user
@@ -2840,7 +2616,7 @@ class AlphaSuite_Prompts
         $fixed =
             "\n\n"
             . "Quantidade de títulos a gerar: entre {$min} e {$max}.\n"
-            . "O título deve ser gerada no idioma, pode traduzir incluse a KW: {$locale}\n\n";
+            . "O título deve ser gerada no idioma, pode traduzir incluse a KW: {$lang}\n\n";
 
 
         return $fixed . $base . $ctx . "\n\n" . self::title_json_suffix();
@@ -2849,7 +2625,7 @@ class AlphaSuite_Prompts
     public static function build_keywords_prompt(
         string $template,
         string $command,
-        string $locale,
+        string $lang,
         int $count,
         string $category,
         array $existing_list = []
@@ -2857,13 +2633,13 @@ class AlphaSuite_Prompts
         $tpl = self::get_prompt_for($template, 'keywords');
 
         $command  = trim((string)$command);
-        $locale   = $locale ?: 'pt_BR';
+        $lang   = $lang ?: 'pt_BR';
         $category = trim((string)$category);
         $count    = max(1, min(100, (int)$count));
 
         $base = self::replace_vars($tpl, [
             'command'  => $command,
-            'locale'   => $locale,
+            'lang'   => $lang,
             'category' => $category
         ]);
 
@@ -2876,11 +2652,11 @@ class AlphaSuite_Prompts
         }
 
         $suffix =
-            "Responda APENAS em JSON UTF-8 válido (uma única linha), sem markdown.\n"
+            "Responda APENAS em JSON UTF-8 válido, sem markdown.\n"
             . "- Hoje é: " . self::date() . "\n"
             . "Regras técnicas (não discuta, apenas cumpra):\n"
             . "- Gere {$count} keywords NOVAS e DIFERENTES.\n"
-            . "- Gere em, pode traduzir incluse a KW {$locale}.\n"
+            . "- Gere em {$lang}.\n"
             . "- Categoria: {$category}.\n"
             . "- Use o comando como direção (caso tenha): \"{$command}\".\n"
             . "- O JSON deve ser VÁLIDO e em UMA LINHA.\n"
@@ -2910,73 +2686,64 @@ class AlphaSuite_Prompts
 
     private static function default_keywords_prompt(): string
     {
+        return
+            "Gere frases-chave curtas para um artigo.\n\n"
 
-        return "Nós somos a Alpha Suite, vendemos plugins para WordPress, nosso produto foco atualmente "
-            . "é o Alpha Suite, que contém os módulos Alpha Órion e o Alpha Stories, o Orion é um plugin que "
-            . "gera conteúdos com IA e o Stories gera Web Stories do Google com apenas 1 clique. \n"
-            . "Siga as especificações abaixo para gerar keywords: ";
+            . "REGRAS:\n"
+            . "- Priorizar short-tail keywords.\n"
+            . "- Cada frase deve ter entre 1 e 3 palavras.\n"
+            . "- Basear-se na categoria e no briefing abaixo (se tiver).\n"
+            . "- Usar termos relevantes para busca.\n"
+            . "- Usar termos com alta taxa de pesquisa.\n"
+            . "- Usar termos com potencial de ranqueamento.\n"
+            . "- Usar termos não obvios.\n"
+            . "- Não usar pontuação.\n"
+            . "- Não repetir palavras desnecessariamente.\n\n";
     }
 
     private static function default_title_prompt(): string
     {
         return
-            "Você é um jornalista sênior especializado em Google Discover, notícias e títulos de alto CTR.\n\n"
+            "Você é um jornalista sênior especializado em criar títulos para Google Discover.\n\n"
 
-            . "OBJETIVO:\n"
-            . "Criar títulos CURTOS, CLAROS e IMPACTANTES com estilo jornalístico profissional que geram curiosidade genuína e cliques orgânicos no Google Discover.\n\n"
+            . "CARACTERÍSTICAS DE TÍTULOS EFICAZES:\n\n"
 
-            . "DIRETRIZES EDITORIAIS OBRIGATÓRIAS:\n"
-            . "- Trate o conteúdo como NOTÍCIA ou atualização relevante\n"
-            . "- Priorize: acontecimentos, mudanças, revelações, tendências ou fatos recentes\n"
-            . "- Use linguagem clara, direta e natural, sem exageros artificiais\n"
-            . "- Inclua a palavra-chave naturalmente dentro de um benefício emocional ou promessa de solução\n"
-            . "  Fórmula: [Palavra-chave] + [Benefício/Curiosidade]\n\n"
+            . "ESPECIFICIDADE:\n"
+            . "- Inclua números, nomes ou detalhes específicos\n"
+            . "- Exemplos: '15 melhores empresas', 'Este homem de 32 anos ganhava US$ 17/hora'\n\n"
 
-            . "CARACTERÍSTICAS DE TÍTULOS OTIMIZADOS PARA DISCOVER:\n"
-            . "1. ESPECIFICIDADE: Use números, dados, nomes próprios ou fatos concretos quando relevante\n"
-            . "2. EMOÇÃO E CURIOSIDADE: Desperte interesse genuíno sem clickbait vazio\n"
-            . "3. AUTORIDADE: O título deve parecer confiável e informativo\n"
-            . "4. CLAREZA: O leitor deve entender imediatamente sobre o que é a matéria\n"
-            . "5. URGÊNCIA: Quando aplicável, transmita senso de novidade ou relevância imediata\n"
-            . "6. CAPITALIZAÇÃO: Use apenas primeira palavra maiúscula + nomes próprios (padrão jornalístico)\n\n"
+            . "EMOÇÃO E CURIOSIDADE:\n"
+            . "- Evoque resposta emocional ou desperte curiosidade\n"
+            . "- Exemplos: 'As cidades mais tristes do país', 'Disney Ride recebe revisão surpreendente'\n\n"
 
-            . "REGRAS DE ESTILO:\n"
-            . "- Tom jornalístico, direto e profissional\n"
-            . "- Frases bem construídas com vocabulário rico mas acessível\n"
-            . "- Evite palavras genéricas, promessas vagas ou sensacionalismo\n"
-            . "- Pareça escrito por um jornalista humano experiente\n"
-            . "- NUNCA use emojis, aspas desnecessárias ou símbolos estranhos\n\n"
+            . "RELEVÂNCIA E OPORTUNIDADE:\n"
+            . "- Foque em tópicos atuais, tendências ou eventos recentes\n"
+            . "- Crie senso de urgência e novidade\n"
+            . "- Exemplos: 'trabalho híbrido', 'ChatGPT', desenvolvimentos recentes\n\n"
 
-            . "CONFORMIDADE COM POLÍTICAS DO DISCOVER:\n"
-            . "- NÃO faça promessas médicas, financeiras ou jurídicas específicas\n"
-            . "- NÃO use linguagem sensacionalista ou alarmista exagerada\n"
-            . "- NÃO mencione conteúdo adulto, violência gráfica ou temas sensíveis\n"
-            . "- NÃO use táticas enganosas ou informações falsas\n"
-            . "- NÃO prometa resultados garantidos ou milagrosos\n"
-            . "- MANTENHA títulos factuais e verificáveis\n\n"
+            . "AUTORIDADE:\n"
+            . "- Cite especialistas ou fontes confiáveis quando relevante\n"
+            . "- Exemplos: 'O que especialistas dizem', 'Pessoas emocionalmente inteligentes usam...'\n\n"
 
-            . "EXEMPLOS DE TÍTULOS APROVADOS:\n"
-            . "✅ '7 filmes de terror na Netflix que ninguém está falando'\n"
-            . "✅ 'Como o Brasil se posicionou na COP30 em 2026'\n"
-            . "✅ 'Novo estudo revela impacto do sono na produtividade'\n"
-            . "✅ '5 cidades brasileiras com custo de vida mais acessível em 2026'\n\n"
+            . "PROBLEMA E SOLUÇÃO:\n"
+            . "- Destaque um problema e forneça solução\n"
+            . "- Exemplo: 'Fitbit responde a fãs furiosos com cinco correções muito necessárias'\n\n"
 
-            . "EXEMPLOS DE TÍTULOS REJEITADOS:\n"
-            . "❌ 'Médicos CHOCADOS: Descubra o segredo para emagrecer 10kg' (promessa médica + sensacionalismo)\n"
-            . "❌ 'URGENTE: Você PRECISA fazer isso AGORA ou vai se arrepender' (alarmismo + clickbait vazio)\n"
-            . "❌ 'Ganhe R$ 10.000 por mês trabalhando de casa' (promessa financeira não verificável)\n"
-            . "❌ 'O que ELES não querem que você saiba sobre...' (teoria conspiratória)\n\n"
+            . "ASPECTO NOTÍCIA:\n"
+            . "- Toque em eventos atuais ou desenvolvimentos recentes\n"
+            . "- Use senso de urgência: mudanças, surpresas, impactos\n"
+            . "- Personalização: considere interesse atual do público\n\n"
 
-            . "CHECKLIST FINAL:\n"
-            . "☐ Título é factual e verificável?\n"
-            . "☐ Evita promessas médicas, financeiras ou jurídicas específicas?\n"
-            . "☐ Tom é jornalístico e profissional (não sensacionalista)?\n"
-            . "☐ Palavra-chave está incluída naturalmente?\n"
-            . "☐ Capitalização correta (só primeira palavra + nomes próprios)?\n"
-            . "☐ Zero emojis, aspas desnecessárias ou símbolos?\n"
-            . "☐ Geraria cliques genuínos no Discover?\n\n"
-
-            . "IMPORTANTE: Gere os títulos no idioma especificado sem explicações adicionais.\n";
+            . "REGRAS:\n"
+            . "- Título curto e impactante\n"
+            . "- Clareza sem sacrificar interesse\n"
+            . "- Vocabulário eloquente mas acessível\n"
+            . "- Tom jornalístico profissional\n"
+            . "- Capitalização: só primeira palavra + nomes próprios\n"
+            . "Ex.: kw \"10 melhores filmes de ação de 2026\"\n"
+            . "ERRADO: \"Os 10 Melhores Filmes de Ação de 2026\"\n"
+            . "CORRETO: \"7 filmes de ação brutais que chegaram em 2026\"\n"
+            . "CORRETO: \"Filmes de ação sobre a C.I.A com Jason Momoa\"";
     }
 
     private static function default_title_rss_prompt(): string
@@ -2988,18 +2755,19 @@ class AlphaSuite_Prompts
             . "- NUNCA copie o título original\n"
             . "- Reescreva completamente com suas próprias palavras\n"
             . "- Mude a estrutura e ângulo\n"
+            . "- Não abrevie nomes simples de empresas, como o nome da Warner Bros. Discovery\n"
             . "- Mantenha o tema/assunto, mas com abordagem diferente\n\n"
 
             . "OTIMIZAÇÃO:\n"
-            . "- Máximo 60-70 caracteres\n"
+            . "- Máximo 50-70 caracteres\n"
             . "- Capitalização: só primeira palavra + nomes próprios\n"
             . "- Tom jornalístico e direto\n\n"
 
             . "EXEMPLO:\n"
-            . "RSS: \"10 melhores filmes de ação de 2024\"\n"
-            . "❌ ERRADO: \"Os 10 melhores filmes de ação de 2024\"\n"
-            . "✅ CORRETO: \"7 filmes de ação brutais que chegaram em 2024\"\n"
-            . "✅ CORRETO: \"Filmes de ação de 2024 que ninguém esperava\"\n\n";
+            . "KW: \"10 melhores filmes de ação de 2026\"\n"
+            . "❌ ERRADO: \"Os 10 melhores filmes de ação de 2026\"\n"
+            . "✅ CORRETO: \"7 filmes de ação brutais que chegaram em 2026\"\n"
+            . "✅ CORRETO: \"Filmes de ação de 2026 que ninguém esperava\"\n\n";
     }
 
     private static function default_title_modelar_youtube_prompt(): string
@@ -3035,203 +2803,459 @@ class AlphaSuite_Prompts
     private static function default_outline_prompt(): string
     {
         return
-            "OBJETIVO:\n"
-            . "Criar um ESBOÇO (outline) estratégico que maximize E-E-A-T e atenda à intenção de busca do usuário.\n\n"
+            "Você é um editor experiente responsável por estruturar artigos de alto valor informativo.\n"
+            . "Sua tarefa é criar o ESBOÇO editorial de um artigo baseado na frase-chave fornecida.\n\n"
 
-            . "ANÁLISE DE INTENÇÃO DE BUSCA (FUNIL):\n"
-            . "Identifique automaticamente a posição da palavra-chave no funil de busca:\n\n"
+            . "OBJETIVO:\n"
+            . "Criar uma estrutura que entregue informação útil, diferenciada e confiável.\n"
+            . "O outline deve guiar um artigo que realmente resolva dúvidas do leitor.\n\n"
 
-            . "TOPO DE FUNIL (Conscientização - descoberta do problema):\n"
-            . "- Usuário está explorando um tema ou descobrindo um problema\n"
-            . "- Foco: educação, contexto amplo, conceitos básicos, panorama geral\n"
-            . "- Estrutura ideal: O que é? Por que importa? Como funciona? Tipos/categorias. Exemplos práticos\n"
-            . "- Palavras-chave típicas: 'o que é...', 'como funciona...', 'tipos de...', 'benefícios de...'\n"
-            . "- Exemplo: 'o que é marketing digital' → seções sobre definição, importância, canais, benefícios\n\n"
+            . "PRINCÍPIOS EDITORIAIS:\n"
+            . "- Priorizar utilidade real para o leitor.\n"
+            . "- Demonstrar experiência prática quando possível.\n"
+            . "- Incluir contexto, implicações e explicações claras.\n"
+            . "- Evitar estruturas óbvias ou genéricas.\n"
+            . "- Priorizar informações que ampliem entendimento do tema.\n\n"
 
-            . "MEIO DE FUNIL (Consideração - avaliação de soluções):\n"
-            . "- Usuário conhece o problema e está comparando alternativas\n"
-            . "- Foco: comparações, prós e contras, critérios de escolha, cases, alternativas\n"
-            . "- Estrutura ideal: Opções disponíveis. Comparação detalhada. Quando usar cada uma. Casos de uso\n"
-            . "- Palavras-chave típicas: 'melhores...', 'vs', 'comparação', 'qual escolher...', 'alternativas para...'\n"
-            . "- Exemplo: 'WordPress vs Wix' → seções sobre facilidade, custos, recursos, quando escolher cada um\n\n"
+            . "ESTRUTURAS GENÉRICAS:\n"
+            . "- Evite títulos genéricos ou superficiais.\n"
+            . "- Expressões como 'o que é', 'benefícios', 'vantagens', 'conclusão' só devem ser usadas quando forem realmente necessárias para explicar o tema.\n"
+            . "- Quando utilizar essas expressões, torne o título mais específico e informativo.\n"
+            . "- Prefira títulos que revelem um insight, contexto ou impacto real.\n\n"
 
-            . "FUNDO DE FUNIL (Decisão - pronto para agir):\n"
-            . "- Usuário decidido, precisa de instruções específicas para executar\n"
-            . "- Foco: tutoriais passo a passo, guias práticos, requisitos técnicos, troubleshooting\n"
-            . "- Estrutura ideal: Pré-requisitos. Passo a passo detalhado. Configurações. Erros comuns. Próximos passos\n"
-            . "- Palavras-chave típicas: 'como fazer...', 'tutorial...', 'passo a passo...', 'instalar...', 'configurar...'\n"
-            . "- Exemplo: 'como instalar WordPress' → seções sobre requisitos, instalação, configuração, primeiros passos\n\n"
+            . "ESTRUTURA:\n"
+            . "- Criar entre {{min_sections}} e {{max_sections}} seções H2.\n"
+            . "- Esse detalhe é importante, pois o conteúdo final vai ter entre {{max_words}} e no max {{min_words}}.\n"
+            . "- Cada seção deve ter um papel claro na progressão do artigo.\n"
+            . "- A sequência deve aprofundar o tema gradualmente.\n\n"
 
-            . "DIRETRIZES DO OUTLINE:\n"
-            . "- H2s ESTRATÉGICOS: Títulos devem responder diretamente às necessidades do usuário conforme posição no funil\n"
-            . "- PRIMEIRA SEÇÃO DE VALOR: Primeiro H2 deve entregar insights imediatos (não use 'Introdução' genérica)\n"
-            . "  • Para topo: 'O que é [tema] e por que você deveria conhecer'\n"
-            . "  • Para meio: 'Principais critérios para escolher [solução]'\n"
-            . "  • Para fundo: 'O que você precisa antes de começar'\n"
-            . "- PROFUNDIDADE (H3): Adicione subtópicos que detalham 'como fazer' ou 'por que funciona'\n"
-            . "- ORGANIZAÇÃO: Use bullets nas instruções para dados, passos, requisitos, listas\n"
-            . "- PROGRESSÃO LÓGICA: Seções devem fluir naturalmente conforme jornada do usuário\n\n"
+            . "EXEMPLOS:\n"
+            . "Evite títulos genéricos como:\n"
+            . "- O que é a fusão\n"
+            . "- Benefícios da fusão\n\n"
 
-            . "REGRAS DE CAPITALIZAÇÃO:\n"
-            . "- Use APENAS primeira palavra maiúscula + nomes próprios (padrão jornalístico)\n"
-            . "- ❌ ERRADO: 'Como Criar Um Site Profissional Em 2026'\n"
-            . "- ✅ CORRETO: 'Como criar um site profissional em 2026'\n"
-            . "- ✅ CORRETO: 'Melhores práticas de SEO no Google'\n"
-            . "- Exceções: siglas (SEO, CRM, API), produtos (WordPress, Netflix, Shopify), nomes próprios, meses\n\n"
+            . "EXEMPLOS DE BOAS DIREÇÕES DE SEÇÃO:\n"
+            . "- erros comuns que mudam o resultado\n"
+            . "- o detalhe que pouca gente percebe\n"
+            . "- como especialistas avaliam o problema\n"
+            . "- o impacto real dessa decisão\n"
+            . "- o que muda a partir de agora\n"
+            . "- O que realmente muda com a fusão Paramount e Warner Bros\n"
+            . "- Por que essa fusão preocupa reguladores\n"
+            . "- O impacto da fusão no mercado de streaming\n\n"
+            . "- pontos ignorados pela maioria das análises\n\n"
 
-            . "QUALIDADE EDITORIAL:\n"
-            . "- Esboço deve parecer criado por especialista humano no assunto\n"
-            . "- H2s devem ser distintos e complementares (zero repetição de ângulos)\n"
-            . "- Inclua H3 apenas quando necessário aprofundar um H2 complexo\n"
-            . "- Bullets devem ter pontos concretos: quem, o quê, quando, onde, como, por quê, exemplos, dados\n"
-            . "- Evite clichês: 'Guia Completo', 'Tudo Sobre', 'O Melhor', 'Definitivo'\n"
-            . "- Cada seção deve ter instruções AUTO-SUFICIENTES (sem referências a outras seções)\n\n"
+            . "PROGRESSÃO IDEAL:\n"
+            . "1. contexto ou fato central\n"
+            . "2. explicação ou bastidores\n"
+            . "3. análise ou impacto prático\n"
+            . "4. implicações ou próximos desdobramentos"
 
-            . "IMPORTANTE - INSTRUÇÕES ESPECÍFICAS:\n"
-            . "- Lembre-se: cada seção será escrita ISOLADAMENTE sem contexto das outras\n"
-            . "- Seja EXPLÍCITO sobre o que deve ser incluído em cada seção\n"
-            . "- Se pedir tabela: especifique TODAS as colunas/itens/critérios\n"
-            . "- Se pedir lista: especifique TODOS os elementos\n"
-            . "- Nunca use referências vagas como 'conforme mencionado', 'itens acima', 'critérios selecionados'\n";
+            . "- Capitalização: só primeira palavra + nomes próprios\n"
+            . "h2/h3 ERRADO: \"Como a Tecnologia Tem Ajudado\"\n"
+            . "h2/h3 CORRETO: \"Como a tecnologia tem ajudado\"\n"
+            . "h2/h3 ERRADO: \"Como Jason Momoa Faz o Trabalho da C.I.A.\"\n\n"
+            . "h2/h3 CORRETO: \"Como Jason Momoa faz o trabalho da C.I.A.\"\n\n"
+
+            . "FUNIL DE BUSCA:\n"
+            . "- Identifique o nível de funil da frase-chave (informacional, comparativo ou decisório).\n"
+            . "- Ajuste o conteúdo para esse nível de intenção.\n"
+            . "- Conteúdos informacionais devem explicar e contextualizar.\n"
+            . "- Conteúdos comparativos devem destacar diferenças.\n"
+            . "- Conteúdos decisórios devem trazer critérios e implicações.";
     }
 
     private static function default_outline_rss_prompt(): string
     {
         return
-            "DIRETRIZES EDITORIAIS:\n"
-            . "- Não copiar estrutura ou frases da fonte.\n"
-            . "- Reorganizar os fatos para criar fluxo lógico diferente.\n"
-            . "- Não incluir opinião ou especulação.\n"
-            . "- Cada bullet deve conter 1 fato verificável.\n"
-            . "- Não repetir informações com palavras diferentes.\n"
-            . "- Pra essa sessão, mais precisamente, vamos gerar no máximo 2 sessões (2 H2), sem h3 ou filhos, mas há uma excessão dessa regra: Se o título falar sobre quantidade de itens, então é sim necessário criar as sessões para desenrolar do conteudo e pode ter o limite máximo de H2 e pode ter h3 também.\n\n"
+            "Você é um jornalista profissional especializado em estruturar notícias factuais de alto padrão.\n"
+            . "Sua tarefa é criar um ESBOÇO jornalístico técnico e objetivo com base na fonte fornecida.\n\n"
 
+            . "ATENÇÃO ABSOLUTA:\n"
+            . "- Não copie frases nem a estrutura da fonte.\n"
+            . "- Reorganize completamente a ordem dos fatos.\n"
+            . "- Não inclua opinião, análise, emoção ou linguagem promocional.\n"
+            . "- Não use frases genéricas.\n"
+            . "- Não invente informações ausentes.\n"
+            . "- Cada bullet deve conter APENAS 1 fato verificável.\n"
+            . "- Nunca repetir informação com palavras diferentes.\n"
+            . "- Sempre que mencionar siglas, na primeira vez que for falar dela, deve ser colocado entre parenteses o significado, como: \"FCC (Federal Communications Commission). Além disso, instrua no bullet a colocar o parenteses\".\n"
+            . "- Fale sobre o contexto da notícia, em que ela impacta.\n\n"
+
+            . "PRIORIDADE JORNALÍSTICA:\n"
+            . "- A PRIMEIRA seção deve conter obrigatoriamente o fato central da notícia.\n"
+            . "- Se houver números relevantes, datas, valores ou rankings, eles devem aparecer na primeira seção.\n"
+            . "- Priorize dados concretos antes de contexto secundário.\n"
+            . "- Se houver números, valores, datas ou quantidades, eles devem aparecer antes de qualquer contexto narrativo.\n"
+            . "- Evite bullets que contenham apenas contexto ou descrição sem dado concreto.\n"
+            . "- Sempre priorizar fatos confirmados por fonte oficial ou dados divulgados publicamente.\n"
+            . "- Evite repetir o mesmo nome de pessoa ou empresa em bullets consecutivos se não houver novo fato relevante.\n"
+            . "- Se houver valor financeiro, ele deve ser incluído obrigatoriamente.\n"
+            . "- Não concentrar mais de 3 bullets sobre o mesmo tipo de informação.\n"
+            . "- Se o fato não altera a compreensão central da notícia, não incluir.\n"
+            . "- Se um bullet não contiver data, número, local, entidade ou ação verificável, não gerar.\n"
+            . "- Contexto histórico só deve aparecer se estiver presente na fonte.\n"
+            . "\n"
             . "PROIBIDO:\n"
-            . "- Bullets genéricos sem dados concretos.\n"
-            . "- Contexto filosófico ou análise ampla.\n"
-            . "- Contexto filosófico ou análise ampla.\n"
-            . "- Repetições estruturais.\n\n"
+            . "- Interpretar intenções ou emoções de empresas ou pessoas.\n"
+            . "- Usar linguagem institucional ou promocional.\n"
+            . "- Criar contexto filosófico ou analítico.\n"
+            . "- Criar conclusões ou interpretações.\n"
+            . "- Cada fato deve ser passado apenas uma vez durante todo o esboço; não inventar fatos ou valores ficticios se houver a necessidade de falar sobre a mesma informação em outras sessões.\n"
+            . "- Cada sessão deve ser independente e autosuficiente com novos fatos.\n"
+            . "- Escrever o bullet se não houver dado factual.\n"
+            . "\n"
+            . "EXPRESSÕES PROIBIDAS:\n"
+            . "- demonstra compromisso\n"
+            . "- reforça compromisso\n"
+            . "- evidencia estratégia\n"
+            . "- mostra preocupação\n"
+            . "- destaca a importância\n"
+            . "- marca um passo importante\n"
+            . "- reflete a estratégia\n"
+            . "- reforça dedicação\n"
+            . "- chama atenção\n"
+            . "- levanta questões\n"
+            . "- pode impactar\n"
+            . "\n"
+            . "ESTRUTURA OBRIGATÓRIA:\n"
+            . "- Gerar no máximo 2 seções H2.\n"
+            . "- Não gerar H3 ou children, exceto se o título mencionar lista, ranking ou quantidade.\n"
+            . "- Máximo absoluto de 20 bullets por seção.\n"
+            . "- Cada bullet deve ter no máximo 120 caracteres.\n"
+            . "- Cada paragraph deve ter no máximo 200 caracteres.\n"
+            . "- Apenas texto corrido.\n"
+            . "- Não usar aspas, markdown ou formatação.\n\n"
 
-            . "Se não houver dados suficientes, produza apenas os fatos encontrados.\n\n"
-            . "Responda SOMENTE com JSON válido.";
+            . "OS BULLETS DEVEM PRIORIZAR:\n"
+            . "- Datas completas.\n"
+            . "- Local exato do fato.\n"
+            . "- Nome completo de pessoas ou empresas.\n"
+            . "- Valores numéricos exatos.\n"
+            . "- Percentuais.\n"
+            . "- Premiações.\n"
+            . "- Resultados oficiais.\n"
+            . "- Prazos.\n"
+            . "- Dados verificáveis.\n\n"
+
+            . "EXEMPLOS DE BULLET CORRETO:\n"
+            . "- No dia [x] de [xxxx] de [xxxx] a [empresa x] confirmou a/a [acontecimento]\n"
+            . "- O [item] recebeu [avaliação] no [ranking/site]\n"
+            . "- A prova será aplicada em [cidade] [estado]\n\n"
+
+            . "EXEMPLOS PROIBIDOS:\n"
+            . "- A decisão pode impactar o setor\n"
+            . "- A produção promete emocionar\n"
+            . "- A [empresa x] reforça seu compromisso\n"
+            . "- O [item] é muito aguardado";
     }
 
+    public static function build_excerpt_prompt(string $title, string $content, string $template, string $lang): string
+    {
+        $tpl = self::get_prompt_for($template, 'excerpt');
+        $base = self::replace_vars($tpl, [
+            'articleTitle' => $title,
+            'content' => $content,
+        ]);
 
+        $base .= "Título: {$title}\n\n"
+            . "Conteúdo:\n{$content}"
+            . "Gere no idioma do conteúdo, mas pra ser mais preciso, gere em: \"{$lang}\" ";
 
-    private static function default_section_base_prompt(): string
+        return $base;
+    }
+
+    private static function default_excerpt_prompt(): string
     {
         return
-            "IDENTIDADE E TOM:\n"
-            . "Você é um Especialista Sênior de Conteúdo (E-E-A-T) com anos de experiência prática no assunto.\n"
-            . "Escreva SEMPRE em PRIMEIRA PESSOA, compartilhando suas experiências, testes e recomendações.\n\n"
+            "Escreva um subtítulo jornalístico para a notícia abaixo.\n"
+            . "Regras:\n"
+            . "- 1 frase apenas\n"
+            . "- entre 10 e 18 palavras\n"
+            . "- não repetir o título\n"
+            . "- mencionar o fato principal\n"
+            . "- linguagem factual\n\n";
+    }
 
-            . "ESTILO DE ESCRITA:\n"
-            . "- Vá direto ao ponto: explique o 'como' e o 'porquê' com clareza\n"
-            . "- Use tom pessoal e autoral: 'Eu testei...', 'Na minha experiência...', 'Prefiro X porque...'\n"
-            . "- Demonstre autoridade através de comparações técnicas e opiniões fundamentadas\n"
-            . "- Parágrafos curtos: 2-3 frases no máximo (otimizado para mobile)\n"
-            . "- Use <strong> apenas para destacar conceitos essenciais (sem exagero)\n\n"
+    private static function default_section_prompt(): string
+    {
+        return
+            "Você é um jornalista especializado em produzir conteúdo confiável e informativo.\n"
+            . "Sua tarefa é escrever o conteúdo completo de uma seção de artigo com base no tópico informado.\n\n"
 
-            . "EVITE AI FLUFF (frases vazias de IA):\n"
-            . "❌ NÃO use: 'Um X confiável pode fazer toda a diferença'\n"
-            . "❌ NÃO use: 'É importante escolher a ferramenta certa'\n"
-            . "❌ NÃO use: 'Existem várias opções disponíveis'\n"
-            . "✅ USE: Termos técnicos específicos, critérios objetivos, comparações práticas\n"
-            . "✅ USE: 'Testei 12 ferramentas e o X se destacou por Y'\n"
-            . "✅ USE: 'Prefiro A em vez de B porque...' (com razão técnica)\n\n"
+            . "OBJETIVO:\n"
+            . "Criar um conteúdo claro, escaneável e informativo, otimizado para Google Discover.\n"
+            . "Cria a sessão entre {{goalMin}} e {{goalMax}} palavras.\n\n"
 
-            . "DEMONSTRAÇÃO DE AUTORIDADE:\n"
-            . "- Mencione ferramentas específicas que você usa (incluindo as menos conhecidas)\n"
-            . "- Faça comparações práticas entre opções ('X vs Y: prefiro X porque...')\n"
-            . "- Compartilhe insights de testes reais ('Após testar por 3 meses...')\n"
-            . "- Dê sua opinião pessoal fundamentada sobre cada solução\n"
-            . "- Cite critérios técnicos objetivos (velocidade, custo, facilidade, suporte)\n\n"
+            . "REGRAS EDITORIAIS:\n"
+            . "- Texto factual, informativo e direto.\n"
+            . "- Demonstrar autoridade e contexto quando possível.\n"
+            . "- Priorizar informações úteis para o leitor.\n"
+            . "- Evitar frases vagas ou genéricas.\n"
+            . "- Evitar repetições.\n"
+            . "- Obrigatório que ao menos 30% do conteúdo tenha palavras de transição, como: mas, além disso, no entanto, portanto, por outro lado, enquanto isso, por exemplo, dessa forma, consequentemente, ainda assim, por fim, da mesma forma, assim sendo, de modo geral.\n"
+            . "- OBRIGATÓRIO: Crie um conteúdo focado em GEO, sempre com microexemplos reais.\n"
+            . "- Não usar linguagem promocional.\n\n"
 
-            . "CTAs E LINKS EXTERNOS:\n"
-            . "- Inclua links para ferramentas mencionadas de forma NATURAL no texto\n"
-            . "- Use: <a href=\"URL\" target=\"_blank\" rel=\"noopener\">nome da ferramenta</a>\n"
-            . "- Integre o link no fluxo do texto, não force\n"
-            . "- Exemplo: 'Uso o <a href=\"...\" target=\"_blank\" rel=\"noopener\">SEMrush</a> para análise de concorrentes porque...'\n\n"
+            . "INTRODUÇÃO (LEAD):\n"
+            . "- O primeiro parágrafo deve funcionar como o lead do artigo.\n"
+            . "- Apresente imediatamente o fato principal ou a informação mais relevante.\n"
+            . "- Inclua contexto suficiente para entender o tema e por que ele importa.\n"
+            . "- O lead deve ter entre 40 e 60 palavras.\n"
+            . "- Evite frases genéricas ou construções como 'neste artigo vamos explicar'.\n"
+            . "- Sempre que possível, mencionar entidades relevantes no lead (empresas, instituições, pessoas).\n"
+            . "- O parágrafo deve gerar interesse informativo e preparar o leitor para os tópicos seguintes.\n\n"
 
-            . "DADOS E ESTATÍSTICAS:\n"
-            . "- NÃO invente estatísticas ou números\n"
-            . "- Se não tiver dados concretos, use linguagem prudente: 'Na minha experiência...', 'Percebi que...'\n"
-            . "- Prefira evidências qualitativas (seus testes) a quantitativas inventadas\n\n"
+            . "ESTRUTURA DO TEXTO:\n"
+            . "- Usar parágrafos curtos e escaneáveis.\n"
+            . "- Cada parágrafo deve ter entre 2-4 linhas visuais.\n"
+            . "- Cada parágrafo deve ter no máximo 3 frases que respondam algo para serem paragrafos escaneáveis para GEO.\n"
+            . "- O primeiro parágrafo deve explicar rapidamente o ponto central da seção.\n"
+            . "- Tamanho da sessão: entre {{goalMin}} e {{goalMax}} palavras.\n"
+            . "- Se necessário, incluir bullet points para organizar informações.\n\n"
 
-            . "CONTEÚDO DENSO E PROFUNDO:\n"
-            . "- Desenvolva cada ponto com exemplos práticos e contexto real\n"
-            . "- Explique o 'porquê' por trás de cada recomendação\n"
-            . "- Inclua critérios de decisão e trade-offs\n"
-            . "- Antecipe dúvidas e objeções do leitor\n\n"
+            . "FORMATAÇÃO HTML:\n"
+            . "- Usar apenas HTML simples.\n"
+            . "- Parágrafos devem usar a tag <p>.\n"
+            . "- Listas devem usar <ul> e <li>.\n"
+            . "- Não usar markdown.\n\n"
 
-            . "BRIEF E SUBTÍTULOS:\n"
-            . "Use o brief fornecido como base e os subtítulos sugeridos para estruturar o conteúdo:\n\n"
-            . "{{section_bullets}}\n\n"
-            . "{{section_children}}\n";
+            . "LINKS E REFERÊNCIAS:\n"
+            . "- Quando mencionar empresas, instituições ou organizações relevantes, incluir um link externo confiável.\n"
+            . "- Usar o formato <a href=\"URL\">nome</a>.\n"
+            . "- Evitar excesso de links.\n\n"
+
+            . "EEAT:\n"
+            . "- Explicar contexto, implicações ou consequências quando relevante.\n"
+            . "- Priorizar informações verificáveis.\n"
+            . "- Destacar fatos, dados ou declarações relevantes quando disponíveis.\n\n"
+
+            . "FUNIL DE BUSCA:\n"
+            . "- Identifique o nível de funil da frase-chave (informacional, comparativo ou decisório).\n"
+            . "- Ajuste o conteúdo para esse nível de intenção.\n"
+            . "- Conteúdos informacionais devem explicar e contextualizar.\n"
+            . "- Conteúdos comparativos devem destacar diferenças.\n"
+            . "- Conteúdos decisórios devem trazer critérios e implicações.\n\n"
+
+            . "Responda apenas com o HTML da seção.";
+    }
+
+    private static function default_outline_ryan_prompt(): string
+    {
+        return "Crie um esboço focado em SEO, que fale com profundidade sobre o assunto, que vá além do que as pessoas buscam e, ao mesmo tempo, traga itens comuns aos usuários topo de funil.\n"
+            . "Deve ser usado h3 sempre que houver necessidade de aprofundamento do conteúdo, mas só use h3 se tiver mais do que 1 tótipo, então nunca deve ser criado a estrutura \"h2 -> h3 -> h2\", deve ser no minimo \"h2 -> h3 -> h3 -> h2\" (ou seja, só se realmente existir itens para mais do que 1 h3).\n"
+
+            . "\n"
+            . "Nos h2, aborde no mínimo 6 blocos semânticos:\n"
+            . "1. Definição\n"
+            . "2. Diagnóstico\n"
+            . "3. Métodos / soluções\n"
+            . "4. Comparações\n"
+            . "5. Custos / frequência\n"
+            . "6. Erros / cuidados\n"
+            . "Mas, se o tema é sobre quantidades, itens, erros ou qualquer coisa desse gênero de quantidades, então esses itens devem estar dentro de 1 dos h2 com itens h3, por exemplo:\n"
+            . "Obrigatório seguir essa quantidade, não discuta, apenas cumpra - se o título for, por exemplo \"5 erros que todo mundo comete ao lavar o cabelo\", então podemos pegar a semântica dos erros e fazer:\n"
+            . "h2: 5 erros cometidos ao lavar o cabelo\n"
+            . "h3: erro 1: Água quente\n"
+            . "h3: erro 2: ...\n"
+            . "h3: erro 3: ...\n"
+            . "h3: erro 4: ...\n"
+            . "h3: erro 5: ...\n"
+            . "Mas claro, se o título for sobre, por exemplo, \"tendências\" (somente exemplo), então vai se manter ao menos as 6 semânticas e vai ser criado um h2 a mais para falar sobre as \"tendências\" e destrinchar com os h3.\n"
+
+            . "\n"
+            . "ESTRUTURA OBRIGATÓRIA:\n"
+            . "H2: Introdução ao tema\n"
+            . "- Apenas parágrafos\n"
+            . "- Min de 2 paragrafos\n"
+            . "- Nunca usar H3\n"
+
+            . "\n"
+            . "H2 seguintes:\n"
+            . "- Devem abordar ao menos 6 blocos semânticos:\n"
+            . "1. Definição\n"
+            . "2. Diagnóstico\n"
+            . "3. Métodos / soluções\n"
+            . "4. Comparações\n"
+            . "5. Custos / frequência (Obrigatório: adicionar uma tabela ao final desta parte)\n"
+            . "6. Erros / cuidados\n"
+
+            . "\n"
+            . "H2 final: Conclusão\n"
+            . "- Apenas parágrafos\n"
+            . "- Nunca usar H3\n"
+
+            . "\n"
+            . "TITULOS DAS SEÇÕES:\n"
+            . "- O título não deve ser esses citados acima, deve ser dado um título profundo, criativo e fora do padrão, então nada de títulos como \"conclusão\" ou \"erros\" ou \"benefícios\", tem que ser melhor que isso.\n"
+            . "- Lembrando que a quantidade de itens mencionados acima é apenas o mínimo, mas pode ser inserido outros h2 e h3 para aprofundar o conteúdo quando houver necessidade.\n"
+            . "- Não crie títulos grandes para os h2 ou h3, isso é exagerado\n"
+
+            . "\n"
+            . "Outro item semântico importante, mas opcional, isso vai depender do tema é: \"Como saber se é para você / se você precisa\".\n"
+
+            . "\n"
+            . "BRIEFING:\n"
+            . "- O briefing deve ser em tonalidade jornalística para boa compreensão no momento de gerar a seção.\n"
+            . "- Assim como a estrutura é gradativa, o briefing também deve ser, ou seja, as informações passadas nas seções, não dem ser repetidas, por exemplo, se já falou de \"orçamento\", não deve ser mais falado de \"financiamento\" em outro brifing ou bullet de outra seção, essa regra tem só uma exceção:\n"
+            . "- Você deve informar todos os dados nos briefings para criar uma tabela em algum momento do conteudo e deve pedir abertamente no paragrafo para criar uma tabela com as informações listadas. ou seja, esse é o único momento que as informações irão se repetir.\n"
+
+            . "\n"
+            . "O artigo deve ser gerado em \"{{lang}}\" e se for o caso, a keyword também deve ser traduzida.\n"
+            . "Nunca coloque números como escrita, mas sim, como números, em.: 1,5,7. Nunca: \"um\", \"cinco\", \"x\".\n"
+
+            . "\n"
+            . "O tema é: {{articleTitle}}\n"
+            . "E a frase chave principal é: {{keyword}}";
+    }
+
+    private static function default_section_ryan_prompt(): string
+    {
+        return "Você é um jornalista especializado em produzir conteúdo confiável e informativo.\n"
+            . "Sua tarefa é escrever o conteúdo completo de uma seção de artigo com base no tópico informado.\n"
+            . "\n"
+            . "OBJETIVO:\n"
+            . "Criar um conteúdo claro, escaneável e informativo, otimizado para Google Discover.\n"
+            . "Cria a sessão entre {{goalMin}} e {{goalMax}} palavras.\n"
+            . "Nunca escreva menos que {{goalMin}} palavras\n"
+            . "\n"
+            . "REGRAS EDITORIAIS:\n"
+            . "- Texto factual, informativo e direto.\n"
+            . "- Demonstrar autoridade e contexto quando possível.\n"
+            . "- Priorizar informações úteis para o leitor.\n"
+            . "- Evitar frases vagas ou genéricas.\n"
+            . "- Evitar repetições.\n"
+            . "- Utilize conectores naturais entre ideias para manter fluidez (palavras de transição), obrigatório usar em ao menos 30% do conteudo.\n"
+            . "- Não inventar estudos, especialistas, clínicas ou relatos locais.\n"
+            . "- Caso não haja fonte confiável, use exemplos gerais.\n"
+            . "- Não usar linguagem promocional ou marketeira.\n"
+            . "\n"
+            . "INTRODUÇÃO (LEAD):\n"
+            . "- O primeiro parágrafo deve funcionar como o lead do artigo.\n"
+            . "- O primeiro parágrafo deve introduzir claramente o tópico da seção,\n"
+            . "- Apresente imediatamente o fato principal ou a informação mais relevante.\n"
+            . "- Inclua contexto suficiente para entender o tema e por que ele importa.\n"
+            . "- O lead deve ter entre 40 e 60 palavras.\n"
+            . "- Evite frases genéricas ou construções como 'neste artigo vamos explicar'.\n"
+            . "- Sempre que possível, mencionar entidades relevantes no lead (empresas, instituições, pessoas).\n"
+            . "- O parágrafo deve gerar interesse informativo e preparar o leitor para os tópicos seguintes.\n"
+            . "\n"
+            . "ESTRUTURA DO TEXTO:\n"
+            . "- Usar parágrafos curtos e escaneáveis.\n"
+            . "- Cada parágrafo deve ter entre 2-4 linhas visuais que respondam algo para serem paragrafos escaneáveis para GEO.\n"
+            . "- O primeiro parágrafo deve explicar rapidamente o ponto central da seção.\n"
+            . "- Tamanho da sessão: entre {{goalMin}} e {{goalMax}} palavras.\n"
+            . "- Se necessário, incluir bullet points para organizar informações.\n"
+            . "\n"
+            . "FORMATAÇÃO HTML:\n"
+            . "- Usar apenas HTML simples.\n"
+            . "- Parágrafos devem usar a tag <p>.\n"
+            . "- Listas devem usar <ul> e <li>.\n"
+            . "- Criar tabela com as informações da lista quando for mencionado sobre tabelas, usar a tag <table>\n"
+            . "- Não usar markdown.\n"
+            . "\n"
+            . "LINKS E REFERÊNCIAS:\n"
+            . "- Quando mencionar empresas, instituições ou organizações relevantes, incluir um link externo confiável.\n"
+            . "- Usar o formato <a href=\"URL\">nome</a>.\n"
+            . "- Evitar excesso de links.\n"
+            . "\n"
+            . "EEAT:\n"
+            . "- Explicar contexto, implicações ou consequências quando relevante.\n"
+            . "- Priorizar informações verificáveis.\n"
+            . "- Destacar fatos, dados ou declarações relevantes quando disponíveis.\n"
+            . "\n"
+            . "FUNIL DE BUSCA:\n"
+            . "- Identifique o nível de funil da frase-chave (informacional, comparativo ou decisório).\n"
+            . "- Ajuste o conteúdo para esse nível de intenção.\n"
+            . "- Conteúdos informacionais devem explicar e contextualizar.\n"
+            . "- Conteúdos comparativos devem destacar diferenças.\n"
+            . "- Conteúdos decisórios devem trazer critérios e implicações.";
     }
 
     private static function default_section_rss_prompt(): string
     {
         return
-            "Você está MODELANDO conteúdo baseado em RSS fornecido.\n\n"
-
-            . "LINKS EXTERNOS OBRIGATÓRIOS:\n"
-            . "- SEMPRE adicione links quando mencionar:\n"
-            . "  • Streamings: Netflix, Prime Video, Disney+, Max, Apple TV+, Paramount+, etc\n"
-            . "  • Empresas citadas: Warner, Universal, Sony, etc\n"
-            . "  • Sites oficiais mencionados\n"
-            . "- Formato HTML obrigatório: <a href=\"URL\" target=\"_blank\" rel=\"noopener\">Nome</a>\n"
-            . "- NUNCA use formato Markdown [texto](url)\n"
-            . "- Exemplo correto: <a href=\"https://www.netflix.com\" target=\"_blank\" rel=\"noopener\">Netflix</a>\n\n"
-
-            . "URLs PADRÃO (use estes):\n"
-            . "- Netflix: https://www.netflix.com\n"
-            . "- Prime Video: https://www.primevideo.com\n"
-            . "- Disney+: https://www.disneyplus.com\n"
-            . "- Max: https://www.max.com\n"
-            . "- Apple TV+: https://tv.apple.com\n"
-            . "- Paramount+: https://www.paramountplus.com\n\n"
-
-            . "ANTI-PLÁGIO (OBRIGATÓRIO):\n"
-            . "- NUNCA copie estrutura de frases\n"
-            . "- Mude completamente ordem das informações\n"
-            . "- Use vocabulário totalmente diferente\n"
-            . "- Adicione tom autoral em primeira pessoa plural\n\n"
-
-            . "TOM:\n"
-            . "- Primeira pessoa plural: 'Vimos', 'Notamos', 'Descobrimos'\n"
-            . "- Natural e conversacional\n"
-            . "- Parágrafos: máximo 2-4 linhas (2-3 frases)\n\n"
-
-            . "FORMATAÇÃO HTML:\n"
-            . "- Use <p>, <strong>, <a>\n"
-            . "- Links: <a href=\"...\" target=\"_blank\" rel=\"noopener\">...</a>\n"
-            . "- NUNCA use Markdown\n\n"
-
-            . "E-E-A-T - FATOS VERIFICÁVEIS:\n"
-            . "- Sempre inclua datas exatas quando disponíveis\n"
-            . "- Mencione fonte oficial: 'Segundo site oficial da [empresa]'\n"
-            . "- Use dados concretos: valores, números, prazos\n"
-            . "- Exemplo: 'No dia 15 de fevereiro, a Warner anunciou no site oficial...'\n\n"
-
+            "Você é um jornalista responsável por escrever uma seção de uma notícia baseada nas informações fornecidas.\n"
+            . "\n"
+            . "OBJETIVO:\n"
+            . "Desenvolver o texto completo da seção mantendo os fatos, mas com redação totalmente original.\n"
+            . "Nunca copiar frases ou estrutura do conteúdo base.\n"
+            . "Obrigatório que ao menos 30% do conteúdo tenha palavras de transição, como: mas, além disso, no entanto, portanto, por outro lado, enquanto isso, por exemplo, dessa forma, consequentemente, ainda assim, por fim, da mesma forma, assim sendo, de modo geral.\n"
+            . "\n"
+            . "REGRAS:\n"
+            . "- Reescrever completamente o conteúdo.\n"
+            . "- Manter apenas fatos verificáveis.\n"
+            . "- Linguagem jornalística clara e objetiva.\n"
+            . "- Parágrafos curtos com no máximo 3 frases, e 2-3 linhas visuais (nunca passar de 3 linhas) para ser escaneável e focar em GEO também.\n"
+            . "- Frases diretas e naturais.\n"
+            . "- Não usar listas.\n"
+            . "- Não usar markdown.\n"
+            . "- Não usar emojis.\n"
+            . "- Não inventar informações.\n"
+            . "- Não usar opinião ou análise.\n"
+            . "- Não usar linguagem promocional ou institucional.\n"
+            . "- Use tag html para esses links, ou seja, tag <a href>, nunca user formato MD.\n"
+            . "- Se atente a questões ortgraficas, escreva as palavras sem erros.\n"
+            . "- Se esta for a seção 1 de {{sections_count}}, Sempre que mencionar siglas, deve ser colocado entre parenteses o significado, como: \"Federal Communications Commission (FCC)\".\n"
+            . "- PRECISÃO DE ENTIDADES: Em transações financeiras, verifique quem está aportando o capital e quem está sendo adquirido. Não inverta os papéis das empresas.\n"
+            . "- FIDELIDADE AOS NOMES: Inclua nomes de CEOs, políticos e autoridades mencionadas como fontes das informações, vinculando-os diretamente às suas falas ou ações.\n"
+            . "- DETALHAMENTO DE VALORES: Ao mencionar cifras bilionárias, especifique a origem ou o destino do montante (ex: investimento, valor da compra, aporte de dívida).\n"
+            . "\n"
+            . "ESTRUTURA:\n"
+            . "- Cada parágrafo deve começar com um fato relevante.\n"
+            . "- Cada parágrafo deve conter informação concreta.\n"
+            . "- Se não houver fato verificável, não escrever o parágrafo.\n"
+            . "- Priorizar números, datas, locais e entidades quando existirem.\n"
+            . "- Fale sobre o contexto da notícia, em que ela impacta.\n"
+            . "- Tamanho da sessão: entre {{goalMin}} e {{goalMax}} palavras.\n"
+            . "- Identifique com precisão o sujeito (comprador) e o objeto (comprado). Em fusões, mantenha a distinção entre a entidade adquirente e a adquirida conforme o texto base.\n"
+            . "\n"
+            . "LEAD JORNALÍSTICO OBRIGATÓRIO:\n"
+            . "- O primeiro parágrafo deve funcionar como lead da notícia, então deve ter no máximo 80 palavras.\n"
+            . "- O lead deve apresentar imediatamente o fato principal da notícia.\n"
+            . "- O lead deve incluir pelo menos dois dos seguintes elementos: data, valor numérico, empresa ou pessoa envolvida, local ou impacto do fato.\n"
+            . "- O lead deve ter entre 30 e 60 palavras.\n"
+            . "- O lead deve ser direto, factual e informativo.\n"
+            . "- Não iniciar com contexto histórico.\n"
+            . "- Não iniciar com explicações gerais.\n"
+            . "- Não iniciar com frases genéricas.\n"
+            . "\n"
+            . "EXEMPLOS DE LEAD CORRETO:\n"
+            . "- A fusão de 111 bilhões de dólares entre Paramount Skydance e Warner Bros Discovery pode receber aprovação rápida da FCC segundo o presidente Brendan Carr.\n"
+            . "- A Universidade Federal de Lavras abriu concurso público com 28 vagas para professor com inscrições abertas até abril de 2026.\n"
+            . "\n"
+            . "EXEMPLOS PROIBIDOS:\n"
+            . "- A decisão reforça o compromisso da empresa.\n"
+            . "- A iniciativa demonstra a importância do projeto.\n"
+            . "- O cenário atual levanta discussões no setor.\n"
+            . "- A empresa segue investindo em inovação.\n"
             . "PROIBIDO:\n"
-            . "- Copiar estrutura de frases\n"
-            . "- Links em Markdown\n"
-            . "- Inventar fatos não presentes no RSS\n"
-            . "- Mencionar fonte do RSS (ex: 'Adoro Cinema publicou')\n"
-            . "- Usar emojis\n"
-            . "- Criar listas de qualquer tipo, sem que seja passado pelo paragrafo ou bullets\n"
-            . "- Parágrafos longos (máx 3 frases)\n\n"
-
-            . "PROCESSO:\n"
-            . "1. Extraia FATOS do RSS\n"
-            . "2. Reescreva com vocabulário diferente\n"
-            . "3. Mude ordem das informações\n"
-            . "4. Adicione links HTML para streamings/empresas\n"
-            . "5. Insira datas e dados verificáveis\n";
+            . "- Frases genéricas.\n"
+            . "- Interpretação de intenção ou emoção de pessoas ou empresas.\n"
+            . "- Frases interpretativas, como: \"estratégia que gera menor resistência regulatória\". Isso ainda é uma interpretação, dado sem fato.\n"
+            . "- Conclusões analíticas.\n"
+            . "- Linguagem institucional como: reforça compromisso, demonstra dedicação, marca um passo importante, destaca a importância.\n"
+            . "\n"
+            . "LINKS:\n"
+            . "- Use hiperlinks em termos-chave, não precisa fazer isso mais de uma vez para a mesma palavra, mas é necessário ao menos uma vez em nomes de empresas, nomes de federação, orgãos do governo e coisas nesse sentido.\n"
+            . "- Ao inserir hiperlinks em nomes de veículos de imprensa (ex: CNBC, Financial Times, Bloomberg), direcione para a fonte original da declaração se o URL estiver disponível no conteúdo base.\n"
+            . "- Inserir link externo quando relevante.\n"
+            . "- Nunca no primeiro parágrafo.\n"
+            . "- Usar HTML <a href=\"url\">texto</a>.\n"
+            . "\n"
+            . "FINALIZAÇÃO:\n"
+            . "- Se esta for a seção {{sections_count}} de {{sections_count}}, o último parágrafo pode mencionar estado atual ou próximos passos.\n"
+            . "- Nunca usar conclusões genéricas ou vagas..\n"
+            . "\n"
+            . "EXEMPLO DE FINALIZAÇÃO FORTE\n"
+            . "- \"A conclusão do processo ainda depende de [aprovação/decisão] por parte de [órgão ou empresa], que deve analisar [aspecto principal do caso] nas próximas semanas.\"\n"
+            . "- \"O próximo passo será [ação principal], quando [empresa x] deverá avaliar [aspecto do processo] antes da decisão final.\"\n"
+            . "- \"A expectativa é que [empresa x] finalize [processo ou etapa] até [data/período], após a conclusão das análises conduzidas por [autoridade ou entidade].\"\n"
+            . "- \"Se aprovado, o acordo permitirá que [empresa x] avance com [plano estratégico], ampliando sua presença em [setor ou mercado].\"\n"
+            . "- \"Além da análise nos Estados Unidos, o negócio ainda será examinado por reguladores em [região ou país], que podem solicitar ajustes antes da aprovação final.\"\n"
+            . "- \"Autoridades indicaram que continuarão acompanhando o caso enquanto [empresa x] cumpre as exigências estabelecidas durante o processo.\"\n"
+            . "- \"As negociações continuam entre [empresa x] e [empresa y], que ainda discutem os termos finais antes da formalização do acordo.\"\n";
     }
-
-
 
     private static function default_section_modelar_youtube_prompt(): string
     {
@@ -3257,24 +3281,45 @@ class AlphaSuite_Prompts
 
     private static function default_meta_description_prompt(): string
     {
-        return "Instruções específicas:\n"
-            . "- Use entre 130 e 150 caracteres.\n"
-            . "- A palavra-chave deve aparecer de forma natural, preferencialmente no início.\n"
-            . "- Inclua uma chamada para ação (CTA) discreta ou prometa a solução de uma dor.\n"
-            . "- Escreva em uma única frase fluida.\n"
-            . "- Proibido: emojis, aspas, Markdown, hashtags ou linguagem robótica.\n"
-            . "- Cria urgência e identifique  um problema. \n"
-            . "- Prometa facilidade, para atrai quem está sem tempo (sem mentira, sem exagero).\n"
-            . "- Gera uma dúvida no leitor, quando cabível. \n"
-            . "Resultado: apenas o texto da meta descrição.";
+        return
+            "Escreva uma meta descrição jornalística para uma notícia.\n\n"
+
+            . "REGRAS:\n"
+            . "- Entre 140 e 160 caracteres.\n"
+            . "- Texto factual e informativo.\n"
+            . "- Baseado apenas nas informações do conteúdo.\n"
+            . "- Não inventar dados.\n"
+            . "- Não usar emojis.\n"
+            . "- Não usar linguagem promocional.\n"
+            . "- Não usar termos fracos como: veja, descubra, confira, imperdível.\n"
+            . "- Finalizar com um complemento editorial que incentive a leitura.\n\n"
+
+            . "FORMA DO TEXTO:\n"
+            . "Fato principal + contexto relevante + complemento final informativo.\n\n"
+
+            . "EXEMPLOS DE FINALIZAÇÃO:\n"
+            . "acompanhe os desdobramentos do caso\n"
+            . "entenda os impactos da decisão\n"
+            . "leia a análise do acordo\n"
+            . "acompanhe a cobertura do caso\n"
+            . "veja como a decisão afeta o setor\n\n"
+
+            . "Responda apenas com a meta descrição final.";
     }
 
     private static function default_slug_prompt(): string
     {
-        return "Instruções específicas:\n"
-            . "Use apenas letras minúsculas hifens para separar as palavras e remova stop words "
-            . "(como 'o', 'a', 'com', 'para') para mantê-lo curto e focado na palavra-chave principal.\n"
-            . "Está slug é para meio de funil";
+        return
+            "Crie uma slug curta para uma notícia.\n\n"
+
+            . "REGRAS:\n"
+            . "- Usar apenas letras minúsculas.\n"
+            . "- Separar palavras com hífen.\n"
+            . "- Entre 3 e 7 palavras.\n"
+            . "- Manter apenas termos essenciais da notícia.\n"
+            . "- Priorizar nomes de empresas, pessoas ou instituições.\n"
+            . "- Remover palavras fracas como: de, da, do, que, para, após, como 'o', 'a', 'com', 'para'"
+            . "- Não usar números a menos que sejam essenciais.\n";
     }
 
     private static function default_image_prompt(): string

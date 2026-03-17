@@ -207,7 +207,53 @@ class AlphaSuite_Gemini
                 $parsed = $inner;
             }
         }
-        
+
         return $parsed;
+    }
+
+    public static function embeddings(array $texts, array $args = [])
+    {
+        $c = self::cfg();
+
+        if (empty($c['key'])) {
+            return new WP_Error('no_key', 'Chave Gemini não configurada.');
+        }
+
+        $model = $args['model'] ?? 'models/embedding-001';
+        $embeddings = [];
+
+        foreach ($texts as $text) {
+
+            $res = wp_remote_post(
+                "https://generativelanguage.googleapis.com/v1beta/{$model}:embedContent?key={$c['key']}",
+                [
+                    'headers' => [
+                        'Content-Type' => 'application/json',
+                    ],
+                    'body' => wp_json_encode([
+                        'content' => [
+                            'parts' => [
+                                ['text' => $text]
+                            ]
+                        ]
+                    ]),
+                    'timeout' => $c['timeout'] ?? 30
+                ]
+            );
+
+            if (is_wp_error($res)) {
+                return $res;
+            }
+
+            $body = json_decode(wp_remote_retrieve_body($res), true);
+
+            if (empty($body['embedding']['values'])) {
+                return new WP_Error('embedding_error', 'Embedding Gemini inválido');
+            }
+
+            $embeddings[] = $body['embedding']['values'];
+        }
+
+        return $embeddings;
     }
 }

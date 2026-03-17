@@ -127,4 +127,45 @@ Não use aspas tipográficas."
 
         return $parsed;
     }
+    
+    public static function embeddings(array $texts, array $args = [])
+    {
+        $embeddings = [];
+
+        foreach ($texts as $text) {
+            $embeddings[] = self::local_embedding($text);
+        }
+
+        return $embeddings;
+    }
+
+    private static function local_embedding(string $text): array
+    {
+        $text = mb_strtolower($text);
+        $words = preg_split('/\W+/u', $text, -1, PREG_SPLIT_NO_EMPTY);
+
+        $size = 384; // tamanho fixo do vetor
+        $vector = array_fill(0, $size, 0.0);
+
+        foreach ($words as $word) {
+            $hash = abs(crc32($word));
+            $index = $hash % $size;
+            $vector[$index] += 1;
+        }
+
+        // normaliza (importante para cosine funcionar melhor)
+        $norm = 0.0;
+        foreach ($vector as $v) {
+            $norm += $v * $v;
+        }
+
+        $norm = sqrt($norm);
+        if ($norm > 0) {
+            foreach ($vector as $i => $v) {
+                $vector[$i] = $v / $norm;
+            }
+        }
+
+        return $vector;
+    }
 }

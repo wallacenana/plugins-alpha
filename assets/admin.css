@@ -80,6 +80,8 @@
   display: block;
   font-weight: 600;
   margin-bottom: 6px;
+  align-items: center;
+  gap: 8px;
 }
 
 .pga-sidebar .pga-card {
@@ -324,6 +326,29 @@
   display: none;
 }
 
+.pga-circle-status {
+  width: 7px;
+  height: 7px;
+  background: var(--pga-accent);
+  float: left;
+  position: absolute;
+  border-radius: 50px;
+  background: var(--pga-muted);
+  transition: background 0.2s ease;
+}
+
+.pga-collapse-toggle.is-active .pga-circle-status {
+  background: var(--pga-accent);
+}
+
+.pga-collapse-toggle.is-paused .pga-circle-status {
+  background: var(--pga-muted);
+}
+
+.pga-gen-title {
+  margin-left: 20px;
+}
+
 .button.pga-collapse-toggle:focus {
   background: var(--pga-soft);
   border-color: transparent;
@@ -334,13 +359,11 @@
 }
 
 .button.pga-collapse-toggle:hover {
-  background-color: #2563eb;
-  color: #ffffff;
+  background-color: var(--pga-contrast);
   transition: all 0.2s !important;
 }
 
 .button.pga-collapse-toggle:hover label {
-  color: #ffffff;
   transition: all 0.2s !important;
 }
 
@@ -359,9 +382,6 @@
   border: none;
 }
 
-.button.pga-collapse-toggle:hover .pga-copy-box svg {
-  fill: #ffffff;
-}
 
 .pga-switch {
   display: inline-flex;
@@ -670,7 +690,7 @@ div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm):ho
 .pga-field input[type="color"],
 .pga-field input[type="file"],
 .pga-field select,
-.pga-field textarea,
+.pga-field textarea:not(.select2-search__field),
 .swal2-input,
 .pga-input {
   width: 100% !important;
@@ -2561,4 +2581,148 @@ details.pga-tpl summary {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.pga-w-100 {
+  width: 100%;
+  flex: 1 1 100% !important
+}
+
+.pga-field h2 {
+  margin-top: 0;
+  width: 100%;
+  font-size: 15px;
+}
+
+.pga-card-row {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 15px;
+  border-radius: 8px;
+  padding: 15px;
+}
+
+
+.pga-bg-light {
+  background: var(--pga-bg);
+
+}
+
+.pga_length_group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pga_length_group input {
+  display: none;
+}
+
+.pga_length_group label {
+  flex: 1;
+  text-align: center;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--pga-border);
+  background: var(--pga-branco);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+/* selecionado */
+.pga_length_group input:checked+label,
+.pga_length_group label:hover {
+  border-color: var(--pga-accent);
+  background: var(--pga-bg);
+}
+
+
+.pga-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.pga-grid .pga-field:nth-child(1) {
+  grid-column: 1 / 5;
+}
+
+.pga-grid .pga-field:nth-child(2) {
+  grid-column: 5 / 7;
+}
+
+.pga-grid .pga-field:nth-child(3) {
+  grid-column: 7 / 9;
+}
+
+.pga-grid .pga-field:nth-child(4) {
+  grid-column: 1 / 3;
+}
+
+.pga-grid .pga-field:nth-child(5) {
+  grid-column: 3 / 5;
+}
+
+.pga-grid .pga-field:nth-child(6) {
+  grid-column: 5 / 7;
+}
+
+.pga-grid .pga-field:nth-child(7) {
+  grid-column: 7 / 9;
+}
+
+.pga-grid .pga-field:nth-child(8) {
+  grid-column: 1 / 3;
+}
+.pga-grid .pga-field:nth-child(9) {
+  grid-column: 3 / 5;
+}
+.pga-grid .pga-field:nth-child(10) {
+  grid-column: 5 / 7;
+}
+.pga-grid .pga-field:nth-child(11) {
+  grid-column: 7 / 9;
+}
+.pga-grid .pga-field:nth-child(12) {
+  grid-column: 1 / 5;
+}
+
+.pga-grid2 {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.pga-grid2 .pga-field:nth-child(1) {
+  grid-column: 1 / 3;
+}
+
+.pga-grid2 .pga-field:nth-child(2) {
+  grid-column: 3 / 5;
+}
+
+.pga-grid2 .pga-field:nth-child(3) {
+  grid-column: 5 / 9;
+}
+
+.pga-card-row.pga-field .pga-field label {
+  text-align: center;
+  justify-content: center;
+}
+
+.pga-generator-footer button.pga_test_box {
+  border: 1px solid var(--pga-accent) !important;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+  background-color: #dbe5ff !important;
+  border: 1px solid var(--pga-accent) !important;
+  color: var(--pga-accent) !important;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+  color: var(--pga-accent) !important;
 }

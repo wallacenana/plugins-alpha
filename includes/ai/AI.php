@@ -124,6 +124,25 @@ class AlphaSuite_AI
         return $class::complete($prompt, $schema, $args);
     }
 
+    public static function translate(string $text, string $targetLang)
+    {
+        $prompt = "Traduza o conteúdo que será enviado, para o idioma {$targetLang}.\n"
+            . "\n"
+            . "Regras obrigatórias:\n"
+            . "- Retorne apenas o texto traduzido.\n"
+            . "- Não adicione comentários.\n"
+            . "- Não explique nada.\n"
+            . "- Não use markdown.\n"
+            . "- Preserve exatamente todas as tags HTML existentes.\n"
+            . "- Não altere atributos HTML.\n"
+            . "- Não adicione nem remova elementos.\n"
+            . "\n"
+            . "Conteúdo para ser traduzido:\n"
+            . $text;
+
+        return self::complete($prompt);
+    }
+
     public static function embeddings(array $texts, array $args = [])
     {
         $format = (string)($args['format'] ?? '');
@@ -399,7 +418,7 @@ class AlphaSuite_AI
 
         // 🔹 opções de geração (único lugar!)
         $opts = [
-            'temperature' => $args['temperature'] ?? 0.4,
+            'temperature' => $args['temperature'] ?? 0.5,
             'max_tokens'  => $args['max_tokens'] ?? 6000,
             'template'    => 'story_pages',
         ];

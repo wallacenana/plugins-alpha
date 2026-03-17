@@ -40,6 +40,12 @@ class AlphaSuite_Orion_Templates
                 'builtin'    => 1,
                 'is_default' => 1,
             ],
+            'ryan' => [
+                'label'      => __('Ryan Nascimento', 'alpha-suite'),
+                'enabled'    => 1,
+                'builtin'    => 1,
+                'is_default' => 1,
+            ],
         ];
     }
 
@@ -84,6 +90,8 @@ class AlphaSuite_Orion_Templates
         $all['modelar_youtube']['builtin'] = 1;
         $all['rss']['builtin'] = 1;
         $all['rss']['enabled'] = 1;
+        $all['ryan']['builtin'] = 1;
+        $all['ryan']['enabled'] = 1;
 
         // ✅ regra: se for default, enabled = 1
         foreach ($all as $slug => $row) {
@@ -116,6 +124,12 @@ class AlphaSuite_Orion_Templates
                 'enabled'    => 1,
                 'is_default' => 1,
             ],
+            'ryan' => [
+                'label'      => __('Ryan', 'alpha-suite'),
+                'builtin'    => 1,
+                'enabled'    => 1,
+                'is_default' => 1,
+            ],
         ];
     }
 
@@ -125,7 +139,6 @@ class AlphaSuite_Orion_Templates
 
         // ✅ remove global sempre
         unset($all['global']);
-        unset($all['rss']);
 
         // filtra enabled...
         $out = [];
@@ -136,6 +149,8 @@ class AlphaSuite_Orion_Templates
         // garante core
         if (empty($out['article'])) $out['article'] = ['label' => __('Artigo (padrão)', 'alpha-suite'), 'enabled' => 1, 'builtin' => 1];
         if (empty($out['modelar_youtube'])) $out['modelar_youtube'] = ['label' => __('Modelar YouTube', 'alpha-suite'), 'enabled' => 1, 'builtin' => 1];
+        if (empty($out['rss'])) $out['rss'] = ['label' => __('Modelar RSS', 'alpha-suite'), 'enabled' => 1, 'builtin' => 1];
+        if (empty($out['ryan'])) $out['ryan'] = ['label' => __('Ryan', 'alpha-suite'), 'enabled' => 1, 'builtin' => 1];
 
         return $out;
     }

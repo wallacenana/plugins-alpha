@@ -742,12 +742,52 @@ class AlphaSuite_REST
         $qty     = min(5, max(1, (int) $req['qty']));
         $keyword = sanitize_text_field($req['keyword'] ?? '');
         $locale  = sanitize_text_field($req['locale'] ?? 'pt_BR');
+        $content = get_post_field('post_content', $post_id);
 
-        // gera FAQ via IA
+        if (!$content) {
+
+            $sections_json = get_post_meta($post_id, '_pga_outline_sections', true);
+            $sections = json_decode($sections_json, true);
+
+            if (is_array($sections)) {
+
+                $parts = [];
+
+                foreach ($sections as $sec) {
+
+                    if (!empty($sec['heading'])) {
+                        $parts[] = $sec['heading'];
+                    }
+
+                    if (!empty($sec['paragraph'])) {
+                        $parts[] = $sec['paragraph'];
+                    }
+
+                    if (!empty($sec['children']) && is_array($sec['children'])) {
+
+                        foreach ($sec['children'] as $child) {
+
+                            if (!empty($child['heading'])) {
+                                $parts[] = $child['heading'];
+                            }
+
+                            if (!empty($child['paragraph'])) {
+                                $parts[] = $child['paragraph'];
+                            }
+                        }
+                    }
+                }
+
+                $content = implode("\n", $parts);
+            }
+        }
+        $content = wp_trim_words($content, 600);
+
         $faq = AlphaSuite_AI::faq([
             'keyword' => $keyword,
             'qty'     => $qty,
             'locale'  => $locale,
+            'context' => $content
         ]);
 
         if (is_wp_error($faq)) {

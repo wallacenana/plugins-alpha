@@ -53,22 +53,16 @@
         return data;
     }
 
-    async function fetchJSON(url, options = {}) {
-        const res = await fetch(url, options);
-        const data = await res.json();
-
-        if (!res.ok) {
-            const msg = data?.message || `HTTP ${res.status}`;
-            throw new Error(msg);
-        }
-
-        return data;
-    }
-
     function openStatusModal() {
         Swal.fire({
             title: 'Gerando conteúdo...',
-            html: '<div id="pga-status" style="text-align:left"></div>',
+            html: `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                <div class="swal2-loader"></div>
+                <span>Processando...</span>
+            </div>
+            <div id="pga-status" style="text-align:left"></div>
+        `,
             allowOutsideClick: false,
             showConfirmButton: false
         });
@@ -86,14 +80,40 @@
         const box = $(this).closest('.pga-gen-box');
 
         const feedUrl = box.find('.pga_keywords').val()?.trim();
-        const keyword = box.find('.rssKeyword').val()?.trim();
+        const blocked_words = box.find('.pga_block_words').val() || [];
 
         if (!feedUrl) {
             Swal.fire('Erro', 'Informe uma URL válida.', 'error');
             return;
         }
 
+        // 🔥 ABRE IMEDIATAMENTE
+        openStatusModal();
+        updateStatus('Validando ambiente...');
+
         try {
+            const enable_multilang = box.find('.pga_enable_multilang').is(':checked') ? 1 : 0;
+
+            if (enable_multilang) {
+                const selftest = await fetchJSON(`${REST}/rss/selftest`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-WP-Nonce': NONCE
+                    },
+                    body: JSON.stringify({
+                        multilang_enabled: '',
+                        languages: ''
+                    })
+                });
+
+                if (!selftest.ok) {
+                    Swal.fire(selftest.errors.join('\n'));
+                    return;
+                }
+
+                updateStatus('Buscando itens do RSS...');
+            }
 
             const data = await fetchJSON(`${REST}/rss/get`, {
                 method: 'POST',
@@ -103,8 +123,8 @@
                 },
                 body: JSON.stringify({
                     feedUrl: feedUrl,
-                    limit: keyword ? 50 : 10,
-                    keyword: keyword
+                    limit: 15,
+                    blocked_words: blocked_words
                 })
             });
 
@@ -139,7 +159,6 @@
 
             // 🚀 START
             updateStatus('Criando post base...');
-            const box = $(this).closest('.pga-gen-box');
 
             const payload = {
                 // dados do item RSS selecionado
@@ -153,6 +172,7 @@
                 length: box.find('.pga_length').val() || 'short',
                 locale: box.find('.pga_locale').val() || 'pt_BR',
                 category_id: parseInt(box.find('.pga_category').val() || 0),
+                author: parseInt(box.find('.pga_author').val() || 1),
 
                 tags: box.find('.pga_tags').val() || [],
 
@@ -162,11 +182,12 @@
                 link_mode: box.find('.pga_link_mode').val() || 'none',
                 link_max: parseInt(box.find('.pga_link_max').val() || 1),
                 link_manual_ids: box.find('.pga_link_manual').val() || [],
-
+                template_key: box.find('.pga_template_key').val() || 'rss',
                 per_day: parseInt(box.find('.pga_per_day').val() || 3),
                 quota_day: parseInt(box.find('.pga_quota_day').val() || 1),
+                enable_multilang: box.find('.pga_enable_multilang').is(':checked') ? 1 : 0,
+                pga_languages: box.find('.pga_languages').val() || [],
             };
-
             const start = await fetchJSON(`${REST}/rss/start`, {
                 method: 'POST',
                 headers: {
@@ -224,14 +245,6 @@
                 body: JSON.stringify({ post_id: postId })
             });
 
-            // 📝 META
-            updateStatus('Gerando meta...');
-            await fetchJSON(`${REST}/rss/meta`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-                body: JSON.stringify({ post_id: postId })
-            });
-
             if (box.find('.pga_make_faq').is(':checked')) {
                 updateStatus('Gerando faq...');
                 await fetchJSON(`${REST}/rss/faq`, {
@@ -253,7 +266,7 @@
             });
 
             // 🧩 FINALIZE
-            updateStatus('Finalizando conteúdo...');
+            updateStatus('Preparando conteúdo...');
 
             const result = await fetchJSON(`${REST}/rss/finalize`, {
                 method: 'POST',
@@ -264,6 +277,37 @@
                 body: JSON.stringify({ post_id: postId })
             });
 
+            // 📝 META
+            updateStatus('Gerando meta...');
+            await fetchJSON(`${REST}/rss/meta`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+                body: JSON.stringify({ post_id: postId })
+            });
+
+            // 🧾 SUBTÍTULO / EXCERPT
+            updateStatus('Gerando subtítulo...');
+            await fetchJSON(`${REST}/rss/excerpt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+                body: JSON.stringify({ post_id: postId })
+            });
+
+            // 🖼 traduções
+            if (enable_multilang) {
+                updateStatus('Traduzindo conteúdo...');
+
+                await fetchJSON(`${REST}/rss/translations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-WP-Nonce': NONCE
+                    },
+                    body: JSON.stringify({
+                        post_id: postId
+                    })
+                });
+            }
 
             const postTitle = result?.title || 'Ver post';
             const postUrl = result?.url || '#';

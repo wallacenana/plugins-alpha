@@ -130,4 +130,97 @@ Não use aspas tipográficas."
 
         return $parsed;
     }
+
+    public static function embeddings(array $texts, array $args = [])
+    {
+        $c = self::cfg();
+
+        // se não tiver chave, usa local
+        if (empty($c['perplexity_key'])) {
+            $embeddings = [];
+
+            foreach ($texts as $text) {
+                $embeddings[] = self::local_embedding($text);
+            }
+
+            return $embeddings;
+        }
+
+        $res = wp_remote_post(
+            'https://api.perplexity.ai/embeddings',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $c['perplexity_key'],
+                    'Content-Type'  => 'application/json',
+                ],
+                'body' => wp_json_encode([
+                    'model' => $args['model'] ?? 'sonar-small-embedding',
+                    'input' => $texts
+                ]),
+                'timeout' => $c['timeout'] ?? 30
+            ]
+        );
+
+        // se falhar API → fallback local
+        if (is_wp_error($res)) {
+            $embeddings = [];
+
+            foreach ($texts as $text) {
+                $embeddings[] = self::local_embedding($text);
+            }
+
+            return $embeddings;
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($res), true);
+
+        if (empty($body['data'])) {
+
+            $embeddings = [];
+
+            foreach ($texts as $text) {
+                $embeddings[] = self::local_embedding($text);
+            }
+
+            return $embeddings;
+        }
+
+        $embeddings = [];
+
+        foreach ($body['data'] as $row) {
+            $embeddings[] = $row['embedding'];
+        }
+
+        return $embeddings;
+    }
+    
+    private static function local_embedding(string $text): array
+    {
+        $text = mb_strtolower($text);
+        $words = preg_split('/\W+/u', $text, -1, PREG_SPLIT_NO_EMPTY);
+
+        $size = 384; // tamanho fixo do vetor
+        $vector = array_fill(0, $size, 0.0);
+
+        foreach ($words as $word) {
+            $hash = abs(crc32($word));
+            $index = $hash % $size;
+            $vector[$index] += 1;
+        }
+
+        // normaliza (importante para cosine funcionar melhor)
+        $norm = 0.0;
+        foreach ($vector as $v) {
+            $norm += $v * $v;
+        }
+
+        $norm = sqrt($norm);
+        if ($norm > 0) {
+            foreach ($vector as $i => $v) {
+                $vector[$i] = $v / $norm;
+            }
+        }
+
+        return $vector;
+    }
 }

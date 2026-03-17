@@ -129,4 +129,43 @@ Não use aspas tipográficas."
 
         return $parsed;
     }
+
+    public static function embeddings(array $texts, array $args = [])
+    {
+        $c = self::cfg();
+
+        if (empty($c['key'])) {
+            return new WP_Error('no_key', 'Chave Cohere não configurada.');
+        }
+
+        $model = $args['model'] ?? 'embed-english-v3.0';
+
+        $res = wp_remote_post(
+            'https://api.cohere.ai/v1/embed',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $c['key'],
+                    'Content-Type'  => 'application/json',
+                ],
+                'body' => wp_json_encode([
+                    'model' => $model,
+                    'texts' => array_values($texts), // batch real
+                    'input_type' => 'search_document'
+                ]),
+                'timeout' => $c['timeout'] ?? 30
+            ]
+        );
+
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($res), true);
+
+        if (empty($body['embeddings'])) {
+            return new WP_Error('embedding_error', 'Embedding Cohere inválido');
+        }
+
+        return $body['embeddings'];
+    }
 }

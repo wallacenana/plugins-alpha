@@ -5,8 +5,10 @@ class AlphaSuite_Plugin
 {
   public static function init(): void
   {
+
+    add_action('wp_enqueue_scripts', [__CLASS__, 'assets_wp']);
+
     if (class_exists('AlphaSuite_CPT_Posts_Orion')) AlphaSuite_CPT_Posts_Orion::init();
-    if (class_exists('AlphaSuite_PermalinkSettings')) AlphaSuite_PermalinkSettings::init();
     if (class_exists('AlphaSuite_Settings')) AlphaSuite_Settings::init();
     if (class_exists('AlphaSuite_Adminbar')) AlphaSuite_Adminbar::init();
     if (class_exists('AlphaSuite_Orion_Migrator')) AlphaSuite_Orion_Migrator::init();
@@ -16,6 +18,28 @@ class AlphaSuite_Plugin
     // Menus e assets
     add_action('admin_menu', ['AlphaSuite_AdminMenus', 'register']);
     add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
+
+    if (class_exists('AlphaSuite_PermalinkSettings')) AlphaSuite_PermalinkSettings::init();
+  }
+
+  public static function assets_wp()
+  {
+    if (!is_singular() && !is_archive() && !is_home()) {
+      return;
+    }
+
+    wp_enqueue_script(
+      'alpha-suite-tracker',
+      PGA_URL . 'assets/alpha-suite-tracker.js',
+      [],
+      alpha_suite_asset_ver('assets/alpha-suite-tracker.js'),
+      true
+    );
+
+    wp_localize_script('alpha-suite-tracker', 'PI_TRACKER', [
+      'post_id' => get_queried_object_id() ?: 0,
+      'endpoint' => rest_url('pga/v1'),
+    ]);
   }
 
   public static function assets($hook): void

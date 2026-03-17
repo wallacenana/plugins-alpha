@@ -177,7 +177,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       $box.find('.pga_per_day').val('3');
       $box.find('.pga_template_key').val('article');
       $box.find('.pga_locale').val('pt_BR');
-      $box.find('.pga_length').val('short');
+      $box.find('.pga_length').val('medium');
       $box.find('.pga_category').val('0');
 
       pgaUpdateBoxTitle($box);
@@ -297,8 +297,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       total: parseInt($box.find('.pga_total').val() || '0', 10) || 0,
       per_day: parseInt($box.find('.pga_per_day').val() || '0', 10) || 0,
       first_delay: $box.find('.pga_first_delay_hours').val() || '',
-      length: $box.find('.pga_length').val() || 'short',
+      length: $box.find('.pga_length').val() || 'medium',
       link_max: parseInt($box.find('.pga_link_max').val() || '2', 10) || 2,
+      make_faq: $box.find('.pga_make_faq').is(':checked') ? 1 : 0,
+
 
       // 🔹 novo: salvar config de links internos por grupo
       internal_links: {
@@ -317,12 +319,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $box.find('.pga_locale').val(cfg.locale || 'pt_BR');
     $box.find('.pga_template_key').val(cfg.template_key || 'article');
     $box.find('.pga_category').val(cfg.category || '0');
+    $box.find('.pga_make_faq').prop('checked', !!cfg.make_faq);
     $box.find('.pga_total').val(cfg.total || 0);
     $box.find('.pga_per_day').val(cfg.per_day || 0);
     if (cfg.first_delay) {
       $box.find('.pga_first_delay_hours').val(cfg.first_delay);
     }
-    $box.find('.pga_length').val(cfg.length || 'short');
+    $box.find('.pga_length').val(cfg.length || 'medium');
 
     // 🔹 links internos por grupo
     const il = cfg.internal_links || {};
@@ -336,6 +339,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // seta modo/max
     $box.find('.pga_link_mode').val(mode);
     $box.find('.pga_link_max').val(max ? String(max) : '');
+
+    $box.find('.pga_make_faq')
+      .prop('checked', !!cfg.make_faq)
+      .trigger('change');
 
     // mostra/esconde extras
     const showExtras = mode !== 'none';
@@ -426,7 +433,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // defaults
     $clone.find('.pga_template_key').val('article');
     $clone.find('.pga_locale').val('pt_BR');
-    $clone.find('.pga_length').val('short');
+    $clone.find('.pga_length').val('medium');
     $clone.find('.pga_category').val('0');
 
     // links internos
@@ -540,7 +547,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   }
 
   function pgaSyncLinkOptionsForBox($box) {
-    const len = $box.find('.pga_length').val() || 'short';
+    const len = $box.find('.pga_length').val() || 'medium';
     const maxAllowed = pgaMaxLinksForLength(len);
 
     const $sel = $box.find('.pga_link_max');
@@ -1676,7 +1683,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       $box.find('.pga_per_day').val('3');
       $box.find('.pga_template_key').val('article');
       $box.find('.pga_locale').val('pt_BR');
-      $box.find('.pga_length').val('short');
+      $box.find('.pga_length').val('medium');
       $box.find('.pga_category').val('0');
 
       pgaUpdateBoxTitle($box);
@@ -1789,7 +1796,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       total: 6,
       per_day: 3,
       first_delay: '',
-      length: 'short',
+      length: 'medium',
       link_max: 2,
       internal_links: { mode: 'none', max: 0, manual_ids: '' }
     }));
@@ -1963,10 +1970,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
       $el.select2({
         width: '100%',
-        dropdownParent: $box,     // <- impede “pular” pro primeiro gerador
-        tags: isTags,             // <- permite criar tags digitando
-        tokenSeparators: [','],   // <- opcional: vírgula cria nova
-        // NÃO limita quantidade
+        dropdownParent: $box,
+        tags: isTags,
+        tokenSeparators: [','],
+        placeholder: 'Digite algo',
       });
     });
   }
@@ -1978,12 +1985,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $box.find('.pga_faq_count_wrap').toggle(on);
   });
 
-  // init quando a tela carrega (para o primeiro box existente)
-  $(function () {
-    $('#pga_gen_container .pga-gen-box').each(function () {
-      pgaInitSelect2InBox($(this));
-    });
-  });
 
   $('#pga_save_keywords')
     .off('click.pgaSave')
@@ -2289,7 +2290,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     }
 
     onStatus('Gerando esboço…');
-
     const outline = await fetchJSON(`${REST}/orion/outline`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
@@ -2331,12 +2331,12 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
           post_id: postId,
           keyword: job.keyword,
           locale: job.locale,
-          qty: Math.min(5, job.faq.qty || 3)
+          qty: Math.min(7, job.faq.qty || 5)
         })
       });
     }
 
-    onStatus('Finalizando conteúdo…');
+    onStatus('Juntando conteúdo…');
 
     await fetchJSON(`${REST}/orion/finalize`, {
       method: 'POST',
@@ -2488,5 +2488,13 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     );
 
     await executarFila(jobs);
+  });
+
+
+  // init quando a tela carrega (para o primeiro box existente)
+  $(function () {
+    $('#pga_gen_container .pga-gen-box').each(function () {
+      pgaInitSelect2InBox($(this));
+    });
   });
 })(jQuery);

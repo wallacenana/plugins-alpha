@@ -177,9 +177,11 @@ class AlphaSuite_Pages_Generator
                       $tpls_enabled = class_exists('AlphaSuite_Orion_Templates')
                         ? AlphaSuite_Orion_Templates::get_enabled()
                         : [
-                          'article' => ['label' => 'Artigo (padrão)'],
+                          'article' => ['label' => 'Artigo'],
                           'modelar_youtube' => ['label' => 'Modelar vídeo do YouTube'],
                         ];
+
+                      unset($tpls_enabled['rss']);
                       ?>
 
                       <select id="pga_template_key" class="pga_template_key">
@@ -264,7 +266,7 @@ class AlphaSuite_Pages_Generator
                       ]);
                       ?>
                       <select
-                        class="pga_link_manual pga-link-manual-select"
+                        class="pga_link_manual pga-link-manual-select pga-select2"
                         multiple="multiple"
                         size="6">
                         <?php if (!empty($orion_posts)) : ?>
@@ -350,8 +352,8 @@ class AlphaSuite_Pages_Generator
                             type="number"
                             min="1"
                             step="1"
-                            max="5"
-                            value="5">
+                            max="7"
+                            value="7">
                         </div>
                       </div>
                     </div>
@@ -503,7 +505,7 @@ class AlphaSuite_Pages_Generator
 
     // 1) parâmetros básicos (sem if por template) 
     $template = $args['template'] ?? $args['template_key'] ?? 'article';
-    $length = $args['length'] ?? 'short';
+    $length = $args['length'] ?? 'medium';
     $locale = $args['locale'] ?? 'pt_BR';
     $provider = $args['provider'] ?? (class_exists('AlphaSuite_AI') ? AlphaSuite_AI::get_text_provider() : '');
     $jobArgs = ['provider' => $provider, 'template' => $template, 'length' => $length, 'locale' => $locale, 'step' => 'outline'];
@@ -674,84 +676,103 @@ class AlphaSuite_Pages_Generator
     update_post_meta($draft_id, '_pga_outline_url', $url);
     update_post_meta($draft_id, '_pga_chosen_title', $chosenTitle);
 
-    // 8) OUTLINE (prompt resolve via template) 
-    if ($template === 'modelar_youtube') {
-      $yt = AlphaSuite_Youtube::fetch_video_data($url);
-      if (is_wp_error($yt)) return $yt; // ou trate como você trata erros no endpoint
-
-      $outlinePrompt = AlphaSuite_Prompts::build_outline_prompt_modelar_youtube(
-        $url,
-        $yt,
-        $chosenTitle,
-        $length,
-        $locale
-      );
-    } else {
-      $outlinePrompt = AlphaSuite_Prompts::build_outline_prompt($template, $keyword, $chosenTitle, $length, $locale, $url);
-    }
-
-    $outline = AlphaSuite_AI::complete($outlinePrompt);
-
+    $outline = AlphaSuite_Outline::generate(
+      $template,
+      $keyword,
+      $chosenTitle,
+      $length,
+      $locale,
+      $url
+    );
     if (is_wp_error($outline)) {
       return AlphaSuite_FailJob::fail_job($draft_id, $outline);
     }
 
-    $outline = json_decode($outline, true);
+    // pega sections no novo formato compacto
+    $sections = $outline['s'] ?? [];
 
-    // Se vier { "sections": [...] }, pega só o array interno 
-    $sections = $outline['sections'] ?? $outline;
-
-    // força lista numerada
     if (!is_array($sections)) {
       $sections = [];
-    } elseif (array_keys($sections) !== range(0, count($sections) - 1)) {
+    }
+
+    // garante lista indexada
+    if (array_keys($sections) !== range(0, count($sections) - 1)) {
       $sections = array_values($sections);
     }
 
-    // 9) NORMALIZA ids (mantém teu padrão) 
+    // NORMALIZA
     $normalized = [];
     $h2Index = 1;
+
     foreach ($sections as $sec) {
+
       if (!is_array($sec)) {
-        $sec = ['heading' => (string)$sec, 'level' => 'h2',];
+        continue;
       }
-      if (empty($sec['level'])) {
-        $sec['level'] = 'h2';
-      }
-      if (empty($sec['id'])) {
-        $sec['id'] = (string)$h2Index;
-      }
-      if (!isset($sec['children']) || !is_array($sec['children'])) {
-        $sec['children'] = [];
-      }
-      if (!empty($sec['children']) && is_array($sec['children'])) {
-        $childIndex = 1;
-        foreach ($sec['children'] as $ci => $child) {
-          if (!is_array($child)) {
-            $child = [
-              'heading' => (string)$child,
-              'level'   => 'h3',
-            ];
-          }
-          $sec['level'] = strtolower(trim($sec['level'] ?? 'h2'));
-          if (!in_array($sec['level'], ['h2', 'h3'], true)) {
-            $sec['level'] = 'h2';
-          }
 
+      $level = strtolower(trim($sec['l'] ?? 'h2'));
+      if (!in_array($level, ['h2', 'h3'], true)) {
+        $level = 'h2';
+      }
 
-          $child['level'] = 'h3';
-          $child['id'] = $child['id'] ?? ($sec['id'] . '.' . $childIndex);
+      $id = $sec['i'] ?? $h2Index;
 
-          $sec['children'][$ci] = $child;
-          $childIndex++;
+      $children = $sec['c'] ?? [];
+      if (!is_array($children)) {
+        $children = [];
+      }
+
+      $normalizedChildren = [];
+      $childIndex = 1;
+
+      foreach ($children as $child) {
+
+        if (!is_array($child)) {
+          continue;
         }
+
+        $childId = $child['i'] ?? ($id . '.' . $childIndex);
+
+        $normalizedChildren[] = [
+          'id'        => $childId,
+          'level'     => 'h3',
+          'heading'   => $child['t'] ?? '',
+          'paragraph' => $child['p'] ?? '',
+          'bullets'   => $child['lista'] ?? [],
+          'children'  => []
+        ];
+
+        $childIndex++;
       }
-      $normalized[] = $sec;
+
+      $normalized[] = [
+        'id'        => $id,
+        'level'     => $level,
+        'heading'   => $sec['t'] ?? '',
+        'paragraph' => $sec['p'] ?? '',
+        'bullets'   => $sec['lista'] ?? [],
+        'children'  => $normalizedChildren
+      ];
+
       $h2Index++;
     }
-    update_post_meta($draft_id, '_pga_outline_sections', wp_json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+    update_post_meta(
+      $draft_id,
+      '_pga_outline_sections',
+      wp_json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    );
+
     update_post_meta($draft_id, '_pga_job_status', 'outline_done');
-    return ['post_id' => $draft_id, 'title' => $chosenTitle, 'sections' => $normalized, 'length' => $length, 'locale' => $locale, 'post_type' => $post_type,];
+
+    return [
+      'post_id'   => $draft_id,
+      'title'     => $chosenTitle,
+      'sections'  => $normalized,
+      'length'    => $length,
+      'locale'    => $locale,
+      'post_type' => $post_type,
+    ];
   }
 
   /**
@@ -811,7 +832,7 @@ class AlphaSuite_Pages_Generator
     }
 
     $template = get_post_meta($post_id, '_pga_outline_template', true) ?: 'article';
-    $length   = get_post_meta($post_id, '_pga_outline_length',   true) ?: 'short';
+    $length   = get_post_meta($post_id, '_pga_outline_length',   true) ?: 'medium';
     $locale   = get_post_meta($post_id, '_pga_outline_locale',   true) ?: 'pt_BR';
     $keyword  = get_post_meta($post_id, '_pga_outline_keyword',  true) ?: '';
     $title    = get_post_meta($post_id, '_pga_chosen_title',     true) ?: $keyword;
@@ -856,6 +877,7 @@ class AlphaSuite_Pages_Generator
       $locale,
       count($sections),
       $section_id,
+      '',
       $url,
     );
 
@@ -864,7 +886,7 @@ class AlphaSuite_Pages_Generator
       [], // sem schema, é HTML/texto livre
       [
         'max_tokens'  => 2000,
-        'temperature' => 0.6,
+        'temperature' => 0.7,
         'template'    => 'section',
       ]
     );
@@ -924,6 +946,9 @@ class AlphaSuite_Pages_Generator
 
     $content_html = trim(implode("\n\n", $htmlParts));
 
+    // 🔥 Normaliza parágrafos
+    $content_html = wpautop($content_html);
+
     // remove QUALQUER H1 gerado pela IA
     $content_html = preg_replace('#</?h1[^>]*>#i', '', $content_html);
 
@@ -933,6 +958,8 @@ class AlphaSuite_Pages_Generator
 
     // --- 3.1) Remove APENAS o primeiro H2 (introdução)
     $content_html = self::remove_first_h2($content_html);
+
+    $content_html = self::convert_to_blocks($content_html);
 
     // --- 3.2) Aplica links internos, se houver configuração ---
     $internal = [];
@@ -957,74 +984,19 @@ class AlphaSuite_Pages_Generator
 
     // se estiver vazio (ou muito fraco), gera
     // monta prompt padronizado
-    $promptMeta = AlphaSuite_Prompts::build_meta_description_prompt(
-      (string)$template,
-      (string)$keyword,
-      (string)$title,
-      (string)$locale,
-      (string)$content_html
-    );
+    $result = AlphaSuite_Meta_description::generate_meta($post_id, $content_html);
 
-    // chama endpoint dedicado (ou complete, se você não tiver meta_description)
-    $respMeta = AlphaSuite_AI::meta_description($promptMeta);
-
-    $meta_desc = '';
-
-    if (!is_wp_error($respMeta)) {
-
-      $raw = '';
-
-      // --------- EXTRAÇÃO SEGURA ----------
-      if (is_string($respMeta)) {
-        $raw = $respMeta;
-      } elseif (is_array($respMeta)) {
-        $raw = (string)($respMeta['meta_description'] ?? $respMeta['description'] ?? $respMeta['content'] ?? '');
-      } elseif (is_object($respMeta)) {
-        $raw = (string)($respMeta->meta_description ?? $respMeta->description ?? $respMeta->content ?? '');
-      }
-
-      $raw = trim($raw);
-
-      // --------- SE VIER JSON EM TEXTO ----------
-      if ($raw !== '' && ($raw[0] === '{' || $raw[0] === '[')) {
-        $j = json_decode($raw, true);
-        if (is_array($j)) {
-          $raw = (string)(
-            $j['meta_description']
-            ?? $j['description']
-            ?? $j['content']
-            ?? ''
-          );
-        }
-      }
-
-      // --------- REMOVE PREFIXOS ----------
-      $raw = preg_replace('/^\s*(meta\s*description|meta\s*descri[cç][aã]o|description)\s*:\s*/i', '', $raw);
-
-      // --------- PRIMEIRA LINHA ----------
-      $raw = preg_split("/\r\n|\r|\n/", $raw)[0] ?? $raw;
-      $raw = trim($raw);
-
-      // --------- SANITIZAÇÃO ----------
-      if ($raw !== '') {
-        $raw = wp_strip_all_tags($raw);
-        $raw = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
-        $raw = preg_replace('/\s+/', ' ', $raw);
-        $raw = trim($raw);
-      }
-
-      // --------- APLICA ----------
-      if ($raw !== '') {
-        $meta_desc = $raw;
-        update_post_meta($post_id, '_pga_meta_description', $meta_desc);
-      }
+    if (is_wp_error($result)) {
+      return $result;
     }
 
-    // --------- FALLBACK FINAL ----------
-    if ($meta_desc === '') {
-      $meta_desc = '';
-    }
+    $meta_desc = $result['meta'] ?? '';
 
+    $excerpt = AlphaSuite_Excerpt::generate_excerpt($post_id, $content_html);
+
+    if (is_wp_error($excerpt)) {
+      return $excerpt;
+    }
 
     // --- 5) Agenda / criação final do post ---
     $generate_image = array_key_exists('generate_image', $args)
@@ -1137,6 +1109,95 @@ class AlphaSuite_Pages_Generator
       'view_link' => get_permalink($post_id),
       'keyword'   => $keyword,
     ];
+  }
+
+  private static function convert_to_blocks($content)
+  {
+    $protected_tags = [
+      'ul' => 'list',
+      'ol' => 'list',
+      'table' => 'table',
+      'blockquote' => 'quote',
+      'pre' => 'code',
+      'figure' => 'image'
+    ];
+
+    $placeholders = [];
+    $i = 0;
+
+    // 🔒 Protege blocos complexos
+    foreach ($protected_tags as $tag => $block_type) {
+
+      if (preg_match_all('#<' . $tag . '.*?>.*?</' . $tag . '>#si', $content, $matches)) {
+
+        foreach ($matches[0] as $html) {
+
+          $key = "__BLOCK_" . $i . "__";
+
+          $placeholders[$key] = [
+            'html' => $html,
+            'type' => $block_type
+          ];
+
+          $content = str_replace($html, $key, $content);
+
+          $i++;
+        }
+      }
+    }
+
+    $lines = preg_split('/\r\n|\r|\n/', $content);
+
+    $out = [];
+
+    foreach ($lines as $line) {
+
+      $line = trim($line);
+      if ($line === '') continue;
+
+      // 🔄 restaura bloco protegido
+      if (isset($placeholders[$line])) {
+
+        $block = $placeholders[$line];
+
+        $out[] = '<!-- wp:' . $block['type'] . ' -->';
+        $out[] = $block['html'];
+        $out[] = '<!-- /wp:' . $block['type'] . ' -->';
+
+        continue;
+      }
+
+      // H2
+      if (preg_match('#^<h2#i', $line)) {
+
+        $out[] = '<!-- wp:heading {"level":2} -->';
+        $out[] = $line;
+        $out[] = '<!-- /wp:heading -->';
+      }
+      // H3
+      elseif (preg_match('#^<h3#i', $line)) {
+
+        $out[] = '<!-- wp:heading {"level":3} -->';
+        $out[] = $line;
+        $out[] = '<!-- /wp:heading -->';
+      }
+      // Parágrafo existente
+      elseif (preg_match('#^<p#i', $line)) {
+
+        $out[] = '<!-- wp:paragraph -->';
+        $out[] = $line;
+        $out[] = '<!-- /wp:paragraph -->';
+      }
+      // fallback
+      else {
+
+        $out[] = '<!-- wp:paragraph -->';
+        $out[] = '<p>' . $line . '</p>';
+        $out[] = '<!-- /wp:paragraph -->';
+      }
+    }
+
+    return implode("\n", $out);
   }
 
   /**

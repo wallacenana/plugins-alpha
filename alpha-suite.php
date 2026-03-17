@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Alpha Suite
  * Description: Tudo o que você precisa para criar seus conteúdos na velocidade de 1 clique — Alpha Órion, Alpha Stories e muito mais.
- * Version: 3.2.54
+ * Version: 3.2.73
  * Author: Wallace Tavares
  * Author URI: https://pluginsalpha.com/
  * Text Domain: alpha-suite
@@ -17,7 +17,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('PLUGINS_ALPHA_VERSION', '3.2.54');
+define('PLUGINS_ALPHA_VERSION', '3.2.73');
 
 // Constantes
 define('PGA_FILE', __FILE__);
@@ -28,7 +28,9 @@ define('PGA_URL',  plugin_dir_url(__FILE__));
 if (!defined('PGA_INC_DIR'))        define('PGA_INC_DIR',        rtrim(PGA_PATH, '/\\') . '/includes');
 if (!defined('PGA_INC_POSTS_DIR'))  define('PGA_INC_POSTS_DIR',  PGA_INC_DIR . '/orion');
 if (!defined('PGA_INC_STORYS_DIR')) define('PGA_INC_STORYS_DIR', PGA_INC_DIR . '/stories');
+if (!defined('PGA_INC_TRACKER_DIR')) define('PGA_INC_TRACKER_DIR', PGA_INC_DIR . '/tracker');
 
+require_once PGA_PATH . "includes/tracker/REST_tracker.PHP";
 
 // Versão de asset por filemtime (cache-bust)
 function alpha_suite_asset_ver(string $relpath): string
@@ -49,6 +51,7 @@ spl_autoload_register(function ($class) {
     PGA_INC_DIR,
     PGA_INC_POSTS_DIR,
     PGA_INC_STORYS_DIR,
+    PGA_INC_TRACKER_DIR,
   ]);
 
   // 1) candidatos diretos (em todas as pastas)
@@ -106,6 +109,11 @@ spl_autoload_register(function ($class) {
   }
 });
 
+if (class_exists('AlphaSuite_REST_tracker')) {
+  add_action('rest_api_init', function () {
+    AlphaSuite_REST_tracker::register_routes();
+  });
+}
 // Bootstrap
 add_action('plugins_loaded', function () {
 
@@ -145,8 +153,6 @@ add_action('plugins_loaded', function () {
     AlphaSuite_WS_Metabox::init();
   }
 });
-
-
 /*
 |--------------------------------------------------------------------------
 | INTERVALO DE 1 MINUTO (OBRIGATÓRIO)
@@ -166,6 +172,9 @@ add_filter('cron_schedules', function ($schedules) {
 });
 
 
+if (class_exists('AlphaSuite_Init')) {
+  AlphaSuite_Init::init();
+}
 /*
 |--------------------------------------------------------------------------
 | CRON MASTER
@@ -265,6 +274,19 @@ function alpha_suite_create_tables()
         last_status VARCHAR(50) DEFAULT NULL,
         PRIMARY KEY (generator_id)
     ) $charset;");
+
+  dbDelta("CREATE TABLE {$wpdb->prefix}pga_post_views (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        post_id BIGINT UNSIGNED NOT NULL,
+        ip VARCHAR(45) DEFAULT NULL,
+        session_id VARCHAR(64) DEFAULT NULL,
+        duration INT DEFAULT 0,
+        viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY post_id (post_id),
+        KEY viewed_at (viewed_at),
+        KEY session_id (session_id)
+    ) $charset;");
 }
 
 define('ALPHASUITE_DB_VERSION', '1.1');
@@ -298,6 +320,19 @@ function maybe_update_database()
         KEY status (status)
     ) $charset;");
 
+  dbDelta("CREATE TABLE {$wpdb->prefix}pga_post_views (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        post_id BIGINT UNSIGNED NOT NULL,
+        ip VARCHAR(45) DEFAULT NULL,
+        session_id VARCHAR(64) DEFAULT NULL,
+        duration INT DEFAULT 0,
+        viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY post_id (post_id),
+        KEY viewed_at (viewed_at),
+        KEY session_id (session_id)
+    ) $charset;");
+
   update_option('alphasuite_db_version', ALPHASUITE_DB_VERSION);
 }
 
@@ -305,19 +340,4 @@ function maybe_update_database()
 add_filter('plugin_action_links_' . plugin_basename(PGA_FILE), function ($links) {
   $links[] = '<a href="' . esc_url(admin_url('admin.php?page=alpha-suite-dashboard')) . '">' . esc_html__('Dashboard', 'alpha-suite') . '</a>';
   return $links;
-});
-
-// Ajuste do ícone no menu (20x20)
-add_action('admin_head', function () {
-  echo '<style>
-    #adminmenu .toplevel_page_alpha-suite-dashboard .wp-menu-image img{
-      width:16px;height:16px;object-fit:contain;opacity:1;
-      padding-top: 0;
-    }
-      #adminmenu .toplevel_page_alpha-suite-dashboard .wp-menu-image {
-      display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-  </style>';
 });

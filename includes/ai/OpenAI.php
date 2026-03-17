@@ -16,8 +16,8 @@ class AlphaSuite_OpenAI
 
         return [
             'key'        => trim((string) ($oa['key'] ?? '')),
-            'model'      => (string) ($oa['model_text'] ?? 'gpt-5'),
-            'temperature' => (float)  ($oa['temperature'] ?? 0.4),
+            'model'      => (string) ($oa['model_text'] ?? 'gpt-4.1'),
+            'temperature' => (float)  ($oa['temperature'] ?? 0.6),
             'max_output_tokens' => (int) ($oa['max_output_tokens'] ?? 4000),
             'timeout'    => 120,
         ];
@@ -43,20 +43,12 @@ class AlphaSuite_OpenAI
             return new WP_Error('pga_no_key', 'Chave OpenAI não configurada.');
         }
 
-        $useSearch = !empty($args['use_search']);
         $isStructured = !empty($schema);
 
         $body = [
             "model" => $c['model'] ?? $c['model_text'],
             "input" => $prompt
         ];
-
-        if ($useSearch) {
-            $body["tools"] = [
-                ["type" => "web_search"]
-            ];
-            $body["tool_choice"] = "auto";
-        }
 
         $res = wp_remote_post(
             'https://api.openai.com/v1/responses',

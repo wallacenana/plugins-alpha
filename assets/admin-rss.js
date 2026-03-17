@@ -8,6 +8,8 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   ? wp.i18n.sprintf
   : (fmt, ...args) => String(fmt).replace(/%s/g, () => String(args.shift() ?? ''));
 
+let PGA_LANGUAGES_CACHE = null;
+
 (function ($) {
   const REST = PGA_CFG.rest;
   const NONCE = PGA_CFG.nonce;
@@ -179,6 +181,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       $box.find('.pga_locale').val('pt_BR');
       $box.find('.pga_length').val('short');
       $box.find('.pga_category').val('0');
+      $box.find('.pga_author').val('1');
 
       pgaUpdateBoxTitle($box);
       return;
@@ -215,6 +218,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   });
 
 
+
   // === Atualiza título de UM box com base nos campos ===
   function pgaUpdateBoxTitle($box) {
     // Modelo
@@ -239,7 +243,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     const perDay = $box.find('.pga_per_day').val() || '0';
 
     // Extensão
-    const lengthLabel = ($box.find('.pga_length option:selected').text() || '').trim() || __('Extensão', 'alpha-suite');
+    const lengthLabel = ($box.find('.pga_length').val() || '').trim() || __('Extensão', 'alpha-suite');
 
     // 🔹 título curto (visível)
     const visibleTitle = `<span class="pga-model">${model}</span> <span class="pga-category-colapse">${cat}</span>`;
@@ -267,13 +271,69 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   // dispara update quando qualquer campo relevante muda
   $(document).on(
     'change keyup',
-    '.pga_template_key, .pga_category, .pga_locale, .pga_total, .pga_per_day, .pga_length',
+    '.pga_template_key, .pga_category, .pga_locale, .pga_total, .pga_per_day',
     function () {
       const $box = $(this).closest('.pga-gen-box');
       pgaSyncLinkOptionsForBox($box);
       pgaUpdateBoxTitle($box);
     }
   );
+
+  async function loadLanguagesOnce() {
+
+    if (PGA_LANGUAGES_CACHE) {
+      return PGA_LANGUAGES_CACHE;
+    }
+
+    const res = await fetch(`${REST}/rss/languages`, {
+      headers: { 'X-WP-Nonce': NONCE }
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) return [];
+
+    PGA_LANGUAGES_CACHE = data.languages;
+
+    return PGA_LANGUAGES_CACHE;
+  }
+
+  async function loadLanguages($box, selected = []) {
+
+    const languages = await loadLanguagesOnce();
+
+    const $select = $box.find('.pga_languages');
+    $select.empty();
+
+    languages.forEach(lang => {
+
+      const option = new Option(
+        `${lang.name} (${lang.locale})`,
+        lang.slug,
+        false,
+        selected.includes(lang.slug)
+      );
+
+      $select.append(option);
+    });
+
+    $select.trigger('change');
+  }
+
+  function ensureOptions($select, values) {
+    if (!Array.isArray(values)) return;
+
+    values.forEach(function (val) {
+      const exists = $select.find("option").filter(function () {
+        return $(this).val() === val;
+      }).length > 0;
+
+      if (!exists) {
+        const newOption = new Option(val, val, true, true);
+        $select.append(newOption);
+      }
+    });
+  }
 
   // serializa 1 box -> objeto JS
   function pgaSerializeBox($box) {
@@ -297,19 +357,27 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       rssKeyword: $box.find('.rssKeyword').val() || '',
       link_max: parseInt($box.find('.pga_link_max').val() || '2', 10) || 2,
       start_hour: parseInt($box.find('.pga_start_hour').val() || '6', 10) || 6,
-      interval_hours: parseInt($box.find('.pga_interval_hours').val() || '1', 10) || 1,
+      interval_minutes: parseInt($box.find('.pga_interval_minutes').val() || '60', 10) || 60,
       end_hour: parseInt($box.find('.pga_end_hour').val() || '23', 10) || 23,
       active: $box.find('.pga_active').is(':checked') ? 1 : 0,
       make_faq: $box.find('.pga_make_faq').is(':checked') ? 1 : 0,
+      enable_multilang: $box.find('.pga_enable_multilang').is(':checked') ? 1 : 0,
       tags: $box.find('.pga_tags').val() || [],
+      languages: $box.find('.pga_languages').val() || [],
+      blocked_words: $box.find('.pga_block_words').val() || [],
+      interval_hours: $box.find('.pga_interval_hours').val() || [],
+      template_key: $box.find('.pga_template_key').val() || 'rss',
+      author: $box.find('.pga_author').val() || 1,
 
       // 🔹 novo: salvar config de links internos por grupo
       internal_links: {
         mode: ($box.find('.pga_link_mode').val() || 'none'),
         max: parseInt($box.find('.pga_link_max').val() || '0', 10) || 0,
         manual_ids: Array.isArray(manualVals) ? manualVals.join(',') : String(manualVals || '')
-      }
-    }; 
+      },
+
+      id: $box.data('generator-id') || crypto.randomUUID(),
+    };
   }
 
   // aplica objeto de config em 1 box
@@ -320,14 +388,30 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $box.find('.pga_locale').val(cfg.locale || 'pt_BR');
     $box.find('.pga_template_key').val(cfg.template_key || 'rss');
     $box.find('.pga_category').val(cfg.category || '0');
-    $box.find('.pga_end_hour').val(cfg.end_hour || 0);
+    $box.find('.pga_end_hour').val(cfg.end_hour || 23);
+    $box.find('.pga_author').val(cfg.author || 1);
+
     $box.find('.pga_tags')
-    .val(Array.isArray(cfg.tags) ? cfg.tags : [])
-    .trigger('change');
-    $box.find('.pga_start_hour').val(cfg.start_hour || 0);
-    $box.find('.pga_interval_hours').val(cfg.interval_hours || 0);
+      .val(Array.isArray(cfg.tags) ? cfg.tags : [])
+      .trigger('change');
+
+    const savedLangs = Array.isArray(cfg.languages) ? cfg.languages : [];
+
+    loadLanguages($box, savedLangs);
+
+    const blockVals = Array.isArray(cfg.blocked_words) ? cfg.blocked_words : [];
+    const $blockSelect = $box.find('.pga_block_words');
+
+    ensureOptions($blockSelect, blockVals);
+
+    $blockSelect
+      .val(blockVals)
+      .trigger('change');
+    $box.find('.pga_start_hour').val(cfg.start_hour || 6);
+    $box.find('.pga_interval_hours').val(cfg.interval_hours || 40);
     $box.find('.pga_active').prop('checked', !!cfg.active);
     $box.find('.pga_make_faq').prop('checked', !!cfg.make_faq);
+    $box.find('.pga_enable_multilang').prop('checked', !!cfg.enable_multilang);
     $box.find('.pga_length').val(cfg.length || 'short');
     $box.find('.rssKeyword').val(cfg.rssKeyword || '');
 
@@ -361,6 +445,12 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $box.find('.pga_make_faq')
       .prop('checked', !!cfg.make_faq)
       .trigger('change');
+
+    $box.find('.pga_enable_multilang')
+      .prop('checked', !!cfg.enable_multilang)
+      .trigger('change');
+
+    $('.pga_active').trigger('change');
 
     pgaSyncLinkOptionsForBox($box);
     pgaUpdateBoxTitle($box);
@@ -432,15 +522,17 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     // limpa valores
     $clone.find('.pga_keywords').val('');
     $clone.find('.pga_start_hour').val('6');
-    $clone.find('.pga_interval_hours').val('1');
+    $clone.find('.pga_interval_hours').val('40');
     $clone.find('.pga_end_hour').val('23');
 
     // defaults
     $clone.find('.pga_locale').val('pt_BR');
     $clone.find('.pga_length').val('short');
     $clone.find('.pga_category').val('0');
+    $clone.find('.pga_author').val('1');
     $clone.find('.pga_active').prop('checked', true);
     $clone.find('.pga_make_faq').prop('checked', false);
+    $clone.find('.pga_enable_multilang').prop('checked', false);
 
     // links internos
     $clone.find('.pga_link_mode').val('none');
@@ -479,6 +571,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       ['.pga_locale', 'pga_locale'],
       ['.pga_template_key', 'pga_template_key'],
       ['.pga_category', 'pga_category'],
+      ['.pga_author', 'pga_author'],
       ['.pga_total', 'pga_total'],
       ['.pga_per_day', 'pga_per_day'],
       ['.pga_first_delay_hours', 'pga_first_delay_hours'],
@@ -575,149 +668,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   }
 
   function textareaToArray(text) { return [...new Set((text || '').split(/\r?\n/).map(t => t.trim()).filter(Boolean))]; }
-  function onSettingsPage() { return !!document.querySelector('form[action="options.php"]'); }
-  function getQueryParam(name) { const u = new URL(window.location.href); return u.searchParams.get(name); }
-
-  // ============================================================
-  // =============== BLOCO: CONFIGURAÇÕES (settings) ============
-  // ============================================================
-  async function bootSettings() {
-    // feedback rápido quando salvar no WP
-    if (typeof getQueryParam === 'function' && getQueryParam('settings-updated') === '1') {
-      if (window.Swal) {
-        await Swal.fire({
-          icon: __('success', 'alpha-suite'),
-          title: __('Configurações salvas', 'alpha-suite'),
-          timer: 1600,
-          showConfirmButton: false
-        });
-      }
-    }
-
-    // helpers SweetAlert
-    async function safeCloseSwal() {
-      try { if (window.Swal && Swal.isVisible()) Swal.close(); } catch (e) { }
-    }
-
-    // se já existe o botão, não recria
-    const keyEl = document.getElementById('pga_openai_key');
-    if (!keyEl) return; // sem campo de chave, sem teste
-
-    let testBtn = document.getElementById('pga_test_openai');
-    if (!testBtn) {
-      testBtn = document.createElement('button');
-      testBtn.type = 'button';
-      testBtn.id = 'pga_test_openai';
-      testBtn.className = 'button';
-      testBtn.textContent = __('Testar OpenAI', 'alpha-suite');
-      testBtn.style.marginLeft = '8px';
-      keyEl.parentNode.insertBefore(testBtn, keyEl.nextSibling);
-    }
-
-    testBtn.addEventListener('click', async () => {
-      const keyInput = document.getElementById('pga_openai_key');
-      const modelInput = document.getElementById('pga_openai_model');
-      const tempInput = document.getElementById('pga_openai_temp');
-      const tokInput = document.getElementById('pga_openai_maxtok');
-
-      const key = keyInput ? String(keyInput.value || '').trim() : '';
-      const model = modelInput ? String(modelInput.value || '').trim() : 'gpt-4o-mini';
-      const temp = tempInput ? parseFloat(tempInput.value || '0.6') : 0.6;
-      const maxTok = tokInput ? parseInt(tokInput.value || '512', 10) : 512;
-
-      if (!key) {
-        await Swal.fire({
-          icon: 'warning',
-          title: __('Informe a chave', 'alpha-suite'),
-          text: __('Digite a chave OpenAI antes de testar.', 'alpha-suite'),
-          timer: 2200,
-          showConfirmButton: false
-        });
-        return;
-      }
-
-      try {
-        testBtn.disabled = true;
-
-        await safeCloseSwal();
-        Swal.fire({
-          icon: 'info',
-          title: __('Testando OpenAI…', 'alpha-suite'),
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          showConfirmButton: false,
-          didOpen: () => Swal.showLoading()
-        });
-
-        const payload = {
-          key: key,
-          model: model || 'gpt-4o-mini',
-          temperature: isNaN(temp) ? 0.6 : temp,
-          max_tokens: Number.isFinite(maxTok) ? maxTok : 512
-        };
-
-        const res = await fetch(`${REST}/selftest`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-WP-Nonce': NONCE
-          },
-          body: JSON.stringify(payload)
-        });
-
-        let j = {};
-        try { j = await res.json(); } catch (e) { }
-
-        await safeCloseSwal();
-
-        if (!res.ok) {
-          const msg = j && (j.message || j.error || j.code) ? (j.message || j.error || j.code) : `HTTP ${res.status}`;
-          await Swal.fire({ icon: 'error', title: __('Erro ao testar', 'alpha-suite'), text: msg });
-          return;
-        }
-
-        const safeSample = String(j.sample || '').replace(/[<>&]/g, s => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[s]));
-
-        await Swal.fire({
-          icon: j.ok ? 'success' : 'warning',
-          title: j.ok ? __('Conectado!', 'alpha-suite') : __('Conexão incompleta', 'alpha-suite'),
-          html: sprintf(
-            __(
-              '<div style="text-align:left">' +
-              '<div><b>%s</b> %s</div>' +
-              '<div><b>%s</b> %s ms</div>' +
-              '<div><b>%s</b> <code>%s</code></div>' +
-              '</div>',
-              'alpha-suite'
-            ),
-            __('Modelo:', 'alpha-suite'),
-            (j.model || payload.model || ''),
-            __('Latência:', 'alpha-suite'),
-            (j.latencyMs ?? '?'),
-            __('Retorno:', 'alpha-suite'),
-            safeSample
-          ),
-          timer: 2600,
-          timerProgressBar: true,
-          showConfirmButton: false
-        });
-
-      } catch (err) {
-        await safeCloseSwal();
-        await Swal.fire({
-          icon: 'error',
-          title: __('Falha no teste', 'alpha-suite'),
-          text: err && err.message ? err.message : String(err || __('Erro desconhecido', 'alpha-suite'))
-        });
-      } finally {
-        testBtn.disabled = false;
-      }
-    });
-  }
-
-  // =========================
-  // STORAGE OFICIAL DE GRUPOS (ÚNICO) + MIGRAÇÃO
-  // =========================
 
   // legado antigo (você já tem acima, mas deixo aqui pra ficar claro)
   const LEGACY_PILLAR_GROUPS_KEY = GROUPS_KEY; // pga_gen_groups_v1_${pillarId}
@@ -782,33 +732,69 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     }
   }
 
-  function applyGroupsToDom(groups) {
+  function applyLanguages($box, languages, selected = []) {
+
+    const $select = $box.find('.pga_languages');
+    $select.empty();
+
+    languages.forEach(lang => {
+
+      const option = new Option(
+        `${lang.name} (${lang.locale})`,
+        lang.slug,
+        false,
+        selected.includes(lang.slug)
+      );
+
+      $select.append(option);
+
+    });
+
+    $select.trigger('change');
+
+  }
+
+  async function applyGroupsToDom(groups) {
+
     PGA_LOADING_GROUPS = true;
+
+    const languages = await loadLanguagesOnce(); // 🔥 carrega uma vez
+
     try {
+
       if (!Array.isArray(groups) || !groups.length) {
+
         ensureBoxesCountExact(1);
+
         const $first = $('#pga_gen_container .pga-gen-box').first();
+
         if ($first.length) {
           pgaActivateBox($first);
           pgaUpdateBoxTitle($first);
+          applyLanguages($first, languages); // 🔥 usa direto
         }
+
         return;
       }
 
       ensureBoxesCountExact(groups.length);
 
       const $boxes = $('#pga_gen_container .pga-gen-box');
-      groups.forEach((g, i) => {
-        const $box = $boxes.eq(i);
-        if ($box.length) pgaApplyBoxConfig($box, g);
-      });
 
-      const $first = $('#pga_gen_container .pga-gen-box').first();
-      if ($first.length) pgaActivateBox($first);
+      groups.forEach((g, i) => {
+
+        const $box = $boxes.eq(i);
+
+        if ($box.length) {
+          pgaApplyBoxConfig($box, g, languages); // 🔥 passa languages
+        }
+
+      });
 
     } finally {
       PGA_LOADING_GROUPS = false;
     }
+
   }
 
   // migração 1 vez: só roda se a tab NOVA ainda não tiver grupos salvos
@@ -900,6 +886,12 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     const $box = $(this).closest('.pga-collapse-body, .pga-card, .pga-gen-box').first();
     const on = $(this).is(':checked');
     $box.find('.pga-faq-qty-wrap').toggle(on);
+  });
+
+  $(document).off('change.enable_multilang').on('change.enable_multilang', '.pga_enable_multilang', function () {
+    const $box = $(this).closest('.pga-collapse-body, .pga-card, .pga-gen-box').first();
+    const on = $(this).is(':checked');
+    $box.find('.pga_languages1').toggle(on);
   });
 
   // Botão: ATIVAR
@@ -1667,8 +1659,10 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       $box.find('.pga_locale').val('pt_BR');
       $box.find('.pga_length').val('short');
       $box.find('.pga_category').val('0');
+      $box.find('.pga_author').val('1');
 
       pgaUpdateBoxTitle($box);
+      loadLanguages($box)
       return;
     }
 
@@ -1813,7 +1807,6 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
     // 2) carrega do storage oficial
     const groups = loadGroupsForTab(tabId);
-
     // 3) aplica no DOM
     applyGroupsToDom(groups);
   }
@@ -1945,7 +1938,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   function pgaInitSelect2InBox($box) {
     if (!$box || !$box.length) return;
 
-    $box.find('.pga-link-manual-select, .pga_tags').each(function () {
+    $box.find('.pga-select2').each(function () {
 
       const $el = $(this);
 
@@ -1954,13 +1947,26 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       }
 
       const isTags = $el.hasClass('pga_tags');
+      const isBlocklist = $el.hasClass('pga_block_words');
+
+      let placeholder = '';
+
+      if (isTags) {
+        placeholder = 'Selecione ou digite tags';
+      }
+
+      if (isBlocklist) {
+        placeholder = 'Digite palavras proibidas';
+      }
 
       $el.select2({
         width: '100%',
-        dropdownParent: $box,
-        tags: isTags,
-        tokenSeparators: [',']
+        tags: (isTags || isBlocklist),
+        tokenSeparators: [','],
+        placeholder: placeholder,
+        allowClear: true
       });
+
     });
   }
 
@@ -1971,73 +1977,143 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $box.find('.pga_faq_count_wrap').toggle(on);
   });
 
+  function collectGenerators() {
+
+    const generators = [];
+
+    $('#pga_gen_container .pga-gen-box').each(function () {
+
+      const $box = $(this);
+
+      const cfg = pgaSerializeBox($box);
+
+      generators.push(cfg);
+
+    });
+
+    return generators;
+
+  }
+
+  function pgaCollectAllTabsFromStorage() {
+    const tabs = [];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.includes('_groups_v1')) continue;
+
+      const match = key.match(/tab_(.*?)_groups_v1/);
+      if (!match) continue;
+
+      const tabId = match[1];
+
+      try {
+        const generators = JSON.parse(localStorage.getItem(key) || '[]');
+
+        tabs.push({
+          tab_id: tabId,
+          generators
+        });
+      } catch (e) {
+        console.error('Erro lendo storage', key, e);
+      }
+    }
+
+    return tabs;
+  }
 
   $('#pga_save_keywords')
     .off('click.pgaSave')
     .on('click.pgaSave', async function (e) {
+
       e.preventDefault();
       e.stopPropagation();
 
       const btn = this;
 
-      // âœ… guard anti re-entrada (evita loop/call stack)
-      if (btn.dataset && btn.dataset.pgaSaving === '1') return;
-      if (btn.dataset) btn.dataset.pgaSaving = '1';
-
+      if (btn.dataset?.pgaSaving === '1') return;
+      btn.dataset.pgaSaving = '1';
       btn.disabled = true;
 
       try {
-        // âœ… salva grupos 1x sÃ³
+
+        // salva tab atual no localStorage
         const tabId = localStorage.getItem(KEY_ACTIVE_TAB) || getTabIdFromUrl() || '';
         if (tabId) {
           saveGroupsForTab(tabId, serializeAllGroupsFromDom());
         }
 
-        // âœ… render done local
         if (typeof pgaLoadDone === 'function') {
           renderDone(pgaLoadDone());
         }
 
         window.PGA_IS_DIRTY = false;
+
+        // 🔹 pega todas as tabs do localStorage
+        const tabs = pgaCollectAllTabsFromStorage();
+
+        if (!tabs.length) {
+          pgaToast('error', 'Nenhuma configuração encontrada.');
+          return;
+        }
+
+        // 🔹 junta todos os geradores para verificar tradução
+        const allGenerators = tabs.flatMap(t => t.generators || []);
+
+        const hasTranslation = allGenerators.some(g => g.enable_multilang == 1);
+
+        if (hasTranslation) {
+
+          const selftest = await fetch(`${REST}/rss/selftest`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-WP-Nonce': NONCE
+            },
+            body: JSON.stringify({
+              generators: allGenerators
+            })
+          });
+
+          const selfData = await selftest.json();
+
+          if (!selfData.ok) {
+            pgaToast('error', selfData.errors.join('\n'), 4000);
+            return;
+          }
+        }
+
+        // 🔹 salvar cada tab usando o endpoint existente
+        for (const tab of tabs) {
+
+          await fetch(`${REST}/generators/save`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-WP-Nonce': NONCE
+            },
+            body: JSON.stringify({
+              tab_id: tab.tab_id,
+              generators: tab.generators
+            })
+          });
+
+        }
+
         pgaToast('success', __('Salvo', 'alpha-suite'));
 
       } catch (err) {
-        // âœ… nunca passe objeto Error direto pro Swal title
-        const msg = (err && err.message) ? err.message : String(err || 'Erro');
+
+        const msg = err?.message || String(err || 'Erro');
         pgaToast('error', msg, 2200);
 
       } finally {
+
         btn.disabled = false;
-        if (btn.dataset) delete btn.dataset.pgaSaving;
+        delete btn.dataset.pgaSaving;
+
       }
 
-      const tabId = localStorage.getItem(KEY_ACTIVE_TAB);
-      if (!tabId) return;
-
-      const generators = [];
-
-      $('#pga_gen_container .pga-gen-box').each(function () {
-        const cfg = pgaSerializeBox($(this));
-
-        cfg.active = $(this).find('.pga_active').is(':checked');
-        cfg.start_hour = parseInt($(this).find('.pga_start_hour').val() || '0', 10);
-        cfg.interval_hours = parseInt($(this).find('.pga_interval_hours').val() || '1', 10);
-        cfg.end_hour = parseInt($(this).find('.pga_end_hour').val() || '23', 10);
-
-        generators.push(cfg);
-      });
-
-      await fetch(`${REST}/generators/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-WP-Nonce': NONCE
-        },
-        body: JSON.stringify({
-          tab_id: tabId,
-          generators
-        })
-      });
     });
 
   // init quando a tela carrega (para o primeiro box existente)
@@ -2047,10 +2123,38 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     });
   });
 
-
   $(document).off('click.pgaSaveBox').on('click.pgaSaveBox', '.pga_save_box', function (e) {
     e.preventDefault();
     e.stopPropagation();
     $('#pga_save_keywords').trigger('click');
+  });
+
+  $(document).on('change', '.pga_enable_multilang', function () {
+    const $box = $(this).closest('.pga-gen-box');
+    $box.find('.pga_languages1').toggle(this.checked);
+  });
+
+
+  $(document).on('change', '.pga_active', function () {
+
+    const $button = $(this).closest('.pga-collapse-toggle');
+    const $label = $(this).closest('.pga-switch')
+      .find('.pga-switch-label');
+
+    if ($(this).is(':checked')) {
+
+      $label.text('Ativo');
+
+      $button.removeClass('is-paused')
+        .addClass('is-active');
+
+    } else {
+
+      $label.text('Pausado');
+
+      $button.removeClass('is-active')
+        .addClass('is-paused');
+    }
+
   });
 })(jQuery);

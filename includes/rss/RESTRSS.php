@@ -16,6 +16,38 @@ class AlphaSuite_RESTRSS
             },
         ]);
 
+        register_rest_route($base, '/rss/languages', [
+            'methods'  => 'GET',
+            'callback' => [__CLASS__, 'get_languages'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            }
+        ]);
+
+        register_rest_route($base, '/rss/excerpt', [
+            'methods'  => 'POST',
+            'callback' => [__CLASS__, 'rest_generate_excerpt'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            }
+        ]);
+
+        register_rest_route($base, '/generators/runtime', [
+            'methods'  => 'GET',
+            'callback' => [__CLASS__, 'get_generators_runtime'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            }
+        ]);
+
+        register_rest_route($base, '/rss/translations', [
+            'methods'  => 'POST',
+            'callback' => [__CLASS__, 'rest_create_translations'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            }
+        ]);
+
         register_rest_route($base, '/rss/faq', [
             'methods'             => 'POST',
             'callback'            => [__CLASS__, 'generate_faq'],
@@ -30,6 +62,14 @@ class AlphaSuite_RESTRSS
             'permission_callback' => function () {
                 return current_user_can('edit_posts');
             },
+        ]);
+
+        register_rest_route($base, '/rss/selftest', [
+            'methods'  => 'POST',
+            'callback' => [__CLASS__, 'selftest'],
+            'permission_callback' => function () {
+                return current_user_can('edit_posts');
+            }
         ]);
 
         register_rest_route($base, '/rss/start', [
@@ -97,128 +137,383 @@ class AlphaSuite_RESTRSS
         ]);
     }
 
+    public static function get_generators_runtime(WP_REST_Request $req)
+    {
+        global $wpdb;
+
+        $generator_id = intval($req->get_param('generator_id'));
+
+        if (!$generator_id) {
+            return rest_ensure_response(['ok' => false]);
+        }
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT next_run, last_run, last_status 
+             FROM {$wpdb->prefix}pga_generator_runtime 
+             WHERE generator_id = %d",
+                $generator_id
+            )
+        );
+
+        return rest_ensure_response([
+            'ok' => true,
+            'data' => $row
+        ]);
+    }
+
+    public static function rest_create_translations(WP_REST_Request $req)
+    {
+        $postId = intval($req->get_param('post_id'));
+
+        if (!$postId || !get_post($postId)) {
+            return new WP_Error('invalid_post', 'Post inválido', ['status' => 400]);
+        }
+
+        $multilang_enabled = (bool) get_post_meta($postId, '_pga_multilang_enabled', true);
+        $languages = (array) get_post_meta($postId, '_pga_languages', true);
+
+        if (!$multilang_enabled || empty($languages)) {
+            return rest_ensure_response([
+                'ok' => false,
+                'message' => 'Multilíngue não habilitado.'
+            ]);
+        }
+
+        self::create_translations($postId, [
+            'multilang_enabled' => true,
+            'languages' => $languages
+        ]);
+
+        return rest_ensure_response([
+            'ok' => true
+        ]);
+    }
+
+    public static function get_languages()
+    {
+        if (!function_exists('PLL')) {
+            return rest_ensure_response([
+                'ok' => false,
+                'error' => 'Polylang não instalado'
+            ]);
+        }
+
+        $languages = PLL()->model->get_languages_list();
+
+        $data = [];
+
+        foreach ($languages as $lang) {
+
+            $data[] = [
+                'slug'   => $lang->slug,   // en
+                'locale' => $lang->locale, // en_US
+                'name'   => $lang->name    // English
+            ];
+        }
+
+        return rest_ensure_response([
+            'ok' => true,
+            'languages' => $data
+        ]);
+    }
+
+    private static function get_post_language($postId)
+    {
+        if (function_exists('pll_get_post_language')) {
+            return pll_get_post_language($postId);
+        }
+
+        return null;
+    }
+
+    private static function set_post_language($postId, $lang)
+    {
+        if (function_exists('pll_set_post_language')) {
+            pll_set_post_language($postId, $lang);
+        }
+    }
+
+    private static function create_translations($originalPostId, $config)
+    {
+        if (
+            !function_exists('pll_set_post_language') ||
+            !function_exists('pll_get_post_language') ||
+            !function_exists('pll_save_post_translations')
+        ) {
+            return;
+        }
+
+        $languages = (array)($config['languages'] ?? []);
+        if (empty($languages)) {
+            return;
+        }
+
+        $originalPost = get_post($originalPostId);
+        if (!$originalPost) {
+            return;
+        }
+
+        $originalLang = self::get_post_language($originalPostId);
+
+        if (!$originalLang) {
+            $originalLang = $languages[0];
+            self::set_post_language($originalPostId, $originalLang);
+        }
+
+        $translations = [
+            $originalLang => $originalPostId
+        ];
+
+        foreach ($languages as $lang) {
+
+            if ($lang === $originalLang) {
+                continue;
+            }
+
+            // 🔹 Traduz título e conteúdo
+            $translatedTitle   = AlphaSuite_AI::translate($originalPost->post_title, $lang);
+            $translatedContent = AlphaSuite_AI::translate($originalPost->post_content, $lang);
+
+            if (is_wp_error($translatedTitle) || is_wp_error($translatedContent)) {
+                continue;
+            }
+
+            // 🔹 Traduz slug
+            $translatedSlugRaw = AlphaSuite_AI::translate($originalPost->post_name, $lang);
+            $translatedSlug = is_wp_error($translatedSlugRaw)
+                ? sanitize_title($translatedTitle)
+                : sanitize_title($translatedSlugRaw);
+
+            // 🔹 Traduz meta do seu sistema
+            $metaDescription = get_post_meta($originalPostId, '_pga_meta_description', true);
+            $translatedMeta  = '';
+
+            if ($metaDescription) {
+
+                $metaRaw = AlphaSuite_AI::translate($metaDescription, $lang);
+
+                if (is_wp_error($metaRaw)) {
+                    continue;
+                }
+
+                if (is_array($metaRaw)) {
+                    $metaRaw = $metaRaw['content'] ?? $metaRaw['text'] ?? '';
+                }
+
+                if (is_string($metaRaw) && $metaRaw !== '') {
+                    $translatedMeta = trim($metaRaw);
+                }
+            }
+
+            // 🔹 Cria post traduzido
+            $newPostId = wp_insert_post([
+                'post_type'    => $originalPost->post_type,
+                'post_status'  => 'publish',
+                'post_title'   => $translatedTitle,
+                'post_content' => $translatedContent,
+                'post_author'  => $originalPost->post_author,
+                'post_name'    => $translatedSlug,
+            ]);
+
+            if (!$newPostId || is_wp_error($newPostId)) {
+                continue;
+            }
+
+            // 🔥 Define idioma do post primeiro
+            self::set_post_language($newPostId, $lang);
+
+            // 🔹 Salva meta traduzida
+            if ($translatedMeta) {
+                update_post_meta($newPostId, '_pga_meta_description', $translatedMeta);
+            }
+
+            if (class_exists('AlphaSuite_SEO')) {
+                AlphaSuite_SEO::apply_meta($newPostId, [
+                    'title'         => $translatedTitle,
+                    'description'   => $translatedMeta,
+                    'focus_keyword' => '',
+                ]);
+            }
+
+            $terms = wp_get_post_terms($originalPostId, 'category');
+
+            if (!empty($terms) && !is_wp_error($terms)) {
+
+                $translatedTerms = [];
+
+                foreach ($terms as $term) {
+
+                    $translatedTermId = function_exists('pll_get_term')
+                        ? pll_get_term($term->term_id, $lang)
+                        : 0;
+
+                    if ($translatedTermId) {
+                        $translatedTerms[] = $translatedTermId;
+                    }
+                }
+
+                if (!empty($translatedTerms)) {
+                    wp_set_post_terms($newPostId, $translatedTerms, 'category');
+                }
+            }
+
+            // 🔹 Duplica attachment (mesmo arquivo, novo post_attachment)
+            $thumbId = get_post_thumbnail_id($originalPostId);
+
+            if ($thumbId) {
+
+                $file = get_attached_file($thumbId);
+
+                if ($file && file_exists($file)) {
+
+                    $filetype = wp_check_filetype(basename($file), null);
+
+                    $attachment = [
+                        'post_mime_type' => $filetype['type'],
+                        'post_title'     => $translatedTitle,
+                        'post_content'   => '',
+                        'post_status'    => 'inherit'
+                    ];
+
+                    $newAttachmentId = wp_insert_attachment($attachment, $file, $newPostId);
+
+                    require_once ABSPATH . 'wp-admin/includes/image.php';
+                    $attach_data = wp_generate_attachment_metadata($newAttachmentId, $file);
+                    wp_update_attachment_metadata($newAttachmentId, $attach_data);
+
+                    // 🔥 Define idioma do attachment
+                    pll_set_post_language($newAttachmentId, $lang);
+
+                    // 🔥 Traduz ALT
+                    $alt = get_post_meta($thumbId, '_wp_attachment_image_alt', true);
+
+                    if ($alt) {
+                        $translatedAlt = AlphaSuite_AI::translate($alt, $lang);
+                        if (!is_wp_error($translatedAlt)) {
+                            update_post_meta($newAttachmentId, '_wp_attachment_image_alt', $translatedAlt);
+                        }
+                    }
+
+                    set_post_thumbnail($newPostId, $newAttachmentId);
+                }
+            }
+
+            $translations[$lang] = $newPostId;
+        }
+
+        pll_save_post_translations($translations);
+    }
+
+    public static function selftest()
+    {
+        if (!function_exists('pll_set_post_language')) {
+            return rest_ensure_response([
+                'ok' => false,
+                'errors' => ['Polylang não está instalado ou ativo.']
+            ]);
+        }
+
+        return rest_ensure_response(['ok' => true]);
+    }
+
     public static function pga_rest_save_generators(WP_REST_Request $req)
     {
         global $wpdb;
 
-        $tab_id     = sanitize_text_field($req['tab_id']);
+        $tab_id = sanitize_text_field($req['tab_id']);
         $generators = $req['generators'];
 
         if (!$tab_id || !is_array($generators)) {
             return new WP_Error('invalid_data', 'Dados inválidos');
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | 1️⃣ Buscar interval e next_run antigos
-    |--------------------------------------------------------------------------
-    */
-        $old_runtime = [];
-
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        $tab_id = intval($tab_id);
-
-        $old = $wpdb->get_results(
+        // geradores existentes da tab
+        $existing = $wpdb->get_results(
             $wpdb->prepare(
-                "
-                SELECT g.id, r.interval_hours, r.next_run
-                FROM {$wpdb->prefix}pga_generators g
-                LEFT JOIN {$wpdb->prefix}pga_generator_runtime r
-                    ON r.generator_id = g.id
-                WHERE g.tab_id = %d
-                ORDER BY g.id ASC
-                ",
+                "SELECT id FROM {$wpdb->prefix}pga_generators WHERE tab_id = %s",
                 $tab_id
             )
         );
-        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+        $existing_ids = wp_list_pluck($existing, 'id');
+        $received_ids = [];
 
-        foreach ($old as $index => $o) {
-            $old_runtime[$index] = [
-                'interval' => intval($o->interval_hours),
-                'next_run' => $o->next_run
-            ];
-        }
+        foreach ($generators as $g) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | 2️⃣ Apaga tudo (sua arquitetura atual)
-        |--------------------------------------------------------------------------
-        */
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        foreach ($old as $o) {
-            $wpdb->delete("{$wpdb->prefix}pga_generators", ['id' => $o->id]);
-            $wpdb->delete("{$wpdb->prefix}pga_generator_config", ['generator_id' => $o->id]);
-            $wpdb->delete("{$wpdb->prefix}pga_generator_runtime", ['generator_id' => $o->id]);
-        }
-        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $gen_id = intval($g['id'] ?? 0);
 
+            $active = !empty($g['active']) ? 1 : 0;
+            $start  = intval($g['start_hour'] ?? 0);
+            $end    = intval($g['end_hour'] ?? 23);
+            $interval = intval($g['interval_hours'] ?? 1);
+            $name   = sanitize_text_field($g['template_key'] ?? 'Gerador');
 
-        /*
-        |--------------------------------------------------------------------------
-        | 3️⃣ Recria com comparação correta
-        |--------------------------------------------------------------------------
-        */
-        foreach ($generators as $index => $g) {
+            if ($gen_id && in_array($gen_id, $existing_ids)) {
 
-            $active         = !empty($g['active']) ? 1 : 0;
-            $start          = intval($g['start_hour'] ?? 0);
-            $end            = intval($g['end_hour'] ?? 23);
-            $interval_hours = intval($g['interval_hours'] ?? 1);
-
-            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->insert("{$wpdb->prefix}pga_generators", [
-                'tab_id'         => $tab_id,
-                'name'           => sanitize_text_field($g['template_key'] ?? 'Gerador'),
-                'active'         => $active,
-                'start_hour'     => $start,
-                'end_hour'       => $end,
-                'interval_hours' => $interval_hours,
-            ]);
-            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-
-            $gen_id = $wpdb->insert_id;
-
-            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->insert("{$wpdb->prefix}pga_generator_config", [
-                'generator_id' => $gen_id,
-                'config_json'  => wp_json_encode($g),
-            ]);
-            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-            $old_interval = $old_runtime[$index]['interval'] ?? null;
-            $old_next_run = $old_runtime[$index]['next_run'] ?? null;
-
-            /*
-            |--------------------------------------------------------------------------
-            | 🔥 SUA LÓGICA CORRETA AQUI
-            |--------------------------------------------------------------------------
-            */
-            if ($old_interval !== null && $old_interval == $interval_hours) {
-
-                // Intervalo não mudou → mantém next_run antigo
-                $next = $old_next_run ?: wp_date(
-                    'Y-m-d H:i:s',
-                    current_time('timestamp') + ($interval_hours * HOUR_IN_SECONDS)
+                // UPDATE
+                $wpdb->update(
+                    "{$wpdb->prefix}pga_generators",
+                    [
+                        'active' => $active,
+                        'start_hour' => $start,
+                        'end_hour' => $end,
+                        'interval_hours' => $interval,
+                        'name' => $name
+                    ],
+                    ['id' => $gen_id]
                 );
             } else {
 
-                // Intervalo mudou → recalcula
-                $next = wp_date(
-                    'Y-m-d H:i:s',
-                    current_time('timestamp') + ($interval_hours * HOUR_IN_SECONDS)
+                // INSERT
+                $wpdb->insert(
+                    "{$wpdb->prefix}pga_generators",
+                    [
+                        'tab_id' => $tab_id,
+                        'name' => $name,
+                        'active' => $active,
+                        'start_hour' => $start,
+                        'end_hour' => $end,
+                        'interval_hours' => $interval
+                    ]
+                );
+
+                $gen_id = $wpdb->insert_id;
+
+                $wpdb->insert(
+                    "{$wpdb->prefix}pga_generator_runtime",
+                    [
+                        'generator_id' => $gen_id,
+                        'interval_hours' => $interval,
+                        'next_run' => wp_date(
+                            'Y-m-d H:i:s',
+                            current_time('timestamp') + ($interval * MINUTE_IN_SECONDS)
+                        )
+                    ]
                 );
             }
 
-            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->insert("{$wpdb->prefix}pga_generator_runtime", [
-                'generator_id'  => $gen_id,
-                'next_run'      => $next,
-                'interval_hours' => $interval_hours,
-            ]);
-            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            // config
+            $wpdb->replace(
+                "{$wpdb->prefix}pga_generator_config",
+                [
+                    'generator_id' => $gen_id,
+                    'config_json' => wp_json_encode($g)
+                ]
+            );
+
+            $received_ids[] = $gen_id;
+        }
+
+        // remove geradores deletados da UI
+        foreach ($existing_ids as $old_id) {
+
+            if (!in_array($old_id, $received_ids)) {
+
+                $wpdb->delete("{$wpdb->prefix}pga_generators", ['id' => $old_id]);
+                $wpdb->delete("{$wpdb->prefix}pga_generator_config", ['generator_id' => $old_id]);
+                $wpdb->delete("{$wpdb->prefix}pga_generator_runtime", ['generator_id' => $old_id]);
+            }
         }
 
         return ['success' => true];
@@ -326,12 +621,8 @@ class AlphaSuite_RESTRSS
                 }
             }
         }
+        $template = get_post_meta($postId, '_pga_template_key', true) ?: 'rss';
 
-        /*
-    |--------------------------------------------------------------------------
-    | 2️⃣ Se não conseguiu extrair → gera via IA
-    |--------------------------------------------------------------------------
-    */
 
         if (!$attachmentId || is_wp_error($attachmentId)) {
             if (!class_exists('AlphaSuite_Prompts') || !class_exists('AlphaSuite_Images')) {
@@ -346,7 +637,7 @@ class AlphaSuite_RESTRSS
                 $title,
                 $title,
                 '',
-                'rss',
+                $template,
                 $imageProvider
             );
 
@@ -398,13 +689,19 @@ class AlphaSuite_RESTRSS
         $length = sanitize_text_field($req->get_param('length') ?: 'short');
         $locale = sanitize_text_field($req->get_param('locale') ?: 'pt_BR');
         $category_id = intval($req->get_param('category_id'));
+        $author = intval($req->get_param('author'));
         $tags        = (array) $req->get_param('tags');
         $link_mode   = sanitize_text_field($req->get_param('link_mode') ?: 'none');
         $link_max    = intval($req->get_param('link_max') ?: 1);
         $link_manual = (array) $req->get_param('pga_link_max');
         $link_ids = (array) $req->get_param('link_manual_ids');
+        $languages = (array) $req->get_param('pga_languages');
         $make_faq    = !empty($req->get_param('make_faq'));
         $faq_qty     = intval($req->get_param('faq_qty') ?: 0);
+        $template_key     = sanitize_text_field($req->get_param('template_key') ?: 'rss');
+
+        $enable_multilang     = intval($req->get_param('enable_multilang') ?: 0);
+
 
         if (!$title || !$hash) {
             return new WP_Error('pga_invalid_data', 'Título ou hash inválido.');
@@ -441,7 +738,8 @@ class AlphaSuite_RESTRSS
         $postId = wp_insert_post([
             'post_title'  => "GERANDO " . $title,
             'post_status' => 'draft',
-            'post_type'   => 'posts_orion'
+            'post_type'   => 'posts_orion',
+            'post_author' => $author
         ]);
 
         if (is_wp_error($postId) || !$postId) {
@@ -461,6 +759,10 @@ class AlphaSuite_RESTRSS
             'source' => $source
         ]);
 
+        update_post_meta($postId, '_pga_author', $author);
+        update_post_meta($postId, '_pga_template_key', $template_key);
+        update_post_meta($postId, '_pga_multilang_enabled', $enable_multilang);
+        update_post_meta($postId, '_pga_languages', $languages);
         update_post_meta($postId, '_pga_rss_seed_title', $title);
 
         update_post_meta($postId, '_pga_outline_length', $length);
@@ -478,19 +780,15 @@ class AlphaSuite_RESTRSS
 
         update_post_meta($postId, '_pga_job_status', 'started');
 
-        if ($category_id > 0) {
-            wp_set_post_terms($postId, [$category_id], 'category');
-        }
+        $tags = array_map('intval', (array)$tags);
 
         if (!empty($tags)) {
             wp_set_object_terms($postId, $tags, 'post_tag', false);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 4️⃣ Tenta extrair conteúdo (OPCIONAL)
-        |--------------------------------------------------------------------------
-        */
+        if ($category_id > 0) {
+            wp_set_post_terms($postId, [$category_id], 'category');
+        }
 
         $hasSourceContent = false;
 
@@ -641,43 +939,33 @@ class AlphaSuite_RESTRSS
             return false;
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | 3️⃣ Limite proporcional se passar de 2000 caracteres
-    |--------------------------------------------------------------------------
-    */
-
-        $maxChars = 2000;
+        $maxChars = 9000; // ~1300 a 1500 palavras
 
         $totalChars = 0;
+        $finalParagraphs = [];
 
         foreach ($paragraphs as $p) {
-            $totalChars += mb_strlen($p);
-        }
 
-        // Se estiver dentro do limite, mantém tudo
-        if ($totalChars <= $maxChars) {
-            $finalParagraphs = $paragraphs;
-        } else {
+            $length = mb_strlen($p);
 
-            $ratio = $maxChars / $totalChars;
-            $finalParagraphs = [];
-
-            foreach ($paragraphs as $p) {
-
-                $newLength = floor(mb_strlen($p) * $ratio);
-
-                if ($newLength < 30) {
-                    continue;
-                }
-
-                $cut = mb_substr($p, 0, $newLength);
-
-                $finalParagraphs[] = $cut;
+            if (($totalChars + $length) > $maxChars) {
+                break; // para quando atingir o limite
             }
+
+            if ($length < 80) {
+                continue; // ignora parágrafos muito curtos
+            }
+
+            $finalParagraphs[] = $p;
+            $totalChars += $length;
         }
 
-        // Reconstrói com HTML estruturado
+        // Se nenhum parágrafo couber (fallback)
+        if (empty($finalParagraphs)) {
+            $finalParagraphs = array_slice($paragraphs, 0, 5);
+        }
+
+        // Reconstrói HTML
         $wrapped = [];
 
         foreach ($finalParagraphs as $p) {
@@ -701,7 +989,7 @@ class AlphaSuite_RESTRSS
             return new WP_Error('pga_invalid_post', 'Post inválido.');
         }
 
-        $template = get_post_meta($postId, '_pga_outline_template', true) ?: 'article';
+        $template = get_post_meta($postId, '_pga_template_key', true) ?: 'rss';
         $locale   = get_post_meta($postId, '_pga_outline_locale', true) ?: 'pt_BR';
 
         $chosenTitle = get_post_meta($postId, '_pga_chosen_title', true);
@@ -844,6 +1132,7 @@ class AlphaSuite_RESTRSS
         }
 
         $context = get_post_meta($postId, '_pga_rss_context', true) ?: [];
+        $template = get_post_meta($postId, '_pga_template_key', true) ?: 'rss';
 
         // 👇 seed central
         $seed = get_post_meta($postId, '_pga_rss_seed_title', true);
@@ -860,11 +1149,12 @@ class AlphaSuite_RESTRSS
 
         $newTitle = AlphaSuite_Titles::getTitle(
             $postId,
-            'rss',
+            $template,
             '',
             $locale,
             $url,
-            $seed
+            $seed,
+
         );
 
         if (is_wp_error($newTitle)) {
@@ -890,98 +1180,6 @@ class AlphaSuite_RESTRSS
         ];
     }
 
-    public static function generate_meta(int $postId)
-    {
-        $postId = intval($postId);
-
-        if (!$postId || !get_post($postId)) {
-            return new WP_Error('pga_invalid_post', 'Post inválido.');
-        }
-
-        $locale   = get_post_meta($postId, '_pga_outline_locale', true) ?: 'pt_BR';
-        $category = get_post_meta($postId, '_pga_outline_category', true);
-        $title    = get_post_meta($postId, '_pga_chosen_title', true);
-
-        if (!$title) {
-            $title = get_post_field('post_title', $postId);
-        }
-
-        if (!$title) {
-            return new WP_Error('pga_no_title', 'Título não encontrado para gerar meta.');
-        }
-
-        // 🔥 Monta prompt igual ao Orion
-        $promptMeta = AlphaSuite_Prompts::build_meta_description_prompt(
-            (string)$category,
-            (string)$title,
-            (string)$locale,
-            ''
-        );
-
-        $respMeta = AlphaSuite_AI::meta_description($promptMeta);
-
-        if (is_wp_error($respMeta)) {
-            return AlphaSuite_FailJob::fail_job($postId, $respMeta);
-        }
-
-        $meta_desc = '';
-        $raw = '';
-
-        // --------- EXTRAÇÃO SEGURA ----------
-        if (is_string($respMeta)) {
-            $raw = $respMeta;
-        } elseif (is_array($respMeta)) {
-            $raw = (string)($respMeta['meta_description'] ?? $respMeta['description'] ?? $respMeta['content'] ?? '');
-        } elseif (is_object($respMeta)) {
-            $raw = (string)($respMeta->meta_description ?? $respMeta->description ?? $respMeta->content ?? '');
-        }
-
-        $raw = trim($raw);
-
-        // --------- JSON DENTRO DE TEXTO ----------
-        if ($raw !== '' && ($raw[0] === '{' || $raw[0] === '[')) {
-            $j = json_decode($raw, true);
-            if (is_array($j)) {
-                $raw = (string)(
-                    $j['meta_description']
-                    ?? $j['description']
-                    ?? $j['content']
-                    ?? ''
-                );
-            }
-        }
-
-        // --------- REMOVE PREFIXOS ----------
-        $raw = preg_replace(
-            '/^\s*(meta\s*description|meta\s*descri[cç][aã]o|description)\s*:\s*/i',
-            '',
-            $raw
-        );
-
-        // --------- PRIMEIRA LINHA ----------
-        $raw = preg_split("/\r\n|\r|\n/", $raw)[0] ?? $raw;
-        $raw = trim($raw);
-
-        // --------- SANITIZA ----------
-        if ($raw !== '') {
-            $raw = wp_strip_all_tags($raw);
-            $raw = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
-            $raw = preg_replace('/\s+/', ' ', $raw);
-            $raw = trim($raw);
-        }
-
-        if ($raw !== '') {
-            $meta_desc = $raw;
-            update_post_meta($postId, '_pga_meta_description', $meta_desc);
-            update_post_meta($postId, '_pga_job_status', 'meta_done');
-        }
-
-        return [
-            'post_id' => $postId,
-            'meta'    => $meta_desc,
-        ];
-    }
-
     public static function rest_generate_meta(WP_REST_Request $req)
     {
         $postId = intval($req->get_param('post_id'));
@@ -990,7 +1188,36 @@ class AlphaSuite_RESTRSS
             return new WP_Error('pga_invalid_post', 'Post ID inválido.');
         }
 
-        $result = self::generate_meta($postId);
+        $content = get_post_field('post_content', $postId);
+
+        // fallback → outline
+        if (!$content) {
+
+            $sections_json = get_post_meta($postId, '_pga_outline_sections', true);
+            $sections = json_decode($sections_json, true);
+
+            if (is_array($sections)) {
+
+                $parts = [];
+
+                foreach ($sections as $sec) {
+
+                    $parts[] = $sec['heading'] ?? '';
+                    $parts[] = $sec['paragraph'] ?? '';
+
+                    if (!empty($sec['children'])) {
+                        foreach ($sec['children'] as $child) {
+                            $parts[] = $child['heading'] ?? '';
+                            $parts[] = $child['paragraph'] ?? '';
+                        }
+                    }
+                }
+
+                $content = implode("\n", array_filter($parts));
+            }
+        }
+
+        $result = AlphaSuite_Meta_description::generate_meta($postId, $content);
 
         if (is_wp_error($result)) {
             return $result;
@@ -1001,6 +1228,53 @@ class AlphaSuite_RESTRSS
             'meta' => $result['meta'],
         ];
     }
+    
+    public static function rest_generate_excerpt(WP_REST_Request $req)
+    {
+        $postId = intval($req->get_param('post_id'));
+
+        if (!$postId) {
+            return new WP_Error('pga_invalid_post', 'Post ID inválido.');
+        }
+
+        $content = get_post_field('post_content', $postId);
+
+        if (!$content) {
+
+            $sections_json = get_post_meta($postId, '_pga_outline_sections', true);
+            $sections = json_decode($sections_json, true);
+
+            if (is_array($sections)) {
+
+                $parts = [];
+
+                foreach ($sections as $sec) {
+
+                    $parts[] = $sec['paragraph'] ?? '';
+
+                    if (!empty($sec['children'])) {
+                        foreach ($sec['children'] as $child) {
+                            $parts[] = $child['paragraph'] ?? '';
+                        }
+                    }
+                }
+
+                $content = implode("\n", array_filter($parts));
+            }
+        }
+
+        $result = AlphaSuite_Excerpt::generate_excerpt($postId, $content);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return [
+            'ok'      => true,
+            'excerpt' => $result['excerpt'],
+        ];
+    }
+
 
     public static function generate_outline(int $postId)
     {
@@ -1023,25 +1297,13 @@ class AlphaSuite_RESTRSS
             return new WP_Error('pga_no_title', 'Título não encontrado.');
         }
 
-        $seed = get_post_meta($postId, '_pga_rss_seed_title', true) ?: $title;
-
         $context = get_post_meta($postId, '_pga_rss_context', true) ?: [];
         $url     = $context['link'] ?? '';
-        $font     = $context['source'] ?? '';
 
-        $prompt = AlphaSuite_Prompts::build_outline_rss_prompt(
-            $title,
-            $seed,
-            $length,
-            $locale,
-            $url,
-            $font,
-            $sourceContent
-        );
+        $template = get_post_meta($postId, '_pga_template_key', true) ?: 'rss';
 
-        $outline = AlphaSuite_AI::complete($prompt, [], [
-            'use_search' => true
-        ]);
+        $prompt = AlphaSuite_Prompts::build_outline_prompt($template, '', $title, $length, $locale, $url, $sourceContent);
+        $outline = AlphaSuite_AI::complete($prompt, [], []);
 
         if (is_wp_error($outline)) {
             return AlphaSuite_FailJob::fail_job($postId, $outline);
@@ -1308,12 +1570,12 @@ class AlphaSuite_RESTRSS
                 $linkInstruction .=
                     "No lugar de \"{$anchor}\" resuma para algum termo referente ao título:\n"
                     . "- Use nesse formato HTML:\n"
-                    . "<a href=\"{$href}\">'termo'</a>\n"
+                    . "<a href=\"{$href}\">[termo]</a>\n"
                     . "- Não altere a URL\n"
                     . "- Insira o link de maneira fluida, se encaixando no texto, nada de \"clique para saber mais\", \"acesse o link\"... "
                     . "ou seja, zero CTA em texto, apenas o texto fluído\n"
                     . "- Ex: \"Quando Jorge Kimberland <a href target>inventou a invenção x</a>, todos se alegraram.\"\n"
-                    . "- Use cada link apenas uma vez\n\n";
+                    . "- Use cada link apenas uma vez e é obrigatório usar cada um ao menos uma vez\n\n";
             }
 
             $linkInstruction .=
@@ -1329,15 +1591,20 @@ class AlphaSuite_RESTRSS
         |--------------------------------------------------------------------------
         */
 
-        $prompt = AlphaSuite_Prompts::build_section_rss_prompt(
+        $template = get_post_meta($postId, '_pga_template_key', true) ?: 'rss';
+
+
+        $prompt = AlphaSuite_Prompts::build_section_prompt(
+            $template,
+            '',
             $title,
             $section,
             $length,
             $locale,
             $sectionsCount,
             (string)$index,
-            $url,
-            $font
+            '',
+            $url
         );
 
         // 🔥 adiciona instrução de link ao final
@@ -1428,18 +1695,21 @@ class AlphaSuite_RESTRSS
 
             $contentParts[] = $text; // 🔥 NÃO adiciona H2 manualmente
         }
-
         $content = trim(implode("\n\n", $contentParts));
 
         if ($content === '') {
             return new WP_Error('pga_empty_content', 'Nenhuma seção encontrada.');
         }
 
+        // 🔥 Normaliza parágrafos
+        $content = wpautop($content);
+
         // 🔥 Remove H1
         $content = preg_replace('#</?h1[^>]*>#i', '', $content);
 
-        // 🔥 Remove o PRIMEIRO H2 (introdução geral)
+        // 🔥 Remove o PRIMEIRO H2
         $content = preg_replace('#<h2[^>]*>.*?</h2>#i', '', $content, 1);
+        $content = self::convert_to_blocks($content);
 
         $faq_json = get_post_meta($postId, '_pga_faq_jsonld', true);
 
@@ -1486,6 +1756,95 @@ class AlphaSuite_RESTRSS
         ];
     }
 
+    private static function convert_to_blocks($content)
+    {
+        $protected_tags = [
+            'ul' => 'list',
+            'ol' => 'list',
+            'table' => 'table',
+            'blockquote' => 'quote',
+            'pre' => 'code',
+            'figure' => 'image'
+        ];
+
+        $placeholders = [];
+        $i = 0;
+
+        // 🔒 Protege blocos complexos
+        foreach ($protected_tags as $tag => $block_type) {
+
+            if (preg_match_all('#<' . $tag . '.*?>.*?</' . $tag . '>#si', $content, $matches)) {
+
+                foreach ($matches[0] as $html) {
+
+                    $key = "__BLOCK_" . $i . "__";
+
+                    $placeholders[$key] = [
+                        'html' => $html,
+                        'type' => $block_type
+                    ];
+
+                    $content = str_replace($html, $key, $content);
+
+                    $i++;
+                }
+            }
+        }
+
+        $lines = preg_split('/\r\n|\r|\n/', $content);
+
+        $out = [];
+
+        foreach ($lines as $line) {
+
+            $line = trim($line);
+            if ($line === '') continue;
+
+            // 🔄 restaura bloco protegido
+            if (isset($placeholders[$line])) {
+
+                $block = $placeholders[$line];
+
+                $out[] = '<!-- wp:' . $block['type'] . ' -->';
+                $out[] = $block['html'];
+                $out[] = '<!-- /wp:' . $block['type'] . ' -->';
+
+                continue;
+            }
+
+            // H2
+            if (preg_match('#^<h2#i', $line)) {
+
+                $out[] = '<!-- wp:heading {"level":2} -->';
+                $out[] = $line;
+                $out[] = '<!-- /wp:heading -->';
+            }
+            // H3
+            elseif (preg_match('#^<h3#i', $line)) {
+
+                $out[] = '<!-- wp:heading {"level":3} -->';
+                $out[] = $line;
+                $out[] = '<!-- /wp:heading -->';
+            }
+            // Parágrafo existente
+            elseif (preg_match('#^<p#i', $line)) {
+
+                $out[] = '<!-- wp:paragraph -->';
+                $out[] = $line;
+                $out[] = '<!-- /wp:paragraph -->';
+            }
+            // fallback
+            else {
+
+                $out[] = '<!-- wp:paragraph -->';
+                $out[] = '<p>' . $line . '</p>';
+                $out[] = '<!-- /wp:paragraph -->';
+            }
+        }
+
+        return implode("\n", $out);
+    }
+
     public static function rest_finalize(WP_REST_Request $req)
     {
         $postId = intval($req->get_param('post_id'));
@@ -1510,16 +1869,16 @@ class AlphaSuite_RESTRSS
 
     public static function get_rss(WP_REST_Request $req)
     {
-        $params = $req->get_json_params();
-        $rssUrl = trim($params['feedUrl'] ?? '');
-        $limit  = min(20, intval($params['limit'] ?? 10));
+        $params  = $req->get_json_params();
+        $rssUrl  = trim($params['feedUrl'] ?? '');
+        $blocked = array_map('mb_strtolower', (array)($params['blocked_words'] ?? []));
 
         if (!$rssUrl) {
             return new WP_Error('no_url', 'URL is required', ['status' => 400]);
         }
 
         $response = wp_remote_get($rssUrl, [
-            'timeout' => 15,
+            'timeout' => 60,
             'headers' => [
                 'User-Agent' => 'Mozilla/5.0 (AlphaSuiteRSS)'
             ]
@@ -1541,11 +1900,10 @@ class AlphaSuite_RESTRSS
             return new WP_Error('invalid_rss', 'Invalid RSS/Atom feed', ['status' => 500]);
         }
 
-        // 🔥 Detecta formato
         if (!empty($xml->channel->item)) {
-            $entries = $xml->channel->item; // RSS
+            $entries = $xml->channel->item;
         } elseif (!empty($xml->entry)) {
-            $entries = $xml->entry; // Atom (Google Alerts)
+            $entries = $xml->entry;
         } else {
             return new WP_Error('invalid_rss', 'Feed sem itens válidos', ['status' => 500]);
         }
@@ -1554,17 +1912,31 @@ class AlphaSuite_RESTRSS
 
         foreach ($entries as $item) {
 
-            // 🔹 Título
             $title = trim((string) $item->title);
             $title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
             $title = strip_tags($title);
             $title = preg_replace('/\s+-\s+.+$/', '', $title);
 
-            // 🔹 Link
+            if (!$title) continue;
+
+            // 🔥 FILTRO BLOCK WORDS AQUI
+            $titleCheck = mb_strtolower($title);
+            $skip = false;
+
+            foreach ($blocked as $word) {
+                if ($word === '') continue;
+
+                if (preg_match('/\b' . preg_quote($word, '/') . '\b/ui', $titleCheck)) {
+                    $skip = true;
+                    break;
+                }
+            }
+
+            if ($skip) continue;
+
             $link = '';
 
             if (isset($item->link)) {
-
                 if (is_string((string)$item->link)) {
                     $link = trim((string) $item->link);
                 }
@@ -1574,17 +1946,11 @@ class AlphaSuite_RESTRSS
                 }
             }
 
-            if (empty($link)) {
-                continue;
-            }
+            if (empty($link)) continue;
 
             $link = self::resolve_google_redirect($link);
+            if (empty($link)) continue;
 
-            if (empty($link)) {
-                continue;
-            }
-
-            // 🔹 Source
             $source = '';
             if (!empty($item->source)) {
                 $source = trim((string) $item->source);
@@ -1600,7 +1966,8 @@ class AlphaSuite_RESTRSS
                 'hash'    => md5(strtolower($link))
             ];
 
-            if (count($items) >= $limit) {
+            // 🔥 Retorna no máximo 10 válidos
+            if (count($items) >= 10) {
                 break;
             }
         }
@@ -1612,7 +1979,7 @@ class AlphaSuite_RESTRSS
         ]);
     }
 
-    public static function process_feed($rssUrl, $generator_id = 0)
+    public static function process_feed($rssUrl, $generator_id = 0, $generator_config = [])
     {
         global $wpdb;
 
@@ -1622,56 +1989,94 @@ class AlphaSuite_RESTRSS
             return;
         }
 
+        // 🔥 1️⃣ Filtra títulos com palavras proibidas
+        $blocked = array_map('mb_strtolower', (array)($generator_config['blocked_words'] ?? []));
+
+        $validItems = [];
+
         foreach ($items as $item) {
-            // 🔹 Monta todos textos primeiro
-            $texts = [];
 
-            foreach ($items as $item) {
-                $texts[] = trim(
-                    ($item['title'] ?? '') . ' ' .
-                        ($item['description'] ?? '')
-                );
+            $title = $item['title'] ?? '';
+
+            $skip = false;
+
+            foreach ($blocked as $word) {
+                if ($word === '') continue;
+
+                if (preg_match('/\b' . preg_quote($word, '/') . '\b/ui', $title)) {
+                    $skip = true;
+                    break;
+                }
             }
 
-            // 🔹 Gera embeddings em lote
-            $embeddings = AlphaSuite_AI::embeddings($texts);
-
-            if (is_wp_error($embeddings)) {
-                return;
+            if (!$skip) {
+                $validItems[] = $item;
             }
+        }
 
-            // 🔹 Busca embeddings antigos UMA VEZ
-            $recent = self::get_recent_embeddings($generator_id, 30);
+        if (empty($validItems)) {
+            return;
+        }
+
+        // 🔥 2️⃣ Monta textos para embedding
+        $texts = [];
+
+        foreach ($validItems as $item) {
+            $texts[] = trim(
+                ($item['title'] ?? '') . ' ' .
+                    ($item['description'] ?? '')
+            );
+        }
+
+        // 🔥 3️⃣ Gera embeddings em lote
+        $embeddings = AlphaSuite_AI::embeddings($texts);
+
+        if (is_wp_error($embeddings)) {
+            return;
+        }
+
+        // 🔥 4️⃣ Busca embeddings antigos UMA VEZ
+        $recent = self::get_recent_embeddings($generator_id, 30);
+
+        // 🔥 5️⃣ Loop final
+        foreach ($validItems as $index => $item) {
+
+            $newEmbedding = $embeddings[$index] ?? null;
+
+            if (!$newEmbedding || !is_array($newEmbedding)) {
+                continue;
+            }
 
             foreach ($recent as $row) {
 
-                if (empty($row->embedding)) {
-                    continue;
-                }
+                if (empty($row->embedding)) continue;
 
                 $oldEmbedding = json_decode($row->embedding, true);
 
-                if (!$oldEmbedding || !is_array($oldEmbedding)) {
-                    continue;
-                }
+                if (!$oldEmbedding || !is_array($oldEmbedding)) continue;
 
-                $score = self::cosine_similarity($embeddings, $oldEmbedding);
+                $score = self::cosine_similarity($newEmbedding, $oldEmbedding);
 
-                if ($score > 0.90) {
-                    continue 2; // pula para próximo item
+                if ($score > 0.75) {
+                    continue 2;
                 }
             }
 
             // 🔹 Se passou na verificação → cria post
-            $postId = self::create_base_post($item);
+            $postId = self::create_base_post($item, $generator_config);
 
             if (!$postId) {
                 continue;
             }
 
+            $category_id = intval($generator_config['category'] ?? 0);
+
+            if ($category_id > 0) {
+                wp_set_post_terms($postId, [$category_id], 'category');
+            }
+
             self::generate_title($postId);
             self::generate_slug($postId);
-            self::generate_meta($postId);
 
             $outline  = self::generate_outline($postId);
             $sections = self::normalize_outline($outline);
@@ -1691,6 +2096,20 @@ class AlphaSuite_RESTRSS
                 continue;
             }
 
+            AlphaSuite_Excerpt::generate_excerpt($postId);
+            AlphaSuite_Meta_description::generate_meta($postId);
+
+            // 🔹 Se multilíngue ativo, traduz
+            $multilang_enabled = !empty($generator_config['multilang_enabled']);
+            $languages = (array)($generator_config['languages'] ?? []);
+
+            if ($multilang_enabled && !empty($languages)) {
+                self::create_translations($postId, [
+                    'multilang_enabled' => true,
+                    'languages' => $languages
+                ]);
+            }
+
             // 🔹 Salva registro com embedding
             $wpdb->insert(
                 "{$wpdb->prefix}pga_generator_items",
@@ -1698,7 +2117,7 @@ class AlphaSuite_RESTRSS
                     'generator_id' => $generator_id,
                     'status'       => 'done',
                     'post_id'      => $postId,
-                    'embedding'    => wp_json_encode($embeddings),
+                    'embedding'    => wp_json_encode($newEmbedding),
                     'created_at'   => current_time('mysql'),
                     'generated_at' => current_time('mysql'),
                 ]
@@ -1709,7 +2128,6 @@ class AlphaSuite_RESTRSS
                 self::extract_image($postId, $item['link']);
             }
 
-            // 👇 1 post por cron
             break;
         }
     }
@@ -1835,13 +2253,32 @@ class AlphaSuite_RESTRSS
         return $items;
     }
 
-    public static function create_base_post(array $item)
+    public static function create_base_post(array $item, array $generator_config = [])
     {
+        $author_id = $generator_config['author'] ?? 1;
+
         $postId = wp_insert_post([
             'post_title'  => $item['title'],
             'post_status' => 'draft',
-            'post_type'   => 'posts_orion'
+            'post_type'   => 'posts_orion',
+            'post_author' => $author_id
         ]);
+
+        if (!$postId || is_wp_error($postId)) {
+            return false;
+        }
+
+
+        if (!empty($generator_config['tags'])) {
+
+            $tags = array_map('intval', (array)$generator_config['tags']);
+
+            if (!empty($tags)) {
+                wp_set_object_terms($postId, $tags, 'post_tag', false);
+            }
+        }
+
+        $template_key = $generator_config['template_key'] ?? 'rss';
 
         update_post_meta($postId, '_pga_news_hash', $item['hash']);
 
@@ -1851,14 +2288,32 @@ class AlphaSuite_RESTRSS
         ]);
 
         update_post_meta($postId, '_pga_rss_seed_title', $item['title']);
-
-        // 🔥 ESSENCIAL
-        update_post_meta($postId, '_pga_outline_length', 'short');
-        update_post_meta($postId, '_pga_outline_locale', 'pt_BR');
         update_post_meta($postId, '_pga_length', 'short');
         update_post_meta($postId, '_pga_locale', 'pt_BR');
-
         update_post_meta($postId, '_pga_job_status', 'started');
+        update_post_meta($postId, '_pga_template_key', $template_key);
+
+        /*
+        |---------------------------------------------------
+        | 🔥 MULTILANG CONFIG
+        |---------------------------------------------------
+        */
+
+        $multilang_enabled = !empty($generator_config['multilang_enabled']);
+        $languages         = (array)($generator_config['languages'] ?? []);
+        $default_language  = $generator_config['default_language'] ?? 'pt';
+
+        update_post_meta($postId, '_pga_multilang_enabled', $multilang_enabled);
+        update_post_meta($postId, '_pga_languages', $languages);
+
+        if ($multilang_enabled && function_exists('pll_set_post_language')) {
+
+            if (!in_array($default_language, $languages, true)) {
+                $default_language = $languages[0] ?? 'pt';
+            }
+
+            pll_set_post_language($postId, $default_language);
+        }
 
         return $postId;
     }
@@ -1872,8 +2327,7 @@ class AlphaSuite_RESTRSS
                 "
             SELECT embedding
             FROM {$wpdb->prefix}pga_generator_items
-            WHERE generator_id = %d
-            AND embedding IS NOT NULL
+            WHERE embedding IS NOT NULL
             ORDER BY id DESC
             LIMIT %d
             ",
@@ -1890,14 +2344,22 @@ class AlphaSuite_RESTRSS
         $normB = 0.0;
 
         foreach ($a as $i => $val) {
+
             if (!isset($b[$i])) continue;
 
-            $dot   += $val * $b[$i];
-            $normA += $val * $val;
-            $normB += $b[$i] * $b[$i];
+            if (!is_numeric($val) || !is_numeric($b[$i])) {
+                continue;
+            }
+
+            $valA = (float) $val;
+            $valB = (float) $b[$i];
+
+            $dot   += $valA * $valB;
+            $normA += $valA * $valA;
+            $normB += $valB * $valB;
         }
 
-        if ($normA == 0 || $normB == 0) {
+        if ($normA == 0.0 || $normB == 0.0) {
             return 0.0;
         }
 
