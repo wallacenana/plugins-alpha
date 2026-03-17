@@ -4,7 +4,7 @@ if (!defined('ABSPATH')) exit;
 
 class AlphaSuite_Excerpt
 {
-    public static function generate_excerpt(int $postId)
+    public static function generate_excerpt(int $postId, string $content = '')
     {
         $postId = intval($postId);
 
@@ -19,7 +19,10 @@ class AlphaSuite_Excerpt
 
         $post = get_post($postId);
 
-        $content = $post ? $post->post_content : '';
+        if (!$content) {
+            $post = get_post($postId);
+            $content = $post ? $post->post_content : '';
+        }
 
         if (!$title && !$content) {
             return new WP_Error('pga_missing_content', 'Conteúdo insuficiente para gerar subtítulo.');

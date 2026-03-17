@@ -102,14 +102,6 @@ class AlphaSuite_Prompts
             if ($v !== '') return $v;
         }
 
-        // 2) fallback pro article
-        if ($template !== 'article') {
-            if (isset($raw['article'][$stage]) && is_string($raw['article'][$stage])) {
-                $v = trim($raw['article'][$stage]);
-                if ($v !== '') return $v;
-            }
-        }
-
         // 3) default interno
         return self::default_prompt_for($template, $stage);
     }
@@ -130,6 +122,7 @@ class AlphaSuite_Prompts
                 return self::default_section_ryan_prompt();
             }
         }
+
         if ($template === 'modelar_youtube') {
             if ($stage === 'title') {
                 return self::default_title_modelar_youtube_prompt();
@@ -917,14 +910,14 @@ class AlphaSuite_Prompts
         if (!isset($tpls['rss'])) {
             $tpls['rss'] = ['label' => 'Modelar RSS', 'builtin' => 1, 'enabled' => 1];
         }
-        if(!isset($tpls['ryan'])){
+        if (!isset($tpls['ryan'])) {
             $tpls['ryan'] = ['label' => 'Ryan Nascimento', 'builtin' => 1, 'enabled' => 1];
         }
-            
+
 
         // Ordena: core primeiro
         uksort($tpls, function ($a, $b) {
-            $prio = ['article' => 0, 'modelar_youtube' => 2, 'rss' => 1,'ryan' => 3,'global' => 4];
+            $prio = ['article' => 0, 'modelar_youtube' => 2, 'rss' => 1, 'ryan' => 3, 'global' => 4];
             $pa = $prio[$a] ?? (!empty($tpls_all[$a]['builtin']) ? 10 : 20);
             $pb = $prio[$b] ?? (!empty($tpls_all[$b]['builtin']) ? 10 : 20);
 
@@ -1090,7 +1083,7 @@ class AlphaSuite_Prompts
                                 }
 
                                 $default = self::default_prompt_for($tpl_slug, $stage_key);
-                                $canRestore = in_array($tpl_slug, ['article', 'modelar_youtube', 'rss'], true);
+                                $canRestore = in_array($tpl_slug, ['article', 'modelar_youtube', 'rss', 'ryan'], true);
                             ?>
                                 <div
                                     class="pga-stage-card"
@@ -3042,134 +3035,143 @@ class AlphaSuite_Prompts
 
     private static function default_outline_ryan_prompt(): string
     {
-        return "Crie um esboço focado em SEO, que fale com profundidade sobre o assunto, que vá além do que as pessoas buscam e, ao mesmo tempo, traga itens comuns aos usuários topo de funil.\n"
-            . "Deve ser usado h3 sempre que houver necessidade de aprofundamento do conteúdo, mas só use h3 se tiver mais do que 1 tótipo, então nunca deve ser criado a estrutura \"h2 -> h3 -> h2\", deve ser no minimo \"h2 -> h3 -> h3 -> h2\" (ou seja, só se realmente existir itens para mais do que 1 h3).\n"
+        return "Crie um esboço focado em SEO, que fale com profundidade sobre o assunto, que vá além do que as pessoas buscam e, ao mesmo tempo, traga itens comuns aos usuários topo de funil.\n\n"
 
-            . "\n"
-            . "Nos h2, aborde no mínimo 6 blocos semânticos:\n"
+            . "TEMA/título: {{articleTitle}}\n"
+            . "PALAVRA-CHAVE: {{keyword}}\n"
+            . "IDIOMA: {{lang}}\n\n"
+
+            . "REGRA DE H3:\n"
+            . "- Use H3 APENAS quando houver necessidade de aprofundamento\n"
+            . "- NUNCA crie estrutura 'H2 → H3 → H2'\n"
+            . "- Estrutura mínima obrigatória: 'H2 → H3 → H3 → H2' (mínimo 2 H3)\n"
+            . "- Só use H3 se realmente existir conteúdo para MAIS DE UM H3\n\n"
+
+            . "BLOCOS SEMÂNTICOS OBRIGATÓRIOS (mínimo 6 H2):\n"
             . "1. Definição\n"
             . "2. Diagnóstico\n"
-            . "3. Métodos / soluções\n"
+            . "3. Métodos/soluções\n"
             . "4. Comparações\n"
-            . "5. Custos / frequência\n"
-            . "6. Erros / cuidados\n"
-            . "Mas, se o tema é sobre quantidades, itens, erros ou qualquer coisa desse gênero de quantidades, então esses itens devem estar dentro de 1 dos h2 com itens h3, por exemplo:\n"
-            . "Obrigatório seguir essa quantidade, não discuta, apenas cumpra - se o título for, por exemplo \"5 erros que todo mundo comete ao lavar o cabelo\", então podemos pegar a semântica dos erros e fazer:\n"
-            . "h2: 5 erros cometidos ao lavar o cabelo\n"
-            . "h3: erro 1: Água quente\n"
-            . "h3: erro 2: ...\n"
-            . "h3: erro 3: ...\n"
-            . "h3: erro 4: ...\n"
-            . "h3: erro 5: ...\n"
-            . "Mas claro, se o título for sobre, por exemplo, \"tendências\" (somente exemplo), então vai se manter ao menos as 6 semânticas e vai ser criado um h2 a mais para falar sobre as \"tendências\" e destrinchar com os h3.\n"
+            . "5. Custos/frequência (OBRIGATÓRIO: intruir sobre a inserção de uma tabela ao final desta seção (cuiddo com o título desse item h3, seria melhor algo no sentido de \"Tabela comparativa\"))\n"
+            . "6. Erros/cuidados\n\n"
 
-            . "\n"
-            . "ESTRUTURA OBRIGATÓRIA:\n"
-            . "H2: Introdução ao tema\n"
-            . "- Apenas parágrafos\n"
-            . "- Min de 2 paragrafos\n"
-            . "- Nunca usar H3\n"
+            . "REGRA PARA TÍTULOS COM NÚMEROS:\n"
+            . "Se o título mencionar quantidade (ex: '5 erros', '7 tendências'), agrupe em UM H2 com H3s:\n"
+            . "Exemplo para '5 erros que todo mundo comete ao lavar o cabelo':\n"
+            . "H2: 5 erros cometidos ao lavar o cabelo (obrigatório que os h3 tenham a quantidade mencionada no título)\n"
+            . "  H3: Erro 1 - Água quente\n"
+            . "  H3: Erro 2 - ...\n"
+            . "  H3: Erro 3 - ...\n"
+            . "  H3: Erro 4 - ...\n"
+            . "  H3: Erro 5 - ...\n\n"
 
-            . "\n"
-            . "H2 seguintes:\n"
-            . "- Devem abordar ao menos 6 blocos semânticos:\n"
-            . "1. Definição\n"
-            . "2. Diagnóstico\n"
-            . "3. Métodos / soluções\n"
-            . "4. Comparações\n"
-            . "5. Custos / frequência (Obrigatório: adicionar uma tabela ao final desta parte)\n"
-            . "6. Erros / cuidados\n"
+            . "ESTRUTURA OBRIGATÓRIA:\n\n"
 
-            . "\n"
-            . "H2 final: Conclusão\n"
-            . "- Apenas parágrafos\n"
-            . "- Nunca usar H3\n"
+            . "1. H2: Introdução ao tema\n"
+            . "   - APENAS parágrafos\n"
+            . "   - Mínimo 2 parágrafos\n"
+            . "   - Passe um brienfing detalhado com base nas possiveis maiores necessidades deste lead, algo emocional e ao mesmo tempo jornalistico\n"
+            . "   - NUNCA use H3\n\n"
 
-            . "\n"
-            . "TITULOS DAS SEÇÕES:\n"
-            . "- O título não deve ser esses citados acima, deve ser dado um título profundo, criativo e fora do padrão, então nada de títulos como \"conclusão\" ou \"erros\" ou \"benefícios\", tem que ser melhor que isso.\n"
-            . "- Lembrando que a quantidade de itens mencionados acima é apenas o mínimo, mas pode ser inserido outros h2 e h3 para aprofundar o conteúdo quando houver necessidade.\n"
-            . "- Não crie títulos grandes para os h2 ou h3, isso é exagerado\n"
+            . "2-7. H2s principais (mínimo 6 blocos semânticos):\n"
+            . "   - Abordem: Definição, Diagnóstico, Métodos, Comparações, Custos/frequência, Erros\n"
+            . "   - Use H3 quando necessário (mínimo 2 H3 por H2)\n"
+            . "   - Na seção 'Custos/frequência': OBRIGATÓRIO pedir tabela no briefing\n\n"
 
-            . "\n"
-            . "Outro item semântico importante, mas opcional, isso vai depender do tema é: \"Como saber se é para você / se você precisa\".\n"
+            . "8. H2 final: Conclusão\n"
+            . "   - APENAS parágrafos\n"
+            . "   - NUNCA use H3\n\n"
 
-            . "\n"
+            . "TÍTULOS DAS SEÇÕES:\n"
+            . "- Títulos criativos e profundos, FORA DO PADRÃO\n"
+            . "- NUNCA use títulos genéricos: 'Conclusão', 'Erros', 'Benefícios'\n"
+            . "- Títulos curtos (não exagere no tamanho)\n"
+            . "- Seja especifico ao ponto de ser memorável e instigante\n\n"
+
             . "BRIEFING:\n"
-            . "- O briefing deve ser em tonalidade jornalística para boa compreensão no momento de gerar a seção.\n"
-            . "- Assim como a estrutura é gradativa, o briefing também deve ser, ou seja, as informações passadas nas seções, não dem ser repetidas, por exemplo, se já falou de \"orçamento\", não deve ser mais falado de \"financiamento\" em outro brifing ou bullet de outra seção, essa regra tem só uma exceção:\n"
-            . "- Você deve informar todos os dados nos briefings para criar uma tabela em algum momento do conteudo e deve pedir abertamente no paragrafo para criar uma tabela com as informações listadas. ou seja, esse é o único momento que as informações irão se repetir.\n"
+            . "- Tom JORNALÍSTICO para boa compreensão\n"
+            . "- Estrutura GRADATIVA: informações NÃO devem se repetir entre seções\n"
+            . "- Exemplo: se falou 'orçamento' em uma seção, NÃO fale 'financiamento' em outra\n"
+            . "- EXCEÇÃO: tabela solicitada (informações podem se repetir APENAS para montar tabela)\n"
+            . "- Na seção que terá tabela: especifique TODOS os dados nos bullets e peça explicitamente no briefing a criação da tabela\n\n"
 
-            . "\n"
-            . "O artigo deve ser gerado em \"{{lang}}\" e se for o caso, a keyword também deve ser traduzida.\n"
-            . "Nunca coloque números como escrita, mas sim, como números, em.: 1,5,7. Nunca: \"um\", \"cinco\", \"x\".\n"
+            . "REGRAS FINAIS:\n"
+            . "- Números sempre em dígitos (1, 5, 7) NUNCA por extenso ('um', 'cinco')\n"
+            . "- Traduzir keyword se idioma for diferente\n"
+            . "- Capitalização: só primeira palavra + nomes próprios\n"
+            . "- Cada brief AUTO-SUFICIENTE\n"
+            . "- Mínimo 6 blocos semânticos (pode adicionar mais se necessário)\n\n"
 
-            . "\n"
-            . "O tema é: {{articleTitle}}\n"
-            . "E a frase chave principal é: {{keyword}}";
+            . "OPCIONAL (se relevante ao tema):\n"
+            . "- Bloco semântico: 'Como saber se é para você/se você precisa'\n";
     }
 
     private static function default_section_ryan_prompt(): string
     {
         return "Você é um jornalista especializado em produzir conteúdo confiável e informativo.\n"
-            . "Sua tarefa é escrever o conteúdo completo de uma seção de artigo com base no tópico informado.\n"
-            . "\n"
+            . "Sua tarefa é escrever o conteúdo completo de uma seção de artigo com base no tópico informado.\n\n"
+
             . "OBJETIVO:\n"
-            . "Criar um conteúdo claro, escaneável e informativo, otimizado para Google Discover.\n"
-            . "Cria a sessão entre {{goalMin}} e {{goalMax}} palavras.\n"
-            . "Nunca escreva menos que {{goalMin}} palavras\n"
-            . "\n"
+            . "Criar conteúdo claro, escaneável e informativo, otimizado para Google Discover.\n"
+            . "Tamanho da seção: entre {{goalMin}} e {{goalMax}} palavras.\n"
+            . "NUNCA escreva menos que {{goalMin}} palavras.\n\n"
+
             . "REGRAS EDITORIAIS:\n"
-            . "- Texto factual, informativo e direto.\n"
-            . "- Demonstrar autoridade e contexto quando possível.\n"
-            . "- Priorizar informações úteis para o leitor.\n"
-            . "- Evitar frases vagas ou genéricas.\n"
-            . "- Evitar repetições.\n"
-            . "- Utilize conectores naturais entre ideias para manter fluidez (palavras de transição), obrigatório usar em ao menos 30% do conteudo.\n"
-            . "- Não inventar estudos, especialistas, clínicas ou relatos locais.\n"
-            . "- Caso não haja fonte confiável, use exemplos gerais.\n"
-            . "- Não usar linguagem promocional ou marketeira.\n"
-            . "\n"
+            . "- Texto factual, informativo e direto\n"
+            . "- Demonstre autoridade e contexto quando possível\n"
+            . "- Priorize informações úteis para o leitor\n"
+            . "- Evite frases vagas ou genéricas\n"
+            . "- Evite repetições\n"
+            . "- Use conectores naturais entre ideias (palavras de transição) em ao menos 30% do conteúdo\n"
+            . "- NÃO invente estudos, especialistas, clínicas ou relatos locais\n"
+            . "- Caso não haja fonte confiável, use exemplos gerais\n"
+            . "- NÃO use linguagem promocional ou marketeira\n\n"
+
             . "INTRODUÇÃO (LEAD):\n"
-            . "- O primeiro parágrafo deve funcionar como o lead do artigo.\n"
-            . "- O primeiro parágrafo deve introduzir claramente o tópico da seção,\n"
-            . "- Apresente imediatamente o fato principal ou a informação mais relevante.\n"
-            . "- Inclua contexto suficiente para entender o tema e por que ele importa.\n"
-            . "- O lead deve ter entre 40 e 60 palavras.\n"
-            . "- Evite frases genéricas ou construções como 'neste artigo vamos explicar'.\n"
-            . "- Sempre que possível, mencionar entidades relevantes no lead (empresas, instituições, pessoas).\n"
-            . "- O parágrafo deve gerar interesse informativo e preparar o leitor para os tópicos seguintes.\n"
-            . "\n"
+            . "- Primeiro parágrafo funciona como lead da seção\n"
+            . "- Introduza claramente o tópico da seção\n"
+            . "- Apresente imediatamente o fato principal ou informação mais relevante\n"
+            . "- Inclua contexto suficiente: entenda o tema e por que importa\n"
+            . "- Lead deve ter entre 40 e 60 palavras\n"
+            . "- Evite frases genéricas como 'neste artigo vamos explicar'\n"
+            . "- Crie um lead emocional e jornalistico ao mesmo tempo, seja firme e informativo ao ponto de ser relevante\n"
+            . "- Sempre que possível, mencione entidades relevantes (empresas, instituições, pessoas)\n"
+            . "- Gere interesse informativo e prepare para os tópicos seguintes\n\n"
+
             . "ESTRUTURA DO TEXTO:\n"
-            . "- Usar parágrafos curtos e escaneáveis.\n"
-            . "- Cada parágrafo deve ter entre 2-4 linhas visuais que respondam algo para serem paragrafos escaneáveis para GEO.\n"
-            . "- O primeiro parágrafo deve explicar rapidamente o ponto central da seção.\n"
-            . "- Tamanho da sessão: entre {{goalMin}} e {{goalMax}} palavras.\n"
-            . "- Se necessário, incluir bullet points para organizar informações.\n"
-            . "\n"
+            . "- Use parágrafos curtos e escaneáveis\n"
+            . "- Cada parágrafo: 2-4 linhas visuais que respondam algo (GEO)\n"
+            . "- Primeiro parágrafo explica rapidamente o ponto central da seção\n"
+            . "- Se necessário, inclua bullet points para organizar informações\n\n"
+
             . "FORMATAÇÃO HTML:\n"
-            . "- Usar apenas HTML simples.\n"
-            . "- Parágrafos devem usar a tag <p>.\n"
-            . "- Listas devem usar <ul> e <li>.\n"
-            . "- Criar tabela com as informações da lista quando for mencionado sobre tabelas, usar a tag <table>\n"
-            . "- Não usar markdown.\n"
-            . "\n"
+            . "- Use apenas HTML simples\n"
+            . "- Parágrafos: <p>\n"
+            . "- Listas: <ul> e <li>\n"
+            . "- Obrigatório criar tabela(s) quando mencionado sobre tabela: <table>, <tr>, <td>, <th>\n"
+            . "- NÃO use Markdown\n\n"
+
             . "LINKS E REFERÊNCIAS:\n"
-            . "- Quando mencionar empresas, instituições ou organizações relevantes, incluir um link externo confiável.\n"
-            . "- Usar o formato <a href=\"URL\">nome</a>.\n"
-            . "- Evitar excesso de links.\n"
-            . "\n"
-            . "EEAT:\n"
-            . "- Explicar contexto, implicações ou consequências quando relevante.\n"
-            . "- Priorizar informações verificáveis.\n"
-            . "- Destacar fatos, dados ou declarações relevantes quando disponíveis.\n"
-            . "\n"
+            . "- Ao mencionar empresas, instituições ou organizações relevantes, inclua link externo confiável\n"
+            . "- Formato: <a href=\"URL\" target=\"_blank\" rel=\"noopener\">nome</a>\n"
+            . "- Evite excesso de links\n\n"
+
+            . "E-E-A-T:\n"
+            . "- Explique contexto, implicações ou consequências quando relevante\n"
+            . "- Priorize informações verificáveis\n"
+            . "- Destaque fatos, dados ou declarações relevantes quando disponíveis\n\n"
+
             . "FUNIL DE BUSCA:\n"
-            . "- Identifique o nível de funil da frase-chave (informacional, comparativo ou decisório).\n"
-            . "- Ajuste o conteúdo para esse nível de intenção.\n"
-            . "- Conteúdos informacionais devem explicar e contextualizar.\n"
-            . "- Conteúdos comparativos devem destacar diferenças.\n"
-            . "- Conteúdos decisórios devem trazer critérios e implicações.";
+            . "- Identifique nível de funil da frase-chave (informacional, comparativo ou decisório)\n"
+            . "- Ajuste conteúdo para esse nível de intenção:\n"
+            . "  • Informacional: explicar e contextualizar\n"
+            . "  • Comparativo: destacar diferenças\n"
+            . "  • Decisório: trazer critérios e implicações\n\n"
+
+            . "REGRAS FINAIS:\n"
+            . "- Respeite limite de palavras: {{goalMin}} a {{goalMax}}\n"
+            . "- Tom jornalístico profissional\n"
+            . "- Conteúdo útil e confiável\n";
     }
 
     private static function default_section_rss_prompt(): string

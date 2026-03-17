@@ -197,8 +197,21 @@
                 body: JSON.stringify(payload)
             });
 
+            if (!start || typeof start !== 'object') {
+                return;
+            }
+
             if (start.duplicate) {
-                Swal.fire('Duplicado', 'Item já publicado.', 'info');
+                await Swal.fire('Duplicado', 'Item já publicado.', 'info');
+                return;
+            }
+
+            if (!start.post_id) {
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Erro interno',
+                    text: 'Start não retornou post_id.'
+                });
                 return;
             }
 
@@ -245,6 +258,22 @@
                 body: JSON.stringify({ post_id: postId })
             });
 
+            // 📝 META
+            updateStatus('Gerando meta...');
+            await fetchJSON(`${REST}/rss/meta`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+                body: JSON.stringify({ post_id: postId })
+            });
+
+            // 🧾 SUBTÍTULO / EXCERPT
+            updateStatus('Gerando subtítulo...');
+            await fetchJSON(`${REST}/rss/excerpt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+                body: JSON.stringify({ post_id: postId })
+            });
+
             if (box.find('.pga_make_faq').is(':checked')) {
                 updateStatus('Gerando faq...');
                 await fetchJSON(`${REST}/rss/faq`, {
@@ -274,22 +303,6 @@
                     'Content-Type': 'application/json',
                     'X-WP-Nonce': NONCE
                 },
-                body: JSON.stringify({ post_id: postId })
-            });
-
-            // 📝 META
-            updateStatus('Gerando meta...');
-            await fetchJSON(`${REST}/rss/meta`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-                body: JSON.stringify({ post_id: postId })
-            });
-
-            // 🧾 SUBTÍTULO / EXCERPT
-            updateStatus('Gerando subtítulo...');
-            await fetchJSON(`${REST}/rss/excerpt`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
                 body: JSON.stringify({ post_id: postId })
             });
 

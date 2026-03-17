@@ -296,6 +296,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
       category: $box.find('.pga_category').val() || '0',
       total: parseInt($box.find('.pga_total').val() || '0', 10) || 0,
       per_day: parseInt($box.find('.pga_per_day').val() || '0', 10) || 0,
+      faq_qty: parseInt($box.find('.pga_faq_qty').val() || '0', 10) || 0,
       first_delay: $box.find('.pga_first_delay_hours').val() || '',
       length: $box.find('.pga_length').val() || 'medium',
       link_max: parseInt($box.find('.pga_link_max').val() || '2', 10) || 2,
@@ -322,6 +323,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
     $box.find('.pga_make_faq').prop('checked', !!cfg.make_faq);
     $box.find('.pga_total').val(cfg.total || 0);
     $box.find('.pga_per_day').val(cfg.per_day || 0);
+    $box.find('.pga_faq_qty').val(cfg.faq_qty || 0);
     if (cfg.first_delay) {
       $box.find('.pga_first_delay_hours').val(cfg.first_delay);
     }

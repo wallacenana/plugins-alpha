@@ -684,6 +684,7 @@ class AlphaSuite_Pages_Generator
       $locale,
       $url
     );
+
     if (is_wp_error($outline)) {
       return AlphaSuite_FailJob::fail_job($draft_id, $outline);
     }

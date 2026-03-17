@@ -50,7 +50,7 @@ class AlphaSuite_RESTRSS
 
         register_rest_route($base, '/rss/faq', [
             'methods'             => 'POST',
-            'callback'            => [__CLASS__, 'generate_faq'],
+            'callback'            => [__CLASS__, 'rest_generate_faq'],
             'permission_callback' => function () {
                 return current_user_can('edit_posts');
             },
@@ -797,7 +797,7 @@ class AlphaSuite_RESTRSS
             $data = self::extract_article_data($link);
 
             if (is_wp_error($data)) {
-                return new WP_Error('pga_invalid_content', 'O site não permite copia.');
+                return AlphaSuite_FailJob::fail_job($postId, $data);
             }
 
             if (!empty($data['content'])) {
@@ -822,16 +822,71 @@ class AlphaSuite_RESTRSS
         ];
     }
 
-    public static function generate_faq(WP_REST_Request $req)
+    public static function rest_generate_faq(WP_REST_Request $req)
     {
-        $postId = (int) $req['post_id'];
+        $postId = (int) $req->get_param('post_id');
+
+        if (!$postId) {
+            return new WP_Error('pga_invalid_post', 'Post ID inválido.');
+        }
+
+        $result = self::build_faq($postId);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return [
+            'ok'  => true,
+            'faq' => $result['faq']
+        ];
+    }
+
+    public static function build_faq(int $postId)
+    {
+        $postId = intval($postId);
+
+        if (!$postId || !get_post($postId)) {
+            return new WP_Error('pga_invalid_post', 'Post inválido.');
+        }
 
         $keyword = get_post_meta($postId, '_pga_rss_seed_title', true) ?: '';
-        $qty = get_post_meta($postId, '_pga_faq_qty', true) ?: 5;
-        $locale = get_post_meta($postId, '_pga_locale', true) ?: 'pt_BR';
-        $context = get_post_meta($postId, '_pga_rss_context', true) ?: [];
+        $qty     = (int) get_post_meta($postId, '_pga_faq_qty', true) ?: 5;
+        $locale  = get_post_meta($postId, '_pga_locale', true) ?: 'pt_BR';
 
-        // gera FAQ via IA
+        // 🔥 CONTEXTO INTELIGENTE (aqui tá o pulo do gato)
+        $context = get_post_field('post_content', $postId);
+
+        if (!$context) {
+            $sections_json = get_post_meta($postId, '_pga_outline_sections', true);
+            $sections = json_decode($sections_json, true);
+
+            if (is_array($sections)) {
+                $parts = [];
+
+                foreach ($sections as $sec) {
+                    $parts[] = $sec['heading'] ?? '';
+                    $parts[] = $sec['paragraph'] ?? '';
+
+                    if (!empty($sec['children'])) {
+                        foreach ($sec['children'] as $child) {
+                            $parts[] = $child['heading'] ?? '';
+                            $parts[] = $child['paragraph'] ?? '';
+                        }
+                    }
+                }
+
+                $context = implode("\n", array_filter($parts));
+            }
+        }
+
+        if (!$context) {
+            return new WP_Error('pga_faq_no_context', 'Sem contexto para FAQ.');
+        }
+
+        // opcional (recomendado)
+        $context = wp_trim_words($context, 300);
+
         $faq = AlphaSuite_AI::faq([
             'keyword' => $keyword,
             'qty'     => $qty,
@@ -843,10 +898,13 @@ class AlphaSuite_RESTRSS
             return $faq;
         }
 
-        // salva JSON-LD no meta
         update_post_meta($postId, '_pga_faq_jsonld', $faq);
 
-        return ['ok' => true];
+        return [
+            'ok'      => true,
+            'faq'     => $faq,
+            'post_id' => $postId
+        ];
     }
 
     private static function extract_article_data(string $url)
@@ -1228,7 +1286,7 @@ class AlphaSuite_RESTRSS
             'meta' => $result['meta'],
         ];
     }
-    
+
     public static function rest_generate_excerpt(WP_REST_Request $req)
     {
         $postId = intval($req->get_param('post_id'));
@@ -1276,7 +1334,7 @@ class AlphaSuite_RESTRSS
     }
 
 
-    public static function generate_outline(int $postId)
+    public static function generate_outline(int $postId, string $content)
     {
         $postId = intval($postId);
 
@@ -1284,7 +1342,12 @@ class AlphaSuite_RESTRSS
             return new WP_Error('pga_invalid_post', 'Post inválido.');
         }
 
-        $sourceContent = get_post_meta($postId, '_pga_source_content', true);
+        if (!$content) {
+            $sourceContent = get_post_meta($postId, '_pga_source_content', true);
+        } else {
+            $sourceContent = $content;
+        }
+
         $length        = get_post_meta($postId, '_pga_outline_length', true) ?: 'short';
         $locale        = get_post_meta($postId, '_pga_outline_locale', true) ?: 'pt_BR';
 
@@ -1302,8 +1365,15 @@ class AlphaSuite_RESTRSS
 
         $template = get_post_meta($postId, '_pga_template_key', true) ?: 'rss';
 
-        $prompt = AlphaSuite_Prompts::build_outline_prompt($template, '', $title, $length, $locale, $url, $sourceContent);
-        $outline = AlphaSuite_AI::complete($prompt, [], []);
+        $outline = AlphaSuite_Outline::generate(
+            $template,
+            '',
+            $title,
+            $length,
+            $locale,
+            $url,
+            $sourceContent
+        );
 
         if (is_wp_error($outline)) {
             return AlphaSuite_FailJob::fail_job($postId, $outline);
@@ -1438,30 +1508,70 @@ class AlphaSuite_RESTRSS
 
     private static function normalize_outline($resp)
     {
-        if (is_array($resp)) {
-
-            if (isset($resp['sections']) && is_array($resp['sections'])) {
-                return $resp['sections'];
-            }
-
-            if (isset($resp[0]) && is_array($resp[0])) {
-                return $resp;
-            }
+        // 🔹 1. Se vier string → tenta decodificar
+        if (is_string($resp)) {
+            $resp = json_decode($resp, true);
         }
 
-        if (is_string($resp)) {
-            $decoded = json_decode($resp, true);
+        if (!is_array($resp)) {
+            return [];
+        }
 
-            if (isset($decoded['sections'])) {
-                return $decoded['sections'];
-            }
+        // 🔥 NOVO FORMATO (principal)
+        if (isset($resp['s']) && is_array($resp['s'])) {
+            return self::normalize_sections($resp['s']);
+        }
 
-            if (isset($decoded[0])) {
-                return $decoded;
-            }
+        // 🔸 LEGADO (compatibilidade)
+        if (isset($resp['sections']) && is_array($resp['sections'])) {
+            return self::normalize_sections($resp['sections']);
+        }
+
+        // 🔸 fallback (array direto)
+        if (isset($resp[0]) && is_array($resp[0])) {
+            return self::normalize_sections($resp);
         }
 
         return [];
+    }
+
+    private static function normalize_sections(array $sections): array
+    {
+        $normalized = [];
+
+        foreach ($sections as $sec) {
+
+            if (!is_array($sec)) continue;
+
+            $children = [];
+
+            if (!empty($sec['c']) && is_array($sec['c'])) {
+                foreach ($sec['c'] as $child) {
+
+                    if (!is_array($child)) continue;
+
+                    $children[] = [
+                        'id'        => $child['i'] ?? '',
+                        'level'     => 'h3',
+                        'heading'   => $child['t'] ?? '',
+                        'paragraph' => $child['p'] ?? '',
+                        'bullets'   => $child['lista'] ?? [],
+                        'children'  => []
+                    ];
+                }
+            }
+
+            $normalized[] = [
+                'id'        => $sec['i'] ?? '',
+                'level'     => $sec['l'] ?? 'h2',
+                'heading'   => $sec['t'] ?? '',
+                'paragraph' => $sec['p'] ?? '',
+                'bullets'   => $sec['lista'] ?? [],
+                'children'  => $children
+            ];
+        }
+
+        return $normalized;
     }
 
     public static function rest_generate_outline(WP_REST_Request $req)
@@ -1472,7 +1582,7 @@ class AlphaSuite_RESTRSS
             return new WP_Error('pga_invalid_post', 'Post ID inválido.');
         }
 
-        $result = self::generate_outline($postId);
+        $result = self::generate_outline($postId, '');
 
         if (is_wp_error($result)) {
             return $result;
@@ -2069,6 +2179,30 @@ class AlphaSuite_RESTRSS
                 continue;
             }
 
+            $content = '';
+            $hasSourceContent = false;
+
+            if (!empty($item['link'])) {
+
+                $data = self::extract_article_data($item['link']);
+
+                if (is_wp_error($data)) {
+                    wp_delete_post($postId, true);
+                    continue;
+                }
+
+                if (!empty($data['content'])) {
+
+                    $content = $data['content'];
+                    $hasSourceContent = true;
+                } else {
+                    wp_delete_post($postId, true);
+                    continue;
+                }
+            }
+
+            update_post_meta($postId, '_pga_has_source_content', $hasSourceContent);
+
             $category_id = intval($generator_config['category'] ?? 0);
 
             if ($category_id > 0) {
@@ -2078,8 +2212,14 @@ class AlphaSuite_RESTRSS
             self::generate_title($postId);
             self::generate_slug($postId);
 
-            $outline  = self::generate_outline($postId);
-            $sections = self::normalize_outline($outline);
+            if (!$content) {
+                wp_delete_post($postId, true);
+                continue;
+            }
+
+            $outline  = self::generate_outline($postId, $content);
+
+            $sections = $outline['sections'] ?? [];
 
             if (!empty($sections)) {
                 foreach ($sections as $sec) {
@@ -2089,6 +2229,13 @@ class AlphaSuite_RESTRSS
                 }
             }
 
+            AlphaSuite_Excerpt::generate_excerpt($postId, $content);
+            AlphaSuite_Meta_description::generate_meta($postId, $content);
+            
+            if($generator_config['make_faq']) {
+                self::build_faq($postId);
+            }
+            
             $result = self::finalize($postId);
 
             if (is_wp_error($result)) {
@@ -2096,11 +2243,8 @@ class AlphaSuite_RESTRSS
                 continue;
             }
 
-            AlphaSuite_Excerpt::generate_excerpt($postId);
-            AlphaSuite_Meta_description::generate_meta($postId);
-
             // 🔹 Se multilíngue ativo, traduz
-            $multilang_enabled = !empty($generator_config['multilang_enabled']);
+            $multilang_enabled = !empty($generator_config['enable_multilang']);
             $languages = (array)($generator_config['languages'] ?? []);
 
             if ($multilang_enabled && !empty($languages)) {

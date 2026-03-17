@@ -361,6 +361,7 @@ let PGA_LANGUAGES_CACHE = null;
       end_hour: parseInt($box.find('.pga_end_hour').val() || '23', 10) || 23,
       active: $box.find('.pga_active').is(':checked') ? 1 : 0,
       make_faq: $box.find('.pga_make_faq').is(':checked') ? 1 : 0,
+      faq_qty: parseInt($box.find('.pga_faq_qty').val() || '0', 10) || 0,
       enable_multilang: $box.find('.pga_enable_multilang').is(':checked') ? 1 : 0,
       tags: $box.find('.pga_tags').val() || [],
       languages: $box.find('.pga_languages').val() || [],
@@ -411,6 +412,7 @@ let PGA_LANGUAGES_CACHE = null;
     $box.find('.pga_interval_hours').val(cfg.interval_hours || 40);
     $box.find('.pga_active').prop('checked', !!cfg.active);
     $box.find('.pga_make_faq').prop('checked', !!cfg.make_faq);
+    $box.find('.pga_faq_qty').val(cfg.faq_qty || 0);
     $box.find('.pga_enable_multilang').prop('checked', !!cfg.enable_multilang);
     $box.find('.pga_length').val(cfg.length || 'short');
     $box.find('.rssKeyword').val(cfg.rssKeyword || '');

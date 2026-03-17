@@ -11,7 +11,8 @@ class AlphaSuite_Outline
         string $chosenTitle,
         string $length,
         string $locale,
-        string $url = ''
+        string $url = '',
+        string $sourceContent = ''
     ) {
 
         // youtube template
@@ -38,7 +39,8 @@ class AlphaSuite_Outline
                 $chosenTitle,
                 $length,
                 $locale,
-                $url
+                $url,
+                $sourceContent
             );
         }
 

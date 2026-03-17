@@ -324,7 +324,7 @@ class AlphaSuite_RSS
                                                 type="number"
                                                 min="1"
                                                 step="1"
-                                                max="5"
+                                                max="7"
                                                 value="5">
                                         </div>
                                     </div>
